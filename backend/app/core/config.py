@@ -5,7 +5,7 @@ Loads environment variables with robust defaults for local development.
 
 from typing import List
 from pathlib import Path
-from pydantic import Field
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     BACKEND_HOST: str = "0.0.0.0"
     BACKEND_PORT: int = 8000
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: List[str] = Field(
+        default=["http://localhost:3000", "http://127.0.0.1:3000"],
+        validation_alias=AliasChoices("BACKEND_CORS_ORIGINS", "CORS_ORIGINS")
+    )
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -24,9 +27,15 @@ class Settings(BaseSettings):
     # Azure OpenAI (Agent Swarm)
     AZURE_OPENAI_API_KEY: str = Field(default="mock-key", validation_alias="AZURE_OPENAI_API_KEY")
     AZURE_OPENAI_ENDPOINT: str = Field(default="https://mock.openai.azure.com/", validation_alias="AZURE_OPENAI_ENDPOINT")
-    AZURE_OPENAI_API_VERSION: str = "2024-08-01-preview"
-    AZURE_OPENAI_DEPLOYMENT_REASONING: str = "gpt-4o"
-    AZURE_OPENAI_DEPLOYMENT_COACH: str = "gpt-4o-mini"
+    AZURE_OPENAI_API_VERSION: str = "2024-10-21"
+    AZURE_OPENAI_DEPLOYMENT_REASONING: str = Field(
+        default="gpt-4o",
+        validation_alias=AliasChoices("AZURE_OPENAI_DEPLOYMENT_GPT4O", "AZURE_OPENAI_DEPLOYMENT_REASONING")
+    )
+    AZURE_OPENAI_DEPLOYMENT_COACH: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("AZURE_OPENAI_DEPLOYMENT_MINI", "AZURE_OPENAI_DEPLOYMENT_COACH")
+    )
 
     # StatsBomb Open Data
     STATSBOMB_USER: str = ""
