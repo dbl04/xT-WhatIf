@@ -7,8 +7,10 @@ import { AgentDebateFeed } from "@/components/agents/AgentDebateFeed";
 import { XtDeltaPanel } from "@/components/metrics/XtDeltaPanel";
 import { PlaybackBar } from "@/components/controls/PlaybackBar";
 import { ExportReportModal } from "@/components/controls/ExportReportModal";
+import { CloudTelemetryModal } from "@/components/controls/CloudTelemetryModal";
+import { DemoGuideModal } from "@/components/controls/DemoGuideModal";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
-import { Ghost, Cpu, Zap, Camera } from "lucide-react";
+import { Ghost, Cpu, Zap, Camera, Cloud, HelpCircle, Sparkles } from "lucide-react";
 
 export default function DashboardPage() {
   const {
@@ -29,10 +31,12 @@ export default function DashboardPage() {
     resetSimulation,
   } = useMatchEngine();
 
-  // Estados de animación cinemática y exportación
+  // Estados de interacción, cinemática y modales
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isCloudTelemetryOpen, setIsCloudTelemetryOpen] = useState<boolean>(false);
+  const [isDemoGuideOpen, setIsDemoGuideOpen] = useState<boolean>(false);
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
 
   // Escenarios contrafactuales preconfigurados
@@ -84,37 +88,58 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Status, Export Report Button & Connection Badges */}
-        <div className="flex items-center gap-3">
-          {/* Botón Destacado: Exportar Informe Táctico */}
+        {/* Action Controls, Cloud Telemetry & Connection Badges */}
+        <div className="flex items-center gap-2.5">
+          {/* Botón 1: Guía Rápida Demo 60s */}
           <button
-            onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition shadow-sm active:scale-95"
-            title="Generar tarjeta ejecutiva táctica en alta resolución"
+            onClick={() => setIsDemoGuideOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold transition shadow-sm active:scale-95"
+            title="Cómo probar xT-WhatIf en 60 segundos"
           >
-            <Camera className="w-4 h-4 text-emerald-400" />
-            <span>📸 Exportar Informe Táctico</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>🎯 Guía Demo 60s</span>
           </button>
 
+          {/* Botón 2: Telemetría Cloud AKS / ACA (Microsoft Azure) */}
+          <button
+            onClick={() => setIsCloudTelemetryOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/50 text-cyan-300 text-xs font-bold transition shadow-sm shadow-blue-950/50 active:scale-95"
+            title="Abrir Panel de Telemetría en Vivo de Azure Container Apps y Kubernetes"
+          >
+            <Cloud className="w-3.5 h-3.5 text-cyan-400" />
+            <span>☁️ Telemetría AKS / ACA</span>
+          </button>
+
+          {/* Botón 3: Exportar Informe Táctico */}
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition shadow-sm active:scale-95"
+            title="Generar tarjeta ejecutiva táctica en alta resolución 2K PNG"
+          >
+            <Camera className="w-3.5 h-3.5 text-emerald-400" />
+            <span>📸 Exportar Informe</span>
+          </button>
+
+          {/* Estado de Conexión Dual-Mode */}
           {connectionMode === "live" ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/80 text-xs shadow-md shadow-emerald-950/40">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400" />
               <span className="text-emerald-200 font-bold font-mono">
-                🟢 LIVE BACKEND (FastAPI)
+                🟢 LIVE BACKEND
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/70 border border-amber-700/80 text-xs shadow-md shadow-amber-950/40">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-amber-200 font-bold font-mono">
-                🟡 OFFLINE DEMO MODE
+                🟡 OFFLINE DEMO
               </span>
             </div>
           )}
 
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+          <div className="hidden xl:flex items-center gap-2 text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
             <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Multi-Agent Swarm: Dr. Voronoi vs Míster Bianchi</span>
+            <span>Multi-Agent Swarm</span>
           </div>
         </div>
       </header>
@@ -229,7 +254,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Modal de Exportación del Reporte Táctico (Entregable 3) */}
+      {/* Modal 1: Exportación del Reporte Táctico (Entregable 3) */}
       <ExportReportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
@@ -243,6 +268,18 @@ export default function DashboardPage() {
         }}
         metrics={currentFrame.metrics}
         debateMessages={currentFrame.agent_debate}
+      />
+
+      {/* Modal 2: Telemetría Cloud en Vivo (ACA + AKS + Circuit Breaker) (Fase 4 Entregable 1) */}
+      <CloudTelemetryModal
+        isOpen={isCloudTelemetryOpen}
+        onClose={() => setIsCloudTelemetryOpen(false)}
+      />
+
+      {/* Modal 3: Guía Rápida de Demostración 60s (Fase 4 Entregable 2) */}
+      <DemoGuideModal
+        isOpen={isDemoGuideOpen}
+        onClose={() => setIsDemoGuideOpen(false)}
       />
     </main>
   );
