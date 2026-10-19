@@ -30,13 +30,22 @@ interface PlaybackBarProps {
   onSpeedChange?: (speed: number) => void;
 }
 
-// Descripciones tácticas canónicas para los momentos clave de la Final 2022
+// Descripciones tácticas canónicas para los 5 momentos clave de la Final 2022
 function getMomentLabel(frame: MatchFramePayload, index: number): string {
-  if (frame.minute === 35 && frame.second === 42) {
-    return "35:42 - Gol de Di María (Pase de Mac Allister)";
+  if (frame.minute === 21 && frame.second === 18) {
+    return "21:18 - Penalti a Di María (1-0 Argentina)";
   }
-  if (frame.minute === 79 && frame.second === 15) {
-    return "79:15 - Conducción de Mbappé (Transición Francia)";
+  if (frame.minute === 35 && frame.second === 42) {
+    return "35:42 - Gol de Di María (Pase de Mac Allister 2-0)";
+  }
+  if ((frame.minute === 79 || frame.minute === 80) && (frame.second === 15 || frame.second === 25)) {
+    return "80:25 - Gol de Mbappé (Volea tras robo de Coman 2-2)";
+  }
+  if (frame.minute === 108 && frame.second === 31) {
+    return "108:31 - Gol de Messi en la prórroga (3-2 Argentina)";
+  }
+  if (frame.minute === 122 && frame.second === 43) {
+    return "122:43 - Parada histórica de Dibu Martínez a Kolo Muani";
   }
   const minStr = String(frame.minute).padStart(2, "0");
   const secStr = String(frame.second).padStart(2, "0");
@@ -122,7 +131,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             className="bg-transparent text-xs font-semibold text-cyan-200 outline-none cursor-pointer pr-1"
           >
             {frames.map((f, i) => (
-              <option key={f.event_uuid || i} value={i} className="bg-slate-900 text-slate-200">
+              <option key={`${f.event_uuid || "moment"}-${i}`} value={i} className="bg-slate-900 text-slate-200">
                 {getMomentLabel(f, i)}
               </option>
             ))}
@@ -177,13 +186,30 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             <input
               type="range"
               min="0"
-              max="90"
+              max="125"
               value={timelineProgress}
-              onChange={(e) => setTimelineProgress(Number(e.target.value))}
+              onChange={(e) => {
+                const newMin = Number(e.target.value);
+                setTimelineProgress(newMin);
+                if (onSelectFrameIndex && frames.length > 0) {
+                  let closestIdx = 0;
+                  let minDiff = Math.abs(frames[0].minute - newMin);
+                  for (let i = 1; i < frames.length; i++) {
+                    const diff = Math.abs(frames[i].minute - newMin);
+                    if (diff < minDiff) {
+                      minDiff = diff;
+                      closestIdx = i;
+                    }
+                  }
+                  if (closestIdx !== currentFrameIndex) {
+                    onSelectFrameIndex(closestIdx);
+                  }
+                }
+              }}
               className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none"
             />
           </div>
-          <span className="text-[10px] font-mono text-slate-500">90:00</span>
+          <span className="text-[10px] font-mono text-slate-500">125:00</span>
         </div>
       </div>
 
