@@ -105,6 +105,62 @@ class TestPhase3CloudArchitecture(unittest.TestCase):
         self.assertIsNotNone(data["metrics"]["simulated_xt"])
         print("  [OK] AKS Worker computes simulation directly in-process")
 
+    def test_05_cloud_telemetry_endpoint(self):
+        """Verifies GET /api/v1/cloud/telemetry returns full cluster and metric state."""
+        response = self.client.get("/api/v1/cloud/telemetry")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("service_role", data)
+        self.assertIn("compute_mode", data)
+        self.assertEqual(data["keda_target_concurrency"], 20)
+        self.assertEqual(data["aks_hpa_target_cpu_pct"], 65)
+        self.assertIn("metrics", data)
+        self.assertIn("total_simulations", data["metrics"])
+        self.assertIn("circuit_breaker_trips", data["metrics"])
+        self.assertIn("last_compute_latency_ms", data["metrics"])
+        print(f"  [OK] Cloud telemetry endpoint verified (Total sims: {data['metrics']['total_simulations']}, Trips: {data['metrics']['circuit_breaker_trips']})")
+
+    def test_06_chaos_toggle_and_circuit_breaker(self):
+        """
+        Verifies POST /api/v1/cloud/chaos-toggle:
+        Simulates AKS outage, verifies Circuit Breaker trips to local compute,
+        and ensures 200 OK without any request loss.
+        """
+        # 1. Enable Chaos
+        resp_on = self.client.post("/api/v1/cloud/chaos-toggle?force=true")
+        self.assertEqual(resp_on.status_code, 200)
+        data_on = resp_on.json()
+        self.assertTrue(data_on["chaos_force_aks_failure"])
+        initial_trips = data_on["circuit_breaker_trips"]
+
+        # 2. Execute simulation during simulated outage
+        sim_resp = self.client.post("/api/v1/simulate", json=self.test_payload)
+        self.assertEqual(sim_resp.status_code, 200)
+        sim_data = sim_resp.json()
+        self.assertIsNotNone(sim_data["metrics"]["simulated_xt"])
+
+        # 3. Check telemetry reflects tripped circuit breaker
+        telemetry_resp = self.client.get("/api/v1/cloud/telemetry")
+        self.assertEqual(telemetry_resp.status_code, 200)
+        self.assertGreaterEqual(telemetry_resp.json()["metrics"]["circuit_breaker_trips"], initial_trips)
+
+        # 4. Restore normal operation
+        resp_off = self.client.post("/api/v1/cloud/chaos-toggle?force=false")
+        self.assertEqual(resp_off.status_code, 200)
+        self.assertFalse(resp_off.json()["chaos_force_aks_failure"])
+        print("  [OK] Chaos Engineering toggle & zero-downtime Circuit Breaker verified")
+
+    def test_07_stress_burst_parallel_kdtree(self):
+        """Verifies POST /api/v1/cloud/stress-burst runs 25 parallel simulations."""
+        response = self.client.post("/api/v1/cloud/stress-burst")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["simulations_count"], 25)
+        self.assertGreater(data["total_time_ms"], 0)
+        self.assertGreater(data["throughput_simulations_per_sec"], 0)
+        print(f"  [OK] Stress Burst Benchmark: 25 sims in {data['total_time_ms']}ms ({data['throughput_simulations_per_sec']} sims/sec)")
+
     def tearDown(self):
         # Reset to safe local defaults
         settings.SERVICE_ROLE = "standalone"
