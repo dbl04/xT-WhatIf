@@ -6,15 +6,21 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_to_azure:
+        description: "Deploy to Azure ACA and AKS (requires Azure secrets configured)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
   id-token: write
 
 env:
-  ACR_NAME: ${{ secrets.ACR_NAME || 'xtwhatifacr' }}
-  RESOURCE_GROUP: ${{ secrets.AZURE_RG || 'rg-xtwhatif-hackathon' }}
-  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME || 'aks-xtwhatif-prod' }}
+  ACR_NAME: ${{ vars.ACR_NAME || 'xtwhatifacr' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RG || 'rg-xtwhatif-hackathon' }}
+  AKS_CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME || 'aks-xtwhatif-prod' }}
   BACKEND_IMAGE: xt-whatif-backend
   FRONTEND_IMAGE: xt-whatif-frontend
 
@@ -84,11 +90,12 @@ jobs:
 
   # ===========================================================================
   # 3. Docker Build, ACR Push & Azure Hybrid Deployment (ACA + AKS)
+  # (Only executed via manual dispatch until Azure credentials are fully provisioned)
   # ===========================================================================
   deploy-cloud:
     name: Build & Deploy to Azure (ACA + AKS)
     needs: [test-backend, test-frontend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.AZURE_CREDENTIALS != ''
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -102,16 +109,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-
       - name: ACR Authentication
-        if: env.AZURE_CREDENTIALS != ''
         run: |
-          az acr login --name $ACR_NAME
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+          az acr login --name ${{ env.ACR_NAME }}
 
       - name: Build & Push Backend Container Image
-        if: env.AZURE_CREDENTIALS != ''
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -120,11 +122,8 @@ jobs:
           tags: |
             ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
             ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:latest
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Build & Push Frontend Container Image
-        if: env.AZURE_CREDENTIALS != ''
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -133,33 +132,22 @@ jobs:
           tags: |
             ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
             ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:latest
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Provision / Update Azure Container Apps (Bicep IaC)
-        if: env.AZURE_CREDENTIALS != ''
         uses: azure/arm-deploy@v2
         with:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
           parameters: environmentName=xtwhatif-prod
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Set AKS Cluster Context
-        if: env.AZURE_CREDENTIALS != ''
         uses: azure/aks-set-context@v3
         with:
           resource-group: ${{ env.RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy AKS Compute Workers & HPA
-        if: env.AZURE_CREDENTIALS != ''
         run: |
           kubectl apply -f ./infra/k8s-aks-workers.yaml
           kubectl set image deployment/xt-whatif-aks-worker worker=${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n xt-whatif
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
