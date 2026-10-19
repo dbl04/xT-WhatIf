@@ -112,6 +112,7 @@ ws_manager = ConnectionManager()
 
 
 @app.websocket("/ws/match/{match_id}")
+@app.websocket("/match/{match_id}")
 async def match_websocket_endpoint(websocket: WebSocket, match_id: int):
     """
     Real-time bidirectional WebSocket channel.

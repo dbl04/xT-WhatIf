@@ -15,9 +15,9 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
 
-# Copy application files and contracts
+# Copy application files
 COPY app ./app
-COPY ../contracts /app/contracts
+
 
 EXPOSE 8000
 
