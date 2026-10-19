@@ -9,7 +9,12 @@ Validates:
 
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
+
+# Add backend directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -18,6 +23,7 @@ from app.schemas.match_contract import CounterfactualRequest, PlayerNode, MatchF
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
+
 
 
 class TestPhase3CloudArchitecture(unittest.TestCase):

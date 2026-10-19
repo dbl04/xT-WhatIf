@@ -45,7 +45,9 @@ class Settings(BaseSettings):
     # StatsBomb Open Data
     STATSBOMB_USER: str = ""
     STATSBOMB_PASSWORD: str = ""
+    USE_STATSBOMB_OPEN_DATA: bool = False
     CACHE_DIR: str = str(Path(__file__).resolve().parent.parent / "data" / "cache")
+
 
     model_config = SettingsConfigDict(
         env_file=".env",

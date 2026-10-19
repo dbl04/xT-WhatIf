@@ -71,7 +71,8 @@ class StatsBomb360Loader:
             return cached
 
         # Attempt querying statsbombpy open data if enabled
-        if settings.USE_STATSBOMB_OPEN_DATA:
+        if getattr(settings, "USE_STATSBOMB_OPEN_DATA", False):
+
             try:
                 from statsbombpy import sb
                 logger.info(f"Querying StatsBomb Open Data for match {match_id}...")
