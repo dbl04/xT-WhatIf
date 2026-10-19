@@ -1,13 +1,14 @@
 "use strict";
 "use client";
 
-import React, { useState } from "react";
-import { TacticalPitch2D } from "@/components/pitch/TacticalPitch2D";
+import React, { useState, useRef } from "react";
+import { TacticalPitch2D, TacticalPitch2DHandle } from "@/components/pitch/TacticalPitch2D";
 import { AgentDebateFeed } from "@/components/agents/AgentDebateFeed";
 import { XtDeltaPanel } from "@/components/metrics/XtDeltaPanel";
 import { PlaybackBar } from "@/components/controls/PlaybackBar";
+import { ExportReportModal } from "@/components/controls/ExportReportModal";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
-import { Ghost, Cpu, Zap, Radio, Sparkles } from "lucide-react";
+import { Ghost, Cpu, Zap, Camera } from "lucide-react";
 
 export default function DashboardPage() {
   const {
@@ -28,8 +29,15 @@ export default function DashboardPage() {
     resetSimulation,
   } = useMatchEngine();
 
+  // Estados de animación cinemática y exportación
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
+
   // Escenarios contrafactuales preconfigurados
   const applyPresetScenario = (type: string) => {
+    setIsPlaying(false);
     if (type === "kounde_wide") {
       updatePlayerPosition(5, 88.0, 25.0);
       triggerSimulation();
@@ -42,10 +50,21 @@ export default function DashboardPage() {
     }
   };
 
+  const handleTogglePlay = () => {
+    setIsPlaying((prev) => !prev);
+  };
+
+  const handleDragStart = () => {
+    // Pausa instantánea de la animación al tocar a cualquier jugador
+    if (isPlaying) {
+      setIsPlaying(false);
+    }
+  };
+
   return (
     <main className="h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col select-none">
       {/* Top Navigation Bar - Broadcast Pro Dark Mode */}
-      <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md px-6 py-2.5 flex items-center justify-between shrink-0 z-50">
+      <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md px-6 py-2.5 flex items-center justify-between shrink-0 z-40">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20">
             <Ghost className="w-5 h-5 fill-current" />
@@ -65,8 +84,18 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Status & Connection Badges (Entregable 1: Resiliencia Total) */}
+        {/* Status, Export Report Button & Connection Badges */}
         <div className="flex items-center gap-3">
+          {/* Botón Destacado: Exportar Informe Táctico */}
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition shadow-sm active:scale-95"
+            title="Generar tarjeta ejecutiva táctica en alta resolución"
+          >
+            <Camera className="w-4 h-4 text-emerald-400" />
+            <span>📸 Exportar Informe Táctico</span>
+          </button>
+
           {connectionMode === "live" ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/80 text-xs shadow-md shadow-emerald-950/40">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400" />
@@ -124,9 +153,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Interactive 2D Pitch con Capas Tácticas y Toggles (Entregable 2 & 4) */}
+          {/* Interactive 2D Pitch con Capas Tácticas, Animación Cinemática y Anillo de Inercia */}
           <div className="shrink-0">
             <TacticalPitch2D
+              ref={pitchRef}
               players={currentFrame.players}
               ballX={currentFrame.ball_x}
               ballY={currentFrame.ball_y}
@@ -134,6 +164,8 @@ export default function DashboardPage() {
               ballEndY={currentFrame.ball_end_y}
               metrics={currentFrame.metrics}
               isCounterfactualMode={currentFrame.is_counterfactual_mode}
+              isPlaying={isPlaying}
+              playbackSpeed={playbackSpeed}
               highlightedPlayerIds={highlightedPlayerIds}
               selectedPlayerId={hoveredPlayerId}
               onHoverPlayer={setHoveredPlayerId}
@@ -142,29 +174,44 @@ export default function DashboardPage() {
               }
               onPlayerMove={updatePlayerPosition}
               onSimulationTrigger={onPlayerDrop}
+              onAnimationEnd={() => setIsPlaying(false)}
+              onDragStart={handleDragStart}
             />
           </div>
 
-          {/* Playback Bar con Match Moment Selector (Entregable 3) */}
+          {/* Playback Bar con Match Moment Selector y Cinemática */}
           <div className="shrink-0">
             <PlaybackBar
               frames={frames}
               currentFrameIndex={currentFrameIndex}
-              onSelectFrameIndex={selectFrameIndex}
+              onSelectFrameIndex={(idx) => {
+                setIsPlaying(false);
+                selectFrameIndex(idx);
+              }}
               minute={currentFrame.minute}
               second={currentFrame.second}
               eventType={currentFrame.event_type}
               isCounterfactualMode={currentFrame.is_counterfactual_mode}
-              onResetSimulation={resetSimulation}
+              isPlaying={isPlaying}
+              onTogglePlay={handleTogglePlay}
+              onResetSimulation={() => {
+                setIsPlaying(false);
+                resetSimulation();
+              }}
+              onSpeedChange={(s) => setPlaybackSpeed(s)}
             />
           </div>
 
-          {/* Panel de Telemetría xT */}
+          {/* Panel de Telemetría xT con Botón de Exportación */}
           <div className="shrink-0">
             <XtDeltaPanel
               metrics={currentFrame.metrics}
               isCounterfactualMode={currentFrame.is_counterfactual_mode}
-              onReset={resetSimulation}
+              onReset={() => {
+                setIsPlaying(false);
+                resetSimulation();
+              }}
+              onExportReport={() => setIsExportModalOpen(true)}
             />
           </div>
         </div>
@@ -181,6 +228,22 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* Modal de Exportación del Reporte Táctico (Entregable 3) */}
+      <ExportReportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        getSvgElement={() => pitchRef.current?.getSvgElement() ?? null}
+        matchInfo={{
+          minute: currentFrame.minute,
+          second: currentFrame.second,
+          eventType: currentFrame.event_type,
+          isCounterfactual: currentFrame.is_counterfactual_mode,
+          possessionTeam: currentFrame.possession_team,
+        }}
+        metrics={currentFrame.metrics}
+        debateMessages={currentFrame.agent_debate}
+      />
     </main>
   );
 }
