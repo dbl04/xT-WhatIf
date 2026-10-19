@@ -1,46 +1,51 @@
+"use strict";
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { TacticalPitch2D } from "@/components/pitch/TacticalPitch2D";
 import { AgentDebateFeed } from "@/components/agents/AgentDebateFeed";
 import { XtDeltaPanel } from "@/components/metrics/XtDeltaPanel";
 import { PlaybackBar } from "@/components/controls/PlaybackBar";
-import { useMatchSocket } from "@/hooks/useMatchSocket";
-import { Ghost, Sparkles, Cpu, Zap, Activity } from "lucide-react";
+import { useMatchEngine } from "@/hooks/useMatchEngine";
+import { Ghost, Cpu, Zap, Radio, Sparkles } from "lucide-react";
 
 export default function DashboardPage() {
   const {
+    frames,
+    currentFrameIndex,
     currentFrame,
-    isConnected,
+    connectionMode,
     isThinking,
+    thinkingMessage,
     highlightedPlayerIds,
     setHighlightedPlayerIds,
+    hoveredPlayerId,
+    setHoveredPlayerId,
+    selectFrameIndex,
     updatePlayerPosition,
+    onPlayerDrop,
     triggerSimulation,
     resetSimulation,
-  } = useMatchSocket();
+  } = useMatchEngine();
 
   // Escenarios contrafactuales preconfigurados
   const applyPresetScenario = (type: string) => {
     if (type === "kounde_wide") {
-      // Escenario exacto del contrato de Gemini 4 Argon: Koundé a (88.0, 25.0)
       updatePlayerPosition(5, 88.0, 25.0);
       triggerSimulation();
     } else if (type === "dimaria_deep") {
-      // Di María rompe al espacio
       updatePlayerPosition(11, 102.0, 14.0);
       triggerSimulation();
     } else if (type === "messi_inside") {
-      // Messi progresa al carril central
       updatePlayerPosition(10, 84.0, 44.0);
       triggerSimulation();
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top Navigation Bar */}
-      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+    <main className="h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col select-none">
+      {/* Top Navigation Bar - Broadcast Pro Dark Mode */}
+      <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md px-6 py-2.5 flex items-center justify-between shrink-0 z-50">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20">
             <Ghost className="w-5 h-5 fill-current" />
@@ -54,24 +59,29 @@ export default function DashboardPage() {
                 StatsBomb 360 (120x80)
               </span>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-[11px] text-slate-400">
               Argentina vs Francia • Final Copa del Mundo 2022 (Minuto {currentFrame.minute}:{String(currentFrame.second).padStart(2, "0")})
             </p>
           </div>
         </div>
 
-        {/* Status & Connection Badges */}
+        {/* Status & Connection Badges (Entregable 1: Resiliencia Total) */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
-              }`}
-            />
-            <span className="text-slate-300 font-medium">
-              {isConnected ? "FastAPI WebSocket Activo" : "Modo Offline (Mock Oficial)"}
-            </span>
-          </div>
+          {connectionMode === "live" ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/80 text-xs shadow-md shadow-emerald-950/40">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400" />
+              <span className="text-emerald-200 font-bold font-mono">
+                🟢 LIVE BACKEND (FastAPI)
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/70 border border-amber-700/80 text-xs shadow-md shadow-amber-950/40">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-amber-200 font-bold font-mono">
+                🟡 OFFLINE DEMO MODE
+              </span>
+            </div>
+          )}
 
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
             <Cpu className="w-3.5 h-3.5 text-cyan-400" />
@@ -80,12 +90,12 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Workspace Grid */}
-      <div className="flex-1 p-6 max-w-[1700px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Pitch, Playback, and Quick What-If Scenarios (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col gap-5">
+      {/* Main Workspace Grid - Full Screen Optimized */}
+      <div className="flex-1 p-4 max-w-[1800px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden min-h-0">
+        {/* Left Column: Pitch, Playback Bar, Preset Buttons, Telemetry (8 cols) */}
+        <div className="lg:col-span-8 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
           {/* Quick Preset Buttons Bar */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-900/60 border border-slate-800">
+          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/70 border border-slate-800 shrink-0">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
@@ -114,41 +124,60 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Interactive 2D Pitch (120x80) */}
-          <TacticalPitch2D
-            players={currentFrame.players}
-            ballX={currentFrame.ball_x}
-            ballY={currentFrame.ball_y}
-            ballEndX={currentFrame.ball_end_x}
-            ballEndY={currentFrame.ball_end_y}
-            highlightedPlayerIds={highlightedPlayerIds}
-            onPlayerMove={updatePlayerPosition}
-            onSimulationTrigger={triggerSimulation}
-          />
+          {/* Interactive 2D Pitch con Capas Tácticas y Toggles (Entregable 2 & 4) */}
+          <div className="shrink-0">
+            <TacticalPitch2D
+              players={currentFrame.players}
+              ballX={currentFrame.ball_x}
+              ballY={currentFrame.ball_y}
+              ballEndX={currentFrame.ball_end_x}
+              ballEndY={currentFrame.ball_end_y}
+              metrics={currentFrame.metrics}
+              isCounterfactualMode={currentFrame.is_counterfactual_mode}
+              highlightedPlayerIds={highlightedPlayerIds}
+              selectedPlayerId={hoveredPlayerId}
+              onHoverPlayer={setHoveredPlayerId}
+              onClickPlayer={(id) =>
+                setHoveredPlayerId(id === hoveredPlayerId ? null : id)
+              }
+              onPlayerMove={updatePlayerPosition}
+              onSimulationTrigger={onPlayerDrop}
+            />
+          </div>
 
-          {/* Playback Controls */}
-          <PlaybackBar
-            minute={currentFrame.minute}
-            second={currentFrame.second}
-            eventType={currentFrame.event_type}
-            isCounterfactualMode={currentFrame.is_counterfactual_mode}
-            onResetSimulation={resetSimulation}
-          />
+          {/* Playback Bar con Match Moment Selector (Entregable 3) */}
+          <div className="shrink-0">
+            <PlaybackBar
+              frames={frames}
+              currentFrameIndex={currentFrameIndex}
+              onSelectFrameIndex={selectFrameIndex}
+              minute={currentFrame.minute}
+              second={currentFrame.second}
+              eventType={currentFrame.event_type}
+              isCounterfactualMode={currentFrame.is_counterfactual_mode}
+              onResetSimulation={resetSimulation}
+            />
+          </div>
 
-          {/* Telemetry Panel */}
-          <XtDeltaPanel
-            metrics={currentFrame.metrics}
-            isCounterfactualMode={currentFrame.is_counterfactual_mode}
-            onReset={resetSimulation}
-          />
+          {/* Panel de Telemetría xT */}
+          <div className="shrink-0">
+            <XtDeltaPanel
+              metrics={currentFrame.metrics}
+              isCounterfactualMode={currentFrame.is_counterfactual_mode}
+              onReset={resetSimulation}
+            />
+          </div>
         </div>
 
-        {/* Right Column: Multi-Agent AI Swarm Debate Cabin (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col h-full min-h-[600px]">
+        {/* Right Column: Cabina de Debate Multiagente con Sincronización Inversa (4 cols) */}
+        <div className="lg:col-span-4 flex flex-col min-h-0 h-full overflow-hidden">
           <AgentDebateFeed
             messages={currentFrame.agent_debate}
             isThinking={isThinking}
+            thinkingMessage={thinkingMessage}
             onHoverPlayers={setHighlightedPlayerIds}
+            hoveredPlayerId={hoveredPlayerId}
+            selectedPlayerId={hoveredPlayerId}
           />
         </div>
       </div>

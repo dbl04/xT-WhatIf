@@ -1,10 +1,25 @@
 "use strict";
 "use client";
 
-import React, { useState } from "react";
-import { Play, Pause, RotateCcw, FastForward, SkipBack, SkipForward, Clock, Activity } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { MatchFramePayload } from "@/types/match";
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  FastForward,
+  SkipBack,
+  SkipForward,
+  Clock,
+  Activity,
+  Film,
+  Sparkles,
+} from "lucide-react";
 
 interface PlaybackBarProps {
+  frames?: MatchFramePayload[];
+  currentFrameIndex?: number;
+  onSelectFrameIndex?: (index: number) => void;
   minute?: number;
   second?: number;
   eventType?: string;
@@ -15,7 +30,24 @@ interface PlaybackBarProps {
   onSpeedChange?: (speed: number) => void;
 }
 
+// Descripciones tácticas canónicas para los momentos clave de la Final 2022
+function getMomentLabel(frame: MatchFramePayload, index: number): string {
+  if (frame.minute === 35 && frame.second === 42) {
+    return "35:42 - Gol de Di María (Pase de Mac Allister)";
+  }
+  if (frame.minute === 79 && frame.second === 15) {
+    return "79:15 - Conducción de Mbappé (Transición Francia)";
+  }
+  const minStr = String(frame.minute).padStart(2, "0");
+  const secStr = String(frame.second).padStart(2, "0");
+  const teamLabel = frame.possession_team === "home" ? "Argentina" : "Francia";
+  return `${minStr}:${secStr} - ${frame.event_type} (${teamLabel})`;
+}
+
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
+  frames = [],
+  currentFrameIndex = 0,
+  onSelectFrameIndex,
   minute = 35,
   second = 42,
   eventType = "Pass",
@@ -25,11 +57,16 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   onResetSimulation,
   onSpeedChange,
 }) => {
-  const [internalPlaying, setInternalPlaying] = useState(false);
+  const [internalPlaying, setInternalPlaying] = useState<boolean>(false);
   const [speed, setSpeed] = useState<number>(1);
-  const [timelineProgress, setTimelineProgress] = useState(minute);
+  const [timelineProgress, setTimelineProgress] = useState<number>(minute);
 
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalPlaying;
+
+  // Actualiza progreso al cambiar el frame
+  useEffect(() => {
+    setTimelineProgress(minute);
+  }, [minute]);
 
   const handlePlayToggle = () => {
     if (onTogglePlay) {
@@ -40,7 +77,12 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   };
 
   const handleSpeedToggle = () => {
-    const nextSpeed = speed === 1 ? 2 : 1;
+    // Cicla entre 0.5x -> 1x -> 2x -> 0.5x
+    let nextSpeed = 1;
+    if (speed === 0.5) nextSpeed = 1;
+    else if (speed === 1) nextSpeed = 2;
+    else if (speed === 2) nextSpeed = 0.5;
+
     setSpeed(nextSpeed);
     if (onSpeedChange) {
       onSpeedChange(nextSpeed);
@@ -50,27 +92,55 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   const formattedTime = `${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
 
   return (
-    <div className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3 shadow-xl flex items-center justify-between gap-4">
-      {/* Clock & Event */}
+    <div className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-4">
+      {/* Reloj y Selector Rápido de Jugadas Clave (Match Moment Selector) */}
       <div className="flex items-center gap-3">
+        {/* Reloj Oficial */}
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
           <Clock className="w-4 h-4 text-emerald-400" />
           <span className="font-mono font-bold text-sm text-slate-100">
             {formattedTime}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-800 text-xs">
-          <Activity className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-semibold text-slate-300">Evento: {eventType}</span>
+
+        {/* ============================================================== */}
+        {/* MATCH MOMENT SELECTOR (ENTREGABLE 3)                           */}
+        {/* ============================================================== */}
+        <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-xl shadow-inner">
+          <Film className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+            Jugada Clave:
+          </span>
+          <select
+            value={currentFrameIndex}
+            onChange={(e) => {
+              const idx = Number(e.target.value);
+              if (onSelectFrameIndex) {
+                onSelectFrameIndex(idx);
+              }
+            }}
+            className="bg-transparent text-xs font-semibold text-cyan-200 outline-none cursor-pointer pr-1"
+          >
+            {frames.map((f, i) => (
+              <option key={f.event_uuid || i} value={i} className="bg-slate-900 text-slate-200">
+                {getMomentLabel(f, i)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Scrubber & Controls */}
+      {/* Controles de Reproducción y Scrubber Central */}
       <div className="flex-1 max-w-xl flex items-center gap-3">
         <button
-          onClick={() => setTimelineProgress(Math.max(0, timelineProgress - 1))}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition"
-          title="Frame Anterior"
+          onClick={() => {
+            if (onSelectFrameIndex && currentFrameIndex > 0) {
+              onSelectFrameIndex(currentFrameIndex - 1);
+            }
+          }}
+          disabled={currentFrameIndex <= 0}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
+          title="Jugada Anterior"
         >
           <SkipBack className="w-4 h-4" />
         </button>
@@ -80,18 +150,27 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
           className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition shadow-lg shadow-emerald-500/20 active:scale-95"
           title={isPlaying ? "Pausar" : "Reproducir"}
         >
-          {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+          {isPlaying ? (
+            <Pause className="w-4 h-4 fill-current" />
+          ) : (
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          )}
         </button>
 
         <button
-          onClick={() => setTimelineProgress(Math.min(90, timelineProgress + 1))}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition"
-          title="Siguiente Frame"
+          onClick={() => {
+            if (onSelectFrameIndex && currentFrameIndex < frames.length - 1) {
+              onSelectFrameIndex(currentFrameIndex + 1);
+            }
+          }}
+          disabled={currentFrameIndex >= frames.length - 1}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
+          title="Siguiente Jugada"
         >
           <SkipForward className="w-4 h-4" />
         </button>
 
-        {/* Timeline Slider */}
+        {/* Timeline Slider Scrubber */}
         <div className="flex-1 flex items-center gap-2">
           <span className="text-[10px] font-mono text-slate-500">00:00</span>
           <div className="relative flex-1 flex items-center">
@@ -108,24 +187,32 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         </div>
       </div>
 
-      {/* Speed & Reset */}
-      <div className="flex items-center gap-2">
+      {/* Velocidad y Botón Ámbar de Reseteo (Entregable 3) */}
+      <div className="flex items-center gap-2.5">
+        {/* Selector de Velocidad */}
         <button
           onClick={handleSpeedToggle}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono font-bold text-slate-300 transition"
-          title="Velocidad de reproducción"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono font-bold text-slate-300 transition"
+          title="Alternar velocidad (0.5x, 1x, 2x)"
         >
           <FastForward className="w-3.5 h-3.5 text-slate-400" />
           {speed}x
         </button>
 
+        {/* ============================================================== */}
+        {/* BOTÓN ÁMBAR: RESETEAR SIMULACIÓN (VOLVER A REALIDAD)           */}
+        {/* ============================================================== */}
         <button
           onClick={onResetSimulation}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-950/60 hover:bg-pink-900/80 border border-pink-800/60 text-xs font-medium text-pink-300 transition active:scale-95"
-          title="Restablecer posiciones al frame real"
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-medium text-xs transition active:scale-95 shadow-md ${
+            isCounterfactualMode
+              ? "bg-amber-950/80 hover:bg-amber-900 border border-amber-600/80 text-amber-300 shadow-amber-950/60 animate-pulse"
+              : "bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400"
+          }`}
+          title="Restablecer posiciones al frame real de StatsBomb 360"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          Restablecer
+          <span>Resetear Simulación (Volver a Realidad)</span>
         </button>
       </div>
     </div>
