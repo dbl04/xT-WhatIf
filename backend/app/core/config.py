@@ -3,7 +3,7 @@ Configuration settings for PitchGhost-360 Backend.
 Loads environment variables with robust defaults for local development.
 """
 
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +20,11 @@ class Settings(BaseSettings):
         default=["http://localhost:3000", "http://127.0.0.1:3000"],
         validation_alias=AliasChoices("BACKEND_CORS_ORIGINS", "CORS_ORIGINS")
     )
+
+    # Cloud Architecture: Dual Runtime Role (ACA Gateway vs AKS Worker)
+    SERVICE_ROLE: str = Field(default="standalone", validation_alias=AliasChoices("SERVICE_ROLE", "APP_ROLE"))
+    AKS_WORKER_URL: Optional[str] = Field(default=None, validation_alias=AliasChoices("AKS_WORKER_URL", "WORKER_SERVICE_URL"))
+
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"

@@ -7,6 +7,7 @@ Enforces canonical 120x80 coordinate system and supports interactive multi-highl
 import json
 import logging
 from typing import List, Dict, Any
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -43,6 +44,8 @@ async def health_check():
         "status": "online",
         "service": "xT-WhatIf Engine",
         "version": "2.0.0",
+        "service_role": settings.SERVICE_ROLE,
+        "compute_mode": "aks-distributed" if settings.AKS_WORKER_URL else "local-in-process",
         "coordinate_system": "StatsBomb 120x80 (X: 0.0-120.0, Y: 0.0-80.0)",
         "target_match": "3869685 (Argentina vs France - Final 2022)",
         "environment": settings.ENVIRONMENT
@@ -73,6 +76,38 @@ async def get_match_frames(match_id: int):
     return [MatchFramePayload(**f) for f in raw_frames]
 
 
+async def execute_simulation(request: CounterfactualRequest, base_frame: MatchFramePayload) -> MatchFramePayload:
+    """
+    Executes simulation with Cloud-Native Dual-Role support (ACA Gateway <-> AKS Worker):
+    If running as ACA Gateway and AKS_WORKER_URL is set, delegates computation via async HTTP.
+    Circuit Breaker: Automatically falls back to in-process local execution if remote worker fails or times out.
+    """
+    if settings.SERVICE_ROLE == "aca-gateway" and settings.AKS_WORKER_URL:
+        target_endpoint = f"{settings.AKS_WORKER_URL.rstrip('/')}/api/v1/simulate"
+        try:
+            logger.info(f"ACA Gateway delegating simulation to AKS Worker: {target_endpoint}")
+            async with httpx.AsyncClient(timeout=3.5) as client:
+                resp = await client.post(target_endpoint, json=request.model_dump())
+                if resp.status_code == 200:
+                    logger.info("Successfully received distributed simulation result from AKS Worker.")
+                    return MatchFramePayload(**resp.json())
+                else:
+                    logger.warning(
+                        f"AKS Worker returned HTTP {resp.status_code}. "
+                        "Tripping Circuit Breaker to local in-process computation."
+                    )
+        except Exception as exc:
+            logger.warning(
+                f"AKS Worker call failed ({exc.__class__.__name__}: {exc}). "
+                "Tripping Circuit Breaker to local in-process computation."
+            )
+
+    # Local in-process computation (for standalone, aks-worker, or circuit breaker fallback)
+    simulated_frame = simulate_counterfactual(base_frame, request.modified_players)
+    simulated_frame.agent_debate = await swarm.generate_debate(simulated_frame)
+    return simulated_frame
+
+
 @app.post("/api/v1/simulate", response_model=MatchFramePayload, tags=["Simulation"])
 async def simulate_scenario(request: CounterfactualRequest):
     """
@@ -82,14 +117,8 @@ async def simulate_scenario(request: CounterfactualRequest):
     frames = loader.fetch_match_360_frames(request.match_id)
     base_dict = next((f for f in frames if f["event_uuid"] == request.event_uuid), frames[0])
     base_frame = MatchFramePayload(**base_dict)
+    return await execute_simulation(request, base_frame)
 
-    # 1. Recalculate metrics (Voronoi space control, Gaussian pass shadow, xT delta)
-    simulated_frame = simulate_counterfactual(base_frame, request.modified_players)
-
-    # 2. Trigger dialectical multi-agent debate swarm
-    simulated_frame.agent_debate = await swarm.generate_debate(simulated_frame)
-
-    return simulated_frame
 
 
 # ---------------------------------------------------------------------------
@@ -171,10 +200,9 @@ async def match_websocket_endpoint(websocket: WebSocket, match_id: int):
                     base_frame
                 )
 
-                # Recalculate geometry, pass lane and xT
-                simulated_frame = simulate_counterfactual(matching_base, request_data.modified_players)
-                # Generate AI agent debate
-                simulated_frame.agent_debate = await swarm.generate_debate(simulated_frame)
+                # Recalculate geometry and AI debate via dual-role executor (with circuit breaker)
+                simulated_frame = await execute_simulation(request_data, matching_base)
+
 
                 await websocket.send_json({
                     "type": "SIMULATION_UPDATE",
