@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pitchghost-backend"
+version = "0.1.0"
+description = "FastAPI Backend for PitchGhost-360 Counterfactual Engine & AI Swarm"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "PitchGhost Dev Team" }
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.31.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "statsbombpy>=1.14.0",
+    "openai>=1.50.0",
+    "redis>=5.1.0",
+    "scipy>=1.14.0",
+    "numpy>=1.26.0",
+    "shapely>=2.0.6",
+    "httpx>=0.27.0",
+    "websockets>=13.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "black>=24.8.0",
+    "ruff>=0.6.0"
+]
