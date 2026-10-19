@@ -4,6 +4,7 @@ Loads environment variables with robust defaults for local development.
 """
 
 from typing import List
+from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,8 +31,7 @@ class Settings(BaseSettings):
     # StatsBomb Open Data
     STATSBOMB_USER: str = ""
     STATSBOMB_PASSWORD: str = ""
-    USE_STATSBOMB_OPEN_DATA: bool = True
-    CACHE_DIR: str = "app/data/cache"
+    CACHE_DIR: str = str(Path(__file__).resolve().parent.parent / "data" / "cache")
 
     model_config = SettingsConfigDict(
         env_file=".env",
