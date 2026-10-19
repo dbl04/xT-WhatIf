@@ -1,0 +1,86 @@
+{
+  "match_id": 3869685,
+  "event_uuid": "f8d92a10-4b3c-4e1a-9f12-88a7123bc901",
+  "minute": 35,
+  "second": 42,
+  "event_type": "Pass",
+  "possession_team": "home",
+  "is_counterfactual_mode": true,
+  "ball_x": 78.5,
+  "ball_y": 52.0,
+  "ball_end_x": 96.0,
+  "ball_end_y": 24.5,
+  "players": [
+    {
+      "player_id": 10,
+      "name": "L. Messi",
+      "jersey_number": 10,
+      "team": "home",
+      "is_actor": true,
+      "is_keeper": false,
+      "x": 78.5,
+      "y": 52.0,
+      "original_x": 78.5,
+      "original_y": 52.0,
+      "is_modified": false
+    },
+    {
+      "player_id": 11,
+      "name": "Á. Di María",
+      "jersey_number": 11,
+      "team": "home",
+      "is_actor": false,
+      "is_keeper": false,
+      "x": 95.0,
+      "y": 18.0,
+      "original_x": 95.0,
+      "original_y": 18.0,
+      "is_modified": false
+    },
+    {
+      "player_id": 5,
+      "name": "J. Koundé",
+      "jersey_number": 5,
+      "team": "away",
+      "is_actor": false,
+      "is_keeper": false,
+      "x": 88.0,
+      "y": 25.0,
+      "original_x": 83.0,
+      "original_y": 31.0,
+      "is_modified": true
+    }
+  ],
+  "metrics": {
+    "original_xt": 0.42,
+    "simulated_xt": 0.14,
+    "xt_delta": -0.28,
+    "space_control_home_pct": 38.5,
+    "optimal_pass_target_id": 11,
+    "pass_completion_prob": 31.2
+  },
+  "agent_debate": [
+    {
+      "message_id": "msg-01",
+      "agent_role": "data_scientist",
+      "agent_name": "Dr. Voronoi (Data Scientist)",
+      "avatar_badge": "AI-QUANT",
+      "timestamp_label": "35:42 [SIMULACIÓN]",
+      "headline": "Colapso del peligro esperado (-66% en xT relativo)",
+      "analysis_body": "Al retrasar a Koundé 5 metros hacia el carril exterior (88.0, 25.0), su polígono de Voronoi absorbe el 61.5% de la zona de recepción de Di María. El xT cae de 0.42 a 0.14.",
+      "referenced_metric": "ΔxT: -0.28 | Prob. Pase: 31.2%",
+      "highlighted_player_ids": [5, 11]
+    },
+    {
+      "message_id": "msg-02",
+      "agent_role": "classic_coach",
+      "agent_name": "Míster Bianchi (Entrenador Clásico)",
+      "avatar_badge": "PRO-COACH",
+      "timestamp_label": "35:42 [SIMULACIÓN]",
+      "headline": "Perfilación correcta, pero regalas el carril interior",
+      "analysis_body": "Sí, tapas el latigazo a Di María en banda, pero mira el hueco que dejas entre central y lateral. Si Messi amaga y filtra por dentro al apoyo de Mac Allister, nos entran hasta la cocina.",
+      "referenced_metric": "Intervalo Central-Lateral > 14m",
+      "highlighted_player_ids": [5, 10]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Redis Cache & PubSub
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: xtwhatif-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - xtwhatif-network
+
+  # ---------------------------------------------------------------------------
+  # FastAPI Backend (Python 3.11 + StatsBomb 360 + AI Swarm)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: xtwhatif-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-mock-key}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-https://mock.openai.azure.com/}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-08-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_REASONING=${AZURE_OPENAI_DEPLOYMENT_REASONING:-gpt-4o}
+      - AZURE_OPENAI_DEPLOYMENT_COACH=${AZURE_OPENAI_DEPLOYMENT_COACH:-gpt-4o-mini}
+    volumes:
+      - ./backend/app:/app/app
+      - ./contracts:/app/contracts
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - xtwhatif-network
+
+  # ---------------------------------------------------------------------------
+  # Next.js 15 Frontend (Interactive Pitch 2D + Swarm Debate)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: xtwhatif-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
+    networks:
+      - xtwhatif-network
+
+networks:
+  xtwhatif-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
