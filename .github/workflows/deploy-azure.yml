@@ -1,0 +1,165 @@
+name: CI/CD - Cloud-Native Hybrid Deployment (ACA + AKS)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME || 'xtwhatifacr' }}
+  RESOURCE_GROUP: ${{ secrets.AZURE_RG || 'rg-xtwhatif-hackathon' }}
+  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME || 'aks-xtwhatif-prod' }}
+  BACKEND_IMAGE: xt-whatif-backend
+  FRONTEND_IMAGE: xt-whatif-frontend
+
+jobs:
+  # ===========================================================================
+  # 1. Backend Validation & Phase 2/3 Test Suites
+  # ===========================================================================
+  test-backend:
+    name: Backend Test Suite (Python 3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./backend
+
+      - name: Run Phase 2 Math & AI Swarm Tests
+        run: |
+          python backend/test_phase2.py
+
+      - name: Run Phase 3 Cloud Architecture & Circuit Breaker Tests
+        run: |
+          python backend/test_phase3_cloud.py
+
+  # ===========================================================================
+  # 2. Frontend Validation & TypeScript Strict Compilation
+  # ===========================================================================
+  test-frontend:
+    name: Frontend Verification (Next.js 15 & TS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: TypeScript Strict Check
+        working-directory: ./frontend
+        run: npx tsc --noEmit
+
+      - name: Next.js Production Build
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_WS_URL: ws://localhost:8000
+
+  # ===========================================================================
+  # 3. Docker Build, ACR Push & Azure Hybrid Deployment (ACA + AKS)
+  # ===========================================================================
+  deploy-cloud:
+    name: Build & Deploy to Azure (ACA + AKS)
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Azure Login
+        uses: azure/login@v2
+        if: env.AZURE_CREDENTIALS != ''
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR Authentication
+        if: env.AZURE_CREDENTIALS != ''
+        run: |
+          az acr login --name $ACR_NAME
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build & Push Backend Container Image
+        if: env.AZURE_CREDENTIALS != ''
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:latest
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build & Push Frontend Container Image
+        if: env.AZURE_CREDENTIALS != ''
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:latest
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Provision / Update Azure Container Apps (Bicep IaC)
+        if: env.AZURE_CREDENTIALS != ''
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
+          template: ./infra/main.bicep
+          parameters: environmentName=xtwhatif-prod
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS Cluster Context
+        if: env.AZURE_CREDENTIALS != ''
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy AKS Compute Workers & HPA
+        if: env.AZURE_CREDENTIALS != ''
+        run: |
+          kubectl apply -f ./infra/k8s-aks-workers.yaml
+          kubectl set image deployment/xt-whatif-aks-worker worker=${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n xt-whatif
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
