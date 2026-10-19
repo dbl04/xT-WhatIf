@@ -3,18 +3,20 @@
 
 import React from "react";
 import { TacticalMetrics } from "@/types/match";
-import { ArrowUpRight, ArrowDownRight, Activity, Percent, RotateCcw, Target, Zap } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Activity, Percent, RotateCcw, Target, Camera } from "lucide-react";
 
 interface XtDeltaPanelProps {
   metrics: TacticalMetrics;
   isCounterfactualMode?: boolean;
   onReset?: () => void;
+  onExportReport?: () => void;
 }
 
 export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
   metrics,
   isCounterfactualMode = false,
   onReset,
+  onExportReport,
 }) => {
   const isPositive = metrics.xt_delta >= 0;
 
@@ -29,6 +31,17 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
           </h4>
         </div>
         <div className="flex items-center gap-2">
+          {onExportReport && (
+            <button
+              onClick={onExportReport}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200 bg-emerald-950/80 hover:bg-emerald-900 px-3 py-1 rounded-xl border border-emerald-700/70 transition shadow-sm"
+              title="Exportar tarjeta ejecutiva táctica en PNG de alta resolución"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>📸 Exportar Informe Táctico</span>
+            </button>
+          )}
+
           {isCounterfactualMode ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-400 border border-amber-600/70 animate-pulse">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
@@ -39,6 +52,7 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
               Jugada Real (Base)
             </span>
           )}
+
           {isCounterfactualMode && onReset && (
             <button
               onClick={onReset}
