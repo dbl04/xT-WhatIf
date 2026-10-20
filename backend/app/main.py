@@ -1,6 +1,6 @@
 """
 xT-WhatIf FastAPI Entrypoint.
-Provides REST and WebSocket endpoints for real-time StatsBomb 360 counterfactuals.
+Provides REST and WebSocket endpoints for real-time counterfactuals on synthetic 360-style frames.
 Enforces canonical 120x80 coordinate system and supports interactive multi-highlight simulation.
 """
 
@@ -18,7 +18,8 @@ from app.core.config import settings
 from app.schemas.match_contract import (
     MatchFramePayload, CounterfactualRequest, PlayerNode
 )
-from app.services.statsbomb_loader import loader
+from app.services.match_loader import loader
+from app.services.synthetic_generator import DEFAULT_MATCH_ID
 from app.services.tactical_math import simulate_counterfactual
 from app.services.agent_swarm import swarm, _simulation_cache
 from app.services.tts_service import router as tts_router
@@ -30,7 +31,7 @@ logger = logging.getLogger("xtwhatif.main")
 
 app = FastAPI(
     title="xT-WhatIf Engine",
-    description="Interactive Counterfactual Engine Powered by Multi-Agent AI (StatsBomb 360)",
+    description="Interactive Counterfactual Engine Powered by Multi-Agent AI (synthetic football data)",
     version="2.0.0"
 )
 
@@ -57,42 +58,44 @@ async def health_check():
         "version": "2.0.0",
         "service_role": settings.SERVICE_ROLE,
         "compute_mode": "aks-distributed" if settings.AKS_WORKER_URL else "local-in-process",
-        "coordinate_system": "StatsBomb 120x80 (X: 0.0-120.0, Y: 0.0-80.0)",
-        "target_match": "3869685 (Argentina vs France - Final 2022)",
+        "coordinate_system": "120x80 (X: 0.0-120.0, Y: 0.0-80.0)",
+        "target_match": DEFAULT_MATCH_ID,
+        "data_source": "synthetic",
         "environment": settings.ENVIRONMENT
     }
 
 
 @app.get("/api/v1/matches", tags=["Matches"])
 async def get_available_matches():
-    """Returns enriched match catalog with 360 metadata and exact cached frames count."""
-    cached_frames = loader.fetch_match_360_frames(3869685)
-    frames_count = len(cached_frames)
-    return [
-        {
-            "match_id": 3869685,
-            "title": "Argentina vs France",
-            "competition": "FIFA World Cup Final 2022",
-            "season": "2022",
-            "date": "2022-12-18",
-            "stadium": "Lusail Iconic Stadium, Qatar",
-            "score": "3 - 3 (4 - 2 pen.)",
-            "home_team": "Argentina",
-            "away_team": "France",
-            "highlights_count": frames_count,
-            "cached_360_frames_count": frames_count,
-            "has_360_frames": True,
+    """Returns the catalogue of synthetic matches and their key moments."""
+    catalogue = []
+    for match_id in loader.available_match_ids():
+        frames = [MatchFramePayload(**f) for f in loader.fetch_match_360_frames(match_id)]
+        if not frames:
+            continue
+        info = frames[0].match_info
+        catalogue.append({
+            "match_id": match_id,
+            "title": f"{info.home.name} vs {info.away.name}" if info else f"Synthetic match {match_id}",
+            "competition": info.competition if info else None,
+            "venue": info.venue if info else None,
+            "home_team": info.home.model_dump() if info else None,
+            "away_team": info.away.model_dump() if info else None,
+            "seed": info.seed if info else None,
+            "highlights_count": len(frames),
             "canonical_pitch": "120x80m",
-            "data_source": "StatsBomb 360 Open Data / High-Fidelity Local Cache",
-            "curated_highlights": [
-                {"id": 1, "minute": "21:18", "type": "Dribble", "headline": "Di María penalti forzado (1-0)"},
-                {"id": 2, "minute": "35:42", "type": "Pass", "headline": "Contraataque Di María gol (2-0)"},
-                {"id": 3, "minute": "80:25", "type": "Carry", "headline": "Robo Coman y volea Mbappé (2-2)"},
-                {"id": 4, "minute": "108:31", "type": "Shot", "headline": "Rebote Messi gol prórroga (3-2)"},
-                {"id": 5, "minute": "122:43", "type": "Shot", "headline": "Parada milagrosa de Dibu a Kolo Muani"}
-            ]
-        }
-    ]
+            "data_source": "synthetic",
+            "highlights": [
+                {
+                    "index": i,
+                    "minute": f"{f.minute}:{f.second:02d}",
+                    "type": f.event_type,
+                    "headline": f.moment_label,
+                }
+                for i, f in enumerate(frames)
+            ],
+        })
+    return catalogue
 
 
 @app.get("/api/v1/match/{match_id}/frames", response_model=List[MatchFramePayload], tags=["Matches"])
@@ -327,7 +330,7 @@ async def toggle_chaos_mode(force: Optional[bool] = None):
 @app.post("/api/v1/cloud/stress-burst", tags=["Cloud Telemetry"])
 async def execute_stress_burst():
     """Runs a burst of 25 parallel geometric simulations (Voronoi + xT 16x12) via asyncio.gather."""
-    frames = loader.fetch_match_360_frames(3869685)
+    frames = loader.fetch_match_360_frames(DEFAULT_MATCH_ID)
     base_frame = MatchFramePayload(**frames[0])
 
     async def run_single_sim(variation_idx: int):

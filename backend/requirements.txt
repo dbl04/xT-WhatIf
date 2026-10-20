@@ -16,8 +16,7 @@ numpy>=1.26.0
 scipy>=1.14.0
 shapely>=2.0.6
 
-# Football Data & Cache
-statsbombpy>=1.14.0
+# Cache
 redis>=5.1.0
 
 # AI Multi-Agent Swarm (Dr. Voronoi & Míster Bianchi)

@@ -44,10 +44,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AZURE_OPENAI_DEPLOYMENT_MINI", "AZURE_OPENAI_DEPLOYMENT_COACH")
     )
 
-    # StatsBomb Open Data
-    STATSBOMB_USER: str = ""
-    STATSBOMB_PASSWORD: str = ""
-    USE_STATSBOMB_OPEN_DATA: bool = False
+    # Synthetic match fixtures (see app/services/synthetic_generator.py)
     CACHE_DIR: str = str(Path(__file__).resolve().parent.parent / "data" / "cache")
 
 

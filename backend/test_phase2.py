@@ -10,26 +10,34 @@ if sys.platform == "win32":
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app.schemas.match_contract import MatchFramePayload, CounterfactualRequest, PlayerNode
-from app.services.statsbomb_loader import loader
+from app.services.match_loader import loader
+from app.services.synthetic_generator import DEFAULT_MATCH_ID
 from app.services.tactical_math import simulate_counterfactual
 from app.services.agent_swarm import swarm
 
 
 async def main():
-    print("--- 1. Testing Golden Highlights ---")
-    frames = loader.fetch_match_360_frames(3869685)
-    print(f"Total highlights loaded: {len(frames)}")
-    assert len(frames) >= 5, "Must have at least 5 Golden Highlights!"
+    print("--- 1. Testing Synthetic Match Moments ---")
+    frames = loader.fetch_match_360_frames(DEFAULT_MATCH_ID)
+    print(f"Total moments loaded: {len(frames)}")
+    assert len(frames) >= 5, "Must have at least 5 synthetic key moments!"
     for i, f in enumerate(frames):
         print(f"  Highlight {i+1}: Min {f['minute']}:{f['second']:02d} ({f['event_type']}) - {len(f['players'])} players")
 
     print("\n--- 2. Testing Advanced Geometry & Simulation ---")
-    base_frame_data = frames[1]  # Highlight 2: Min 35:42 (Di Maria goal)
+    base_frame_data = frames[1]
     base_frame = MatchFramePayload(**base_frame_data)
-    
-    # Reposition Koundé (player_id 5) to (88.0, 25.0)
-    kounde = next(p for p in base_frame.players if p.player_id == 5)
-    mod_kounde = kounde.model_copy(update={"x": 88.0, "y": 25.0})
+
+    # Move the defender closest to the ball 4 m towards the pass destination
+    defenders = [p for p in base_frame.players if p.team != base_frame.possession_team and not p.is_keeper]
+    defender = min(defenders, key=lambda p: (p.x - base_frame.ball_x) ** 2 + (p.y - base_frame.ball_y) ** 2)
+    mod_kounde = defender.model_copy(update={
+        "x": round(min(119.0, defender.x + 4.0), 1),
+        "y": defender.y,
+        "original_x": defender.x,
+        "original_y": defender.y,
+        "is_modified": True,
+    })
     
     sim_frame = simulate_counterfactual(base_frame, [mod_kounde])
     print(f"  Original xT: {sim_frame.metrics.original_xt:.2f}")
@@ -60,16 +68,16 @@ async def main():
     assert res_health.status_code == 200
     print("  GET /health: OK (200)")
 
-    res_frames = client.get("/api/v1/match/3869685/frames")
+    res_frames = client.get(f"/api/v1/match/{DEFAULT_MATCH_ID}/frames")
     assert res_frames.status_code == 200
     data_frames = res_frames.json()
-    assert len(data_frames) == 5
-    print(f"  GET /api/v1/match/3869685/frames: OK (200, returned {len(data_frames)} highlights)")
+    assert len(data_frames) == len(frames)
+    print(f"  GET /api/v1/match/{DEFAULT_MATCH_ID}/frames: OK (200, returned {len(data_frames)} moments)")
 
     res_sim = client.post(
         "/api/v1/simulate",
         json={
-            "match_id": 3869685,
+            "match_id": DEFAULT_MATCH_ID,
             "event_uuid": base_frame.event_uuid,
             "modified_players": [mod_kounde.model_dump()]
         }

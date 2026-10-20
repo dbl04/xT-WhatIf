@@ -48,6 +48,22 @@ class AgentMessage(BaseModel):
     highlighted_player_ids: List[int] = Field(default_factory=list)
 
 
+class TeamInfo(BaseModel):
+    name: str
+    short_name: str = Field(..., min_length=2, max_length=4)
+    primary_color: str
+
+
+class MatchInfo(BaseModel):
+    """Fixture metadata. All data in this project is synthetic (fictional clubs and players)."""
+    competition: str
+    venue: str
+    home: TeamInfo
+    away: TeamInfo
+    data_source: str = "synthetic"
+    seed: Optional[int] = None
+
+
 class MatchFramePayload(BaseModel):
     match_id: int
     event_uuid: str
@@ -63,6 +79,9 @@ class MatchFramePayload(BaseModel):
     players: List[PlayerNode]
     metrics: TacticalMetrics
     agent_debate: List[AgentMessage]
+    # Human-readable name of the moment, e.g. "Pase atrás desde la línea de fondo".
+    moment_label: Optional[str] = None
+    match_info: Optional[MatchInfo] = None
 
 
 class CounterfactualRequest(BaseModel):
