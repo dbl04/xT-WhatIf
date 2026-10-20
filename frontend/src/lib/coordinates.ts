@@ -1,5 +1,5 @@
 /**
- * StatsBomb Canonical Coordinate Utilities for PitchGhost 360 / xT-WhatIf.
+ * StatsBomb Canonical Coordinate Utilities for xT-WhatIf.
  * 
  * Strict Specification:
  * - Length (X-Axis): 0.0 to 120.0 meters (left goal to right goal).

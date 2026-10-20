@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PitchGhost-360 | Interactive Tactical Counterfactual Engine",
+  title: "xT-WhatIf | Interactive Tactical Counterfactual Engine",
   description:
     "Explore football counterfactual scenarios on StatsBomb 360 freeze-frames. Real-time xT calculation, Voronoi dominance, and multi-agent AI debates.",
 };

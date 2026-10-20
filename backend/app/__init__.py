@@ -1,1 +1,1 @@
-"""PitchGhost-360 Backend Application Package"""
+"""xT-WhatIf Backend Application Package"""

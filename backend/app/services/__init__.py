@@ -1,1 +1,1 @@
-"""Tactical and AI services for PitchGhost-360"""
+"""Tactical and AI services for xT-WhatIf"""

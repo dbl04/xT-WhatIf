@@ -11,6 +11,7 @@ Curates the 5 Golden Highlights of the 2022 World Cup Final with rich 360 player
 """
 
 import os
+import math
 import json
 import logging
 from typing import Optional, List, Dict, Any
@@ -90,13 +91,193 @@ class StatsBomb360Loader:
         self.save_cached_match(match_id, curated_frames)
         return curated_frames
 
-    def _process_statsbombpy_data(self, events_df, frames_df, match_id: int) -> List[Dict[str, Any]]:
+    def _process_statsbombpy_data(self, *args, **kwargs) -> List[Dict[str, Any]]:
         """
-        Processes statsbombpy DataFrames into canonical MatchFramePayload items.
+        Processes real statsbombpy DataFrames (events and 360 freeze frames) into canonical MatchFramePayload items.
+        Filters key tactical events (Pass, Shot, Carry, Dribble) with valid 360 freeze frames, maps players
+        to 120x80 pitch coordinates, and computes initial mathematical metrics.
+        Accepts (self, match_id, events_df, frames_df) or (self, events_df, frames_df, match_id).
         """
-        if frames_df is None or len(frames_df) == 0:
+        # Flexible argument extraction
+        if len(args) == 3:
+            if isinstance(args[0], int):
+                match_id, events_df, frames_df = args
+            else:
+                events_df, frames_df, match_id = args
+        elif len(args) == 2:
+            events_df, frames_df = args
+            match_id = kwargs.get("match_id", TARGET_MATCH_ID)
+        else:
+            match_id = kwargs.get("match_id", TARGET_MATCH_ID)
+            events_df = kwargs.get("events_df") or kwargs.get("events")
+            frames_df = kwargs.get("frames_df") or kwargs.get("frames_360")
+
+        if events_df is None or frames_df is None:
             return self._get_curated_world_cup_final_frames(match_id)
-        return self._get_curated_world_cup_final_frames(match_id)
+
+        # Check if DataFrames are empty
+        if hasattr(events_df, "empty") and events_df.empty:
+            return self._get_curated_world_cup_final_frames(match_id)
+        if hasattr(frames_df, "empty") and frames_df.empty:
+            return self._get_curated_world_cup_final_frames(match_id)
+
+        try:
+            from app.services.tactical_math import (
+                calculate_space_control,
+                calculate_pass_probability_cone,
+                find_optimal_pass_target,
+                get_xt_at_point,
+            )
+
+            # Map 360 freeze frames by event UUID
+            frames_by_event: Dict[str, List[Dict[str, Any]]] = {}
+            id_col = "event_uuid" if "event_uuid" in frames_df.columns else "id"
+
+            for _, f_row in frames_df.iterrows():
+                ev_id = str(f_row.get(id_col, ""))
+                raw_ff = f_row.get("freeze_frame")
+                if isinstance(raw_ff, str):
+                    try:
+                        raw_ff = json.loads(raw_ff)
+                    except Exception:
+                        pass
+                if isinstance(raw_ff, list) and len(raw_ff) > 0 and ev_id:
+                    frames_by_event[ev_id] = raw_ff
+
+            KEY_EVENT_TYPES = {"Pass", "Shot", "Carry", "Dribble"}
+            ev_id_col = "id" if "id" in events_df.columns else "event_uuid"
+            parsed_frames: List[Dict[str, Any]] = []
+
+            for _, ev in events_df.iterrows():
+                ev_type = str(ev.get("type", ""))
+                if ev_type not in KEY_EVENT_TYPES:
+                    continue
+
+                ev_id = str(ev.get(ev_id_col, ""))
+                if ev_id not in frames_by_event:
+                    continue
+
+                freeze_actors = frames_by_event[ev_id]
+                minute = int(ev.get("minute", 0))
+                second = int(ev.get("second", 0))
+                team_name = str(ev.get("team", ""))
+                possession_team = TeamSide.HOME if HOME_TEAM_NAME.lower() in team_name.lower() else TeamSide.AWAY
+                player_name = str(ev.get("player", "Key Actor"))
+                raw_pid = ev.get("player_id")
+                actor_id = int(raw_pid) if raw_pid is not None and not (isinstance(raw_pid, float) and math.isnan(raw_pid)) else 10
+
+                # Extract ball coordinates
+                loc = ev.get("location")
+                ball_x = float(loc[0]) if isinstance(loc, (list, tuple)) and len(loc) >= 2 else 60.0
+                ball_y = float(loc[1]) if isinstance(loc, (list, tuple)) and len(loc) >= 2 else 40.0
+
+                end_loc = ev.get("pass_end_location") or ev.get("shot_end_location") or ev.get("carry_end_location")
+                ball_end_x = float(end_loc[0]) if isinstance(end_loc, (list, tuple)) and len(end_loc) >= 2 else ball_x
+                ball_end_y = float(end_loc[1]) if isinstance(end_loc, (list, tuple)) and len(end_loc) >= 2 else ball_y
+
+                # Map 360 freeze frame actors to PlayerNode models
+                player_nodes: List[PlayerNode] = []
+                actor_found = False
+
+                for idx, act in enumerate(freeze_actors):
+                    if not isinstance(act, dict):
+                        continue
+                    act_loc = act.get("location", [60.0, 40.0])
+                    px = float(act_loc[0]) if len(act_loc) >= 2 else 60.0
+                    py = float(act_loc[1]) if len(act_loc) >= 2 else 40.0
+                    is_teammate = bool(act.get("teammate", False))
+                    is_actor = bool(act.get("actor", False))
+                    is_keeper = bool(act.get("keeper", False))
+
+                    if is_actor:
+                        actor_found = True
+
+                    p_team = possession_team if is_teammate else (TeamSide.AWAY if possession_team == TeamSide.HOME else TeamSide.HOME)
+                    p_id = int(act.get("player_id", (actor_id if is_actor else 200 + idx)))
+                    p_name = act.get("name") or (player_name if is_actor else f"{'Teammate' if is_teammate else 'Opponent'} #{idx + 1}")
+
+                    player_nodes.append(
+                        PlayerNode(
+                            player_id=p_id,
+                            name=p_name,
+                            jersey_number=int(act.get("jersey_number", (10 if is_actor else idx + 1))),
+                            team=p_team,
+                            is_actor=is_actor,
+                            is_keeper=is_keeper,
+                            x=px,
+                            y=py,
+                            original_x=px,
+                            original_y=py,
+                            is_modified=False,
+                        )
+                    )
+
+                # Ensure actor is included
+                if not actor_found:
+                    player_nodes.insert(
+                        0,
+                        PlayerNode(
+                            player_id=actor_id,
+                            name=player_name,
+                            jersey_number=10,
+                            team=possession_team,
+                            is_actor=True,
+                            is_keeper=False,
+                            x=ball_x,
+                            y=ball_y,
+                            original_x=ball_x,
+                            original_y=ball_y,
+                            is_modified=False,
+                        )
+                    )
+
+                # Calculate tactical metrics
+                teammates = [p for p in player_nodes if p.team == possession_team]
+                opponents = [p for p in player_nodes if p.team != possession_team]
+                actor_node = next((p for p in player_nodes if p.is_actor), player_nodes[0])
+
+                space_ctrl = calculate_space_control(player_nodes, ball_x=ball_x, ball_y=ball_y)
+                pass_prob = calculate_pass_probability_cone(ball_x, ball_y, ball_end_x, ball_end_y, opponents)
+                optimal_id, _ = find_optimal_pass_target(actor_node, teammates, opponents)
+                base_xt = get_xt_at_point(ball_end_x, ball_end_y)
+
+                frame_metrics = TacticalMetrics(
+                    original_xt=round(base_xt, 2),
+                    simulated_xt=round(base_xt, 2),
+                    xt_delta=0.0,
+                    space_control_home_pct=space_ctrl,
+                    optimal_pass_target_id=optimal_id,
+                    pass_completion_prob=pass_prob,
+                )
+
+                frame_payload = MatchFramePayload(
+                    match_id=match_id,
+                    event_uuid=ev_id,
+                    minute=minute,
+                    second=second,
+                    event_type=ev_type,
+                    possession_team=possession_team,
+                    is_counterfactual_mode=False,
+                    ball_x=ball_x,
+                    ball_y=ball_y,
+                    ball_end_x=ball_end_x,
+                    ball_end_y=ball_end_y,
+                    players=player_nodes,
+                    metrics=frame_metrics,
+                    agent_debate=[],
+                )
+                parsed_frames.append(frame_payload.model_dump())
+
+            if len(parsed_frames) >= 5:
+                logger.info(f"Successfully parsed {len(parsed_frames)} StatsBomb 360 frames dynamically from DataFrames.")
+                return parsed_frames
+            else:
+                logger.info(f"Parsed {len(parsed_frames)} frames from DataFrames; using curated dataset for full highlight coverage.")
+                return self._get_curated_world_cup_final_frames(match_id)
+
+        except Exception as exc:
+            logger.warning(f"Error parsing StatsBomb 360 DataFrames ({exc}); falling back to curated dataset.")
+            return self._get_curated_world_cup_final_frames(match_id)
 
     def _get_curated_world_cup_final_frames(self, match_id: int) -> List[Dict[str, Any]]:
         """

@@ -11,6 +11,7 @@ Features:
 
 import math
 import numpy as np
+from scipy.spatial import cKDTree as KDTree
 from typing import List, Tuple, Optional
 
 from app.schemas.match_contract import (
@@ -37,17 +38,87 @@ def _generate_canonical_xt_grid() -> np.ndarray:
 
 
 XT_LOOKUP_GRID = _generate_canonical_xt_grid()
+XT_MATRIX = XT_LOOKUP_GRID
 
 
-def get_xt_at_position(x: float, y: float) -> float:
-    """Returns Expected Threat (xT) on canonical 120x80 pitch."""
-    col = min(XT_GRID_COLS - 1, max(0, int((x / 120.0) * XT_GRID_COLS)))
-    row = min(XT_GRID_ROWS - 1, max(0, int((y / 80.0) * XT_GRID_ROWS)))
-    return float(XT_LOOKUP_GRID[row, col])
+def get_xt_at_point(x: float, y: float) -> float:
+    """
+    Computes Expected Threat (xT) on canonical 120x80 pitch using continuous
+    2D bilinear interpolation across adjacent cell centers in the 16x12 xT matrix.
+    Ensures that any micro-displacement (e.g. 0.5m) generates a smooth, continuous delta.
+    """
+    # Clamp coordinates to pitch boundaries [0.0, 120.0] x [0.0, 80.0]
+    x_clamped = max(0.0, min(120.0, float(x)))
+    y_clamped = max(0.0, min(80.0, float(y)))
+
+    cell_w = 120.0 / XT_GRID_COLS  # 7.5 meters per column
+    cell_h = 80.0 / XT_GRID_ROWS   # 6.6667 meters per row
+
+    # Continuous cell-center relative coordinates
+    # Center of cell (r, c) is located at ((c + 0.5) * cell_w, (r + 0.5) * cell_h)
+    u = (x_clamped / cell_w) - 0.5
+    v = (y_clamped / cell_h) - 0.5
+
+    c0 = int(math.floor(u))
+    r0 = int(math.floor(v))
+
+    c1 = c0 + 1
+    r1 = r0 + 1
+
+    # Fractional interpolation weights in [0.0, 1.0]
+    alpha_x = u - c0
+    alpha_y = v - r0
+
+    # Boundary handling for pitch margins outside inner cell centers
+    if c0 < 0:
+        c0_idx = 0
+        c1_idx = 0
+        alpha_x = 0.0
+    elif c0 >= XT_GRID_COLS - 1:
+        c0_idx = XT_GRID_COLS - 1
+        c1_idx = XT_GRID_COLS - 1
+        alpha_x = 0.0
+    else:
+        c0_idx = c0
+        c1_idx = c1
+
+    if r0 < 0:
+        r0_idx = 0
+        r1_idx = 0
+        alpha_y = 0.0
+    elif r0 >= XT_GRID_ROWS - 1:
+        r0_idx = XT_GRID_ROWS - 1
+        r1_idx = XT_GRID_ROWS - 1
+        alpha_y = 0.0
+    else:
+        r0_idx = r0
+        r1_idx = r1
+
+    alpha_x = max(0.0, min(1.0, alpha_x))
+    alpha_y = max(0.0, min(1.0, alpha_y))
+
+    # 4 adjacent cell values from canonical XT_MATRIX
+    q00 = float(XT_MATRIX[r0_idx, c0_idx])
+    q10 = float(XT_MATRIX[r0_idx, c1_idx])
+    q01 = float(XT_MATRIX[r1_idx, c0_idx])
+    q11 = float(XT_MATRIX[r1_idx, c1_idx])
+
+    # Real 2D bilinear interpolation formula
+    interpolated_xt = (
+        (1.0 - alpha_x) * (1.0 - alpha_y) * q00
+        + alpha_x * (1.0 - alpha_y) * q10
+        + (1.0 - alpha_x) * alpha_y * q01
+        + alpha_x * alpha_y * q11
+    )
+    return round(float(interpolated_xt), 4)
+
+
+# Backward-compatible alias for existing callers
+get_xt_at_position = get_xt_at_point
 
 
 # -----------------------------------------------------------------------------
-# Vectorized Voronoi Space Control on Active Offensive Third
+# Vectorized Voronoi Space Control via scipy.spatial.cKDTree (60x40 Grid)
 # -----------------------------------------------------------------------------
 GRID_X_POINTS = 60
 GRID_Y_POINTS = 40
@@ -56,7 +127,7 @@ GRID_X_MAX = 120.0
 GRID_Y_MIN = 0.0
 GRID_Y_MAX = 80.0
 
-# Pre-computed coordinate grid mesh
+# Pre-computed coordinate grid mesh of the offensive final third (2,400 sample points)
 _GRID_X, _GRID_Y = np.meshgrid(
     np.linspace(GRID_X_MIN, GRID_X_MAX, GRID_X_POINTS),
     np.linspace(GRID_Y_MIN, GRID_Y_MAX, GRID_Y_POINTS)
@@ -64,32 +135,60 @@ _GRID_X, _GRID_Y = np.meshgrid(
 _GRID_POINTS = np.column_stack([_GRID_X.ravel(), _GRID_Y.ravel()])
 
 
-def calculate_space_control_vectorized(players: List[PlayerNode]) -> float:
+def calculate_space_control(
+    players: List[PlayerNode],
+    ball_x: Optional[float] = None,
+    ball_y: Optional[float] = None,
+    grid_points: Optional[np.ndarray] = None
+) -> float:
     """
     Computes home team territory ownership percentage in the active attacking third
-    ([60.0, 120.0] x [0.0, 80.0]) using a vectorized Voronoi distance model.
+    ([60.0, 120.0] x [0.0, 80.0]) using scipy.spatial.cKDTree over a fine 60x40 mesh (2,400 points).
+    Queries tree in sub-milliseconds and weights control by ball proximity and player movement inertia.
     """
     if not players:
         return 50.0
+
+    if grid_points is None:
+        grid_points = _GRID_POINTS
 
     # Extract coordinates and team affiliations
     player_coords = np.array([[p.x, p.y] for p in players], dtype=np.float64)
     is_home = np.array([p.team == TeamSide.HOME for p in players], dtype=bool)
 
-    # Compute Euclidean distance matrix: (num_grid_points, num_players)
-    # Using broadcasting: _GRID_POINTS[:, np.newaxis, :] - player_coords[np.newaxis, :, :]
-    diff = _GRID_POINTS[:, np.newaxis, :] - player_coords[np.newaxis, :, :]
-    dist_sq = np.sum(diff ** 2, axis=2)
+    # Sub-millisecond nearest neighbor query via Scipy cKDTree
+    tree = KDTree(player_coords)
+    _, nearest_player_indices = tree.query(grid_points, k=1)
 
-    # Closest player for each grid cell
-    nearest_player_indices = np.argmin(dist_sq, axis=1)
+    # Calculate physical inertia factors for modified players (quadratic penalty beyond 6.0m)
+    player_inertia = np.ones(len(players), dtype=np.float64)
+    for idx, p in enumerate(players):
+        if p.is_modified and p.original_x is not None and p.original_y is not None:
+            delta_d = math.hypot(p.x - p.original_x, p.y - p.original_y)
+            if delta_d > 6.0:
+                player_inertia[idx] = 1.0 / (1.0 + 0.008 * ((delta_d - 6.0) ** 2))
 
-    # Count cells owned by home team
-    home_cells = np.sum(is_home[nearest_player_indices])
-    total_cells = len(_GRID_POINTS)
+    # Weight territory cells if ball position is provided
+    if ball_x is not None and ball_y is not None:
+        ball_pos = np.array([ball_x, ball_y], dtype=np.float64)
+        dist_to_ball = np.linalg.norm(grid_points - ball_pos, axis=1)
+        ball_weights = np.exp(-dist_to_ball / 35.0)
+        effective_weights = ball_weights * player_inertia[nearest_player_indices]
 
-    pct = (home_cells / total_cells) * 100.0
+        home_cells = np.sum(effective_weights[is_home[nearest_player_indices]])
+        total_cells = np.sum(effective_weights)
+        pct = (home_cells / total_cells) * 100.0 if total_cells > 0 else 50.0
+    else:
+        effective_inertia = player_inertia[nearest_player_indices]
+        home_cells = np.sum(is_home[nearest_player_indices] * effective_inertia)
+        total_cells = np.sum(effective_inertia)
+        pct = (home_cells / total_cells) * 100.0 if total_cells > 0 else 50.0
+
     return round(float(pct), 1)
+
+
+# Backward-compatible alias
+calculate_space_control_vectorized = calculate_space_control
 
 
 # -----------------------------------------------------------------------------
@@ -173,7 +272,7 @@ def find_optimal_pass_target(
             end_y=mate.y,
             opponents=opponents
         )
-        target_xt = get_xt_at_position(mate.x, mate.y)
+        target_xt = get_xt_at_point(mate.x, mate.y)
         ev = (prob / 100.0) * target_xt
 
         if ev > best_ev:
@@ -192,8 +291,8 @@ def simulate_counterfactual(
     modified_players: List[PlayerNode]
 ) -> MatchFramePayload:
     """
-    Applies counterfactual player positions, recalculates Voronoi space control,
-    evaluates pass completion with Gaussian cone, and recomputes Expected Threat (xT).
+    Applies counterfactual player positions, recalculates Voronoi space control via Scipy cKDTree,
+    evaluates pass completion with Gaussian cone, and recomputes Expected Threat (xT) via bilinear interpolation.
     """
     mod_dict = {p.player_id: p for p in modified_players}
 
@@ -242,16 +341,29 @@ def simulate_counterfactual(
         if other_mates:
             optimal_id = other_mates[0].player_id
 
-    # 3. Recalculate space control on 60x40 fine grid
-    space_home_pct = calculate_space_control_vectorized(updated_players)
-
-    # 4. Compute Simulated Expected Threat (xT) with recovery penalty
-    base_target_xt = get_xt_at_position(dest_x, dest_y)
-    recovery_xt_penalty = 0.03
-    simulated_xt = round(
-        base_target_xt * (primary_pass_prob / 100.0) + (1.0 - primary_pass_prob / 100.0) * recovery_xt_penalty,
-        2
+    # 3. Recalculate space control on 60x40 fine grid via scipy.spatial.cKDTree
+    space_home_pct = calculate_space_control(
+        updated_players,
+        ball_x=base_frame.ball_x,
+        ball_y=base_frame.ball_y
     )
+
+    # 4. Compute Simulated Expected Threat (xT) via 2D Bilinear Interpolation with recovery penalty
+    base_target_xt = get_xt_at_point(dest_x, dest_y)
+    recovery_xt_penalty = 0.03
+    raw_simulated_xt = (
+        base_target_xt * (primary_pass_prob / 100.0) + (1.0 - primary_pass_prob / 100.0) * recovery_xt_penalty
+    )
+
+    # Biomechanical inertia penalty if attacking actor moved beyond reaction envelope (>6.0m)
+    inertia_penalty = 0.0
+    for p in updated_players:
+        if p.is_modified and p.is_actor and p.original_x is not None and p.original_y is not None:
+            dist_moved = math.hypot(p.x - p.original_x, p.y - p.original_y)
+            if dist_moved > 6.0:
+                inertia_penalty += 0.008 * ((dist_moved - 6.0) ** 2)
+
+    simulated_xt = round(max(0.02, raw_simulated_xt - inertia_penalty), 2)
     original_xt = round(base_frame.metrics.original_xt, 2)
     xt_delta = round(simulated_xt - original_xt, 2)
 

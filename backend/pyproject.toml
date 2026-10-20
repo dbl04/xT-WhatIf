@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pitchghost-backend"
-version = "0.1.0"
-description = "FastAPI Backend for PitchGhost-360 Counterfactual Engine & AI Swarm"
+name = "xt-whatif-backend"
+version = "2.0.0"
+description = "FastAPI Backend for xT-WhatIf Counterfactual Engine & Multi-Agent Swarm"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-    { name = "PitchGhost Dev Team" }
+    { name = "xT-WhatIf Dev Team" }
 ]
 dependencies = [
     "fastapi>=0.115.0",

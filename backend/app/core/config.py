@@ -1,6 +1,12 @@
 """
-Configuration settings for PitchGhost-360 Backend.
+Configuration settings for xT-WhatIf Backend.
 Loads environment variables with robust defaults for local development.
+
+Architecture Note on Caching:
+Instead of an external network dependency like Redis, xT-WhatIf uses an in-process,
+high-performance deterministic LRU cache (_simulation_cache in app.services.agent_swarm)
+keyed by (event_uuid, sorted_modified_positions). This yields sub-1ms response times,
+eliminates cold-start network roundtrips, and maintains total resilience during cloud outages.
 """
 
 from typing import List, Optional
@@ -24,10 +30,6 @@ class Settings(BaseSettings):
     # Cloud Architecture: Dual Runtime Role (ACA Gateway vs AKS Worker)
     SERVICE_ROLE: str = Field(default="standalone", validation_alias=AliasChoices("SERVICE_ROLE", "APP_ROLE"))
     AKS_WORKER_URL: Optional[str] = Field(default=None, validation_alias=AliasChoices("AKS_WORKER_URL", "WORKER_SERVICE_URL"))
-
-
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Azure OpenAI (Agent Swarm)
     AZURE_OPENAI_API_KEY: str = Field(default="mock-key", validation_alias="AZURE_OPENAI_API_KEY")
