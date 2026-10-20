@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Zap, Power, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
+import { StressBurstResponse } from "@/types/match";
 
 interface CloudTelemetryData {
   service_role: string;
@@ -28,17 +29,7 @@ interface StressBurstResult {
   engine: string;
 }
 
-/** POST /api/v1/cloud/stress-burst response (backend/app/main.py). */
-interface StressBurstApiResponse {
-  simulations_count: number;
-  total_time_ms: number;
-  average_latency_ms: number;
-  throughput_simulations_per_sec: number;
-  kd_tree_lookups: number;
-  engine: string;
-}
-
-function normalizeBurstResult(api: StressBurstApiResponse): StressBurstResult {
+function normalizeBurstResult(api: StressBurstResponse): StressBurstResult {
   return {
     burst_count: api.simulations_count,
     total_elapsed_ms: api.total_time_ms,
@@ -219,7 +210,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
   ];
 
   const stats = [
-    { label: "Latencia", value: telemetry.last_compute_latency_ms.toFixed(1), unit: "ms", note: "Último cálculo" },
+    { label: "Latencia", value: Number(telemetry.last_compute_latency_ms ?? 0).toFixed(1), unit: "ms", note: "Último cálculo" },
     { label: "Cache hits", value: String(telemetry.cache_hits), unit: "", note: "Caché LRU en memoria" },
     { label: "Simulaciones", value: String(telemetry.total_simulations), unit: "", note: "Escenarios calculados" },
     {

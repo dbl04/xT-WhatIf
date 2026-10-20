@@ -6,6 +6,7 @@ import { TacticalMetrics, AgentMessage } from "@/types/match";
 import { Download, Check, Loader2 } from "lucide-react";
 import { Button, ModalShell, Tag } from "@/components/ui/primitives";
 import { displayFont, sansFont, monoFont } from "@/lib/fonts";
+import { PALETTE } from "@/lib/palette";
 
 interface ExportReportModalProps {
   isOpen: boolean;
@@ -22,19 +23,48 @@ interface ExportReportModalProps {
   debateMessages: AgentMessage[];
 }
 
-// Report palette (mirrors tailwind tokens)
 const R = {
-  ink: "#0b0214",
-  panel: "#110322",
+  ink: PALETTE.ink,
+  panel: PALETTE.ink900,
   line: "rgba(255,255,255,0.10)",
-  fg: "#f4f0f8",
-  muted: "#a99bbd",
-  subtle: "#6e6283",
-  green: "#00ff85",
-  magenta: "#ff005a",
-  home: "#75aadb",
-  turf: "#081f14",
+  fg: PALETTE.fg,
+  muted: PALETTE.fgMuted,
+  subtle: PALETTE.fgSubtle,
+  green: PALETTE.green,
+  magenta: PALETTE.magenta,
+  home: PALETTE.home,
+  turf: PALETTE.turf,
 };
+
+/** Size the pitch SVG is rasterised at, and the box it is drawn into on the report. */
+const SVG_RENDER_W = 1200;
+const SVG_RENDER_H = 800;
+const PITCH_DRAW_W = 960;
+const PITCH_DRAW_H = 640;
+/** On-screen hairlines are thickened by this factor so they stay legible in print. */
+const EXPORT_STROKE_BOOST = 2.5;
+
+/**
+ * Screen hairlines use `vector-effect: non-scaling-stroke` (fixed px width). Rasterised at
+ * 1200px and then shrunk onto the report they would end up ~0.4px wide and vanish, so convert
+ * them to user-space widths that land at roughly `px * EXPORT_STROKE_BOOST` on the final PNG.
+ */
+function thickenHairlinesForExport(svg: SVGSVGElement, viewBoxWidth: number) {
+  const userUnitsPerDrawnPx = viewBoxWidth / PITCH_DRAW_W;
+  svg.querySelectorAll("[vector-effect='non-scaling-stroke']").forEach((el) => {
+    const px = parseFloat(el.getAttribute("stroke-width") || "1");
+    el.removeAttribute("vector-effect");
+    el.setAttribute("stroke-width", String(px * EXPORT_STROKE_BOOST * userUnitsPerDrawnPx));
+    // Dash lengths were screen pixels too; keep them proportional to the thicker stroke.
+    const dash = el.getAttribute("stroke-dasharray");
+    if (dash) {
+      const scaled = dash
+        .split(/[\s,]+/)
+        .map((d) => parseFloat(d) * EXPORT_STROKE_BOOST * userUnitsPerDrawnPx);
+      el.setAttribute("stroke-dasharray", scaled.join(" "));
+    }
+  });
+}
 
 const DISPLAY = displayFont.style.fontFamily;
 const SANS = sansFont.style.fontFamily;
@@ -76,8 +106,9 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
 
         // 1. Serialize SVG with inline dimensions
         const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
-        svgClone.setAttribute("width", "1200");
-        svgClone.setAttribute("height", "800");
+        svgClone.setAttribute("width", String(SVG_RENDER_W));
+        svgClone.setAttribute("height", String(SVG_RENDER_H));
+        thickenHairlinesForExport(svgClone, svgEl.viewBox.baseVal.width || 120);
 
         const svgString = new XMLSerializer().serializeToString(svgClone);
         const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
@@ -193,8 +224,8 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           // ==========================================
           const pitchX = M;
           const pitchY = 232;
-          const pitchW = 960;
-          const pitchH = 640;
+          const pitchW = PITCH_DRAW_W;
+          const pitchH = PITCH_DRAW_H;
           ctx.fillStyle = R.turf;
           ctx.fillRect(pitchX, pitchY, pitchW, pitchH);
           ctx.drawImage(pitchImg, pitchX, pitchY, pitchW, pitchH);

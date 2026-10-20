@@ -248,7 +248,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
                   </span>
                   {currentlyTalkingThisCard && (
                     <span className="inline-flex h-5 items-center gap-1 rounded-[2px] border border-ink/30 px-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-ink">
-                      <span className="h-1.5 w-1.5 rounded-full bg-signal-magenta" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-ink" />
                       En antena
                     </span>
                   )}

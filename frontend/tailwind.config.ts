@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { PALETTE } from "./src/lib/palette";
 
 const config: Config = {
   content: [
@@ -11,31 +12,31 @@ const config: Config = {
       colors: {
         // Broadcast editorial palette (Premier League / MNF inspired)
         ink: {
-          DEFAULT: "#0b0214", // page background (deep plum)
-          900: "#110322", // docks, panels
-          800: "#1a0832", // raised controls
-          700: "#26103f", // hover / pressed
+          DEFAULT: PALETTE.ink,
+          900: PALETTE.ink900,
+          800: PALETTE.ink800,
+          700: PALETTE.ink700,
         },
         line: {
-          DEFAULT: "rgba(255, 255, 255, 0.08)",
-          strong: "rgba(255, 255, 255, 0.16)",
+          DEFAULT: PALETTE.line,
+          strong: PALETTE.lineStrong,
         },
         fg: {
-          DEFAULT: "#f4f0f8",
-          muted: "#a99bbd",
-          subtle: "#6e6283",
+          DEFAULT: PALETTE.fg,
+          muted: PALETTE.fgMuted,
+          subtle: PALETTE.fgSubtle,
         },
         signal: {
-          green: "#00ff85", // danger created / positive xT
-          magenta: "#ff005a", // losses / negative xT
+          green: PALETTE.green,
+          magenta: PALETTE.magenta,
         },
         turf: {
-          DEFAULT: "#081f14",
-          stripe: "#0a2418",
+          DEFAULT: PALETTE.turf,
+          stripe: PALETTE.turfStripe,
         },
         team: {
-          home: "#75aadb", // Argentina celeste
-          away: "#f4f0f8", // France (white kit on the plum broadcast)
+          home: PALETTE.home,
+          away: PALETTE.away,
         },
       },
       fontFamily: {

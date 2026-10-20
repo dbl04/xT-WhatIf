@@ -41,6 +41,8 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
   onExportReport,
 }) => {
   const isPositive = metrics.xt_delta >= 0;
+  // Δ rounds to 0.00 on the untouched play (and on moves that change nothing): stay neutral.
+  const isUnchanged = !isCounterfactualMode || Math.abs(metrics.xt_delta) < 0.005;
   const homePct = Math.max(0, Math.min(100, metrics.space_control_home_pct));
   const passPct = Math.max(0, Math.min(100, metrics.pass_completion_prob));
 
@@ -76,12 +78,16 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
           <Stat
             label="Δ xT"
             value={isPositive ? `+${metrics.xt_delta.toFixed(2)}` : metrics.xt_delta.toFixed(2)}
-            tone={isPositive ? "green" : "magenta"}
+            tone={isUnchanged ? "default" : isPositive ? "green" : "magenta"}
           />
         </div>
       </div>
       <p className="-mt-1 text-[11px] text-fg-subtle">
-        {isPositive ? "El cambio genera más peligro." : "El cambio reduce el peligro."}
+        {isUnchanged
+          ? "Sin cambios respecto a la jugada real."
+          : isPositive
+          ? "El cambio genera más peligro."
+          : "El cambio reduce el peligro."}
       </p>
 
       {/* Territorial split */}

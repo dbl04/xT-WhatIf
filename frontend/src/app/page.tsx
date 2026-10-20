@@ -15,6 +15,7 @@ import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
+import { PlayerNode } from "@/types/match";
 import {
   Download,
   Columns2,
@@ -74,10 +75,30 @@ export default function DashboardPage() {
     [currentFrame]
   );
 
+  // Moves players and simulates in one go. triggerSimulation receives the moved players
+  // explicitly because its `frames` snapshot does not include updates from this same tick.
+  const applyMovesAndSimulate = (players: PlayerNode[]) => {
+    const moved = players.filter((p) => p.is_modified);
+    moved.forEach((p) => updatePlayerPosition(p.player_id, p.x, p.y));
+    triggerSimulation(moved);
+  };
+
   const applyPreset = (preset: TacticalPreset) => {
     setIsPlaying(false);
-    updatePlayerPosition(preset.playerId, preset.targetX, preset.targetY);
-    triggerSimulation();
+    applyMovesAndSimulate(
+      currentFrame.players.map((p) =>
+        p.player_id === preset.playerId
+          ? {
+              ...p,
+              x: preset.targetX,
+              y: preset.targetY,
+              original_x: p.original_x ?? p.x,
+              original_y: p.original_y ?? p.y,
+              is_modified: true,
+            }
+          : p
+      )
+    );
   };
 
   const handleTogglePlay = () => {
@@ -89,6 +110,25 @@ export default function DashboardPage() {
       setIsPlaying(false);
     }
   };
+
+  // Stable props for the export modal: it regenerates the PNG whenever these change.
+  const getPitchSvg = useCallback(() => pitchRef.current?.getSvgElement() ?? null, []);
+  const exportMatchInfo = useMemo(
+    () => ({
+      minute: currentFrame.minute,
+      second: currentFrame.second,
+      eventType: currentFrame.event_type,
+      isCounterfactual: currentFrame.is_counterfactual_mode,
+      possessionTeam: currentFrame.possession_team,
+    }),
+    [
+      currentFrame.minute,
+      currentFrame.second,
+      currentFrame.event_type,
+      currentFrame.is_counterfactual_mode,
+      currentFrame.possession_team,
+    ]
+  );
 
   const clock = `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
   const isLive = connectionMode === "live";
@@ -196,7 +236,9 @@ export default function DashboardPage() {
 
       {/* 2. Main Stadium Viewport */}
       <div className="relative z-10 flex h-full w-full flex-1 items-center justify-center overflow-hidden p-2 sm:p-4">
-        {/* Width capped so the 3:2 pitch plus its bars always fits the viewport height */}
+        {/* Width capped so the 3:2 pitch fits the viewport height. 10.5rem = header (56px)
+            + stage padding (32px) + pitch top bar (45px) + footer (33px) + frame border (2px);
+            those bars have fixed heights and never wrap. */}
         <div
           className="flex h-full w-full items-center justify-center"
           style={{ maxWidth: "min(1720px, calc((100vh - 10.5rem) * 1.5))" }}
@@ -263,14 +305,7 @@ export default function DashboardPage() {
                 <section className="border-b border-line p-3">
                   <AutoCoachPanel
                     currentFrame={currentFrame}
-                    onApplyOptimalDefense={(optimizedPlayers) => {
-                      optimizedPlayers.forEach((p) => {
-                        if (p.is_modified) {
-                          updatePlayerPosition(p.player_id, p.x, p.y);
-                        }
-                      });
-                      triggerSimulation();
-                    }}
+                    onApplyOptimalDefense={applyMovesAndSimulate}
                     onResetDefense={() => resetSimulation()}
                   />
                 </section>
@@ -336,14 +371,8 @@ export default function DashboardPage() {
       <ExportReportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        getSvgElement={() => pitchRef.current?.getSvgElement() ?? null}
-        matchInfo={{
-          minute: currentFrame.minute,
-          second: currentFrame.second,
-          eventType: currentFrame.event_type,
-          isCounterfactual: currentFrame.is_counterfactual_mode,
-          possessionTeam: currentFrame.possession_team,
-        }}
+        getSvgElement={getPitchSvg}
+        matchInfo={exportMatchInfo}
         metrics={currentFrame.metrics}
         debateMessages={currentFrame.agent_debate}
       />
@@ -362,14 +391,7 @@ export default function DashboardPage() {
         isOpen={isScenarioModalOpen}
         onClose={() => setIsScenarioModalOpen(false)}
         currentFrame={currentFrame}
-        onRestoreScenario={(restoredFrame) => {
-          restoredFrame.players.forEach((p) => {
-            if (p.is_modified) {
-              updatePlayerPosition(p.player_id, p.x, p.y);
-            }
-          });
-          triggerSimulation();
-        }}
+        onRestoreScenario={(restoredFrame) => applyMovesAndSimulate(restoredFrame.players)}
       />
     </main>
   );

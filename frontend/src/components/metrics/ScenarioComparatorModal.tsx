@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
 import { Pin, RotateCcw } from "lucide-react";
 import { Button, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
+import { PALETTE, hair } from "@/lib/palette";
 
 export interface SavedScenario {
   id: string;
@@ -30,18 +31,16 @@ function calculateTotalDisplacement(players: PlayerNode[]): number {
   return Math.round(total * 10) / 10;
 }
 
-const hair = { vectorEffect: "non-scaling-stroke" as const, strokeWidth: 0.5 };
-
 function MiniPitchPreview({ frame }: { frame: MatchFramePayload }) {
   return (
     <div className="aspect-[120/80] w-full overflow-hidden rounded-[3px] border border-line bg-turf">
       <svg viewBox="0 0 120 80" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
-        <g stroke="rgba(255,255,255,0.6)" fill="none">
-          <rect x="0" y="0" width="120" height="80" {...hair} />
-          <line x1="60" y1="0" x2="60" y2="80" {...hair} />
-          <circle cx="60" cy="40" r="9.15" {...hair} />
-          <rect x="0" y="19.85" width="16.5" height="40.3" {...hair} />
-          <rect x="103.5" y="19.85" width="16.5" height="40.3" {...hair} />
+        <g stroke={PALETTE.pitchLine} fill="none">
+          <rect x="0" y="0" width="120" height="80" {...hair()} />
+          <line x1="60" y1="0" x2="60" y2="80" {...hair()} />
+          <circle cx="60" cy="40" r="9.15" {...hair()} />
+          <rect x="0" y="19.85" width="16.5" height="40.3" {...hair()} />
+          <rect x="103.5" y="19.85" width="16.5" height="40.3" {...hair()} />
         </g>
 
         {frame.players.map((p) => (
@@ -50,14 +49,14 @@ function MiniPitchPreview({ frame }: { frame: MatchFramePayload }) {
             cx={p.x}
             cy={p.y}
             r={p.is_modified ? 2.2 : 1.6}
-            fill={p.team === "home" ? "#75aadb" : "#f4f0f8"}
-            stroke={p.is_modified ? "#00ff85" : "#0b0214"}
-            vectorEffect="non-scaling-stroke"
-            strokeWidth={p.is_modified ? 1.5 : 0.5}
+            fill={p.team === "home" ? PALETTE.home : PALETTE.away}
+            stroke={p.is_modified ? PALETTE.fg : PALETTE.ink}
+            strokeDasharray={p.is_modified ? "2 1.5" : undefined}
+            {...hair(p.is_modified ? 1 : 0.5)}
           />
         ))}
 
-        <circle cx={frame.ball_x} cy={frame.ball_y} r="1.1" fill="#f4f0f8" stroke="#0b0214" {...hair} />
+        <circle cx={frame.ball_x} cy={frame.ball_y} r="1.1" fill={PALETTE.fg} stroke={PALETTE.ink} {...hair()} />
       </svg>
     </div>
   );

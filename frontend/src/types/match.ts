@@ -65,3 +65,15 @@ export interface CounterfactualRequest {
   event_uuid: string;
   modified_players: PlayerNode[];
 }
+
+/** POST /api/v1/cloud/stress-burst (backend/app/main.py · execute_stress_burst). */
+export interface StressBurstResponse {
+  status: string;
+  benchmark: string;
+  simulations_count: number;
+  total_time_ms: number;
+  average_latency_ms: number;
+  throughput_simulations_per_sec: number;
+  kd_tree_lookups: number;
+  engine: string;
+}

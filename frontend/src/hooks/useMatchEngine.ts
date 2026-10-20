@@ -215,11 +215,19 @@ export function useMatchEngine({
   // 4. Disparar Simulación Contrafactual (onPlayerDrop)
   const triggerSimulation = useCallback(
     async (customPlayers?: PlayerNode[]) => {
+      const activeFrame = frames[currentFrameIndex];
+      // Only send players the user actually moved: the backend flags every player it
+      // receives as is_modified, so sending the full roster marked all 22 as moved.
+      // Callers that move players and simulate in the same tick must pass them in
+      // customPlayers, because `frames` here does not yet include that move.
+      const playersToSimulate = (customPlayers || activeFrame.players).filter((p) => p.is_modified);
+
+      // Nothing moved (e.g. a click on a player without dragging): the backend errors on an
+      // empty list and never answers, so there is nothing to recalculate.
+      if (playersToSimulate.length === 0) return;
+
       setIsThinking(true);
       setThinkingMessage("Recalculando geometría xT y consultando agentes...");
-
-      const activeFrame = frames[currentFrameIndex];
-      const playersToSimulate = customPlayers || activeFrame.players;
 
       const requestPayload: CounterfactualRequest = {
         match_id: activeFrame.match_id,

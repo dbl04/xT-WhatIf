@@ -20,6 +20,7 @@ import {
 } from "@/lib/coordinates";
 import { Move } from "lucide-react";
 import { Kicker } from "@/components/ui/primitives";
+import { PALETTE, hair } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
 
 // ======================================================================
@@ -40,21 +41,18 @@ const BASE_ANIM_DURATION_MS = 2000;
 // BROADCAST PALETTE (inline so the PNG export keeps it)
 // ======================================================================
 const C = {
-  ink: "#0b0214",
-  turf: "#081f14",
-  turfStripe: "#0a2418",
-  line: "rgba(255,255,255,0.72)",
-  white: "#f4f0f8",
-  green: "#00ff85",
-  magenta: "#ff005a",
-  home: "#75aadb",
-  away: "#f4f0f8",
+  ink: PALETTE.ink,
+  turf: PALETTE.turf,
+  turfStripe: PALETTE.turfStripe,
+  line: PALETTE.pitchLine,
+  white: PALETTE.fg,
+  green: PALETTE.green,
+  magenta: PALETTE.magenta,
+  home: PALETTE.home,
+  away: PALETTE.away,
 } as const;
 
 const DISPLAY_FONT = "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
-
-/** Screen-space hairline: stays N px wide regardless of pitch zoom. */
-const hair = (px = 0.5) => ({ vectorEffect: "non-scaling-stroke" as const, strokeWidth: px });
 
 const LAYER_TOGGLES = [
   { key: "voronoi", label: "Voronoi" },
@@ -343,13 +341,13 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     return (
       <div className="relative flex w-full select-none flex-col overflow-hidden rounded-lg border border-line-strong bg-ink-900">
         {/* Top Bar - Title + Layer toggles */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2">
-          <div className="flex items-baseline gap-3">
+        <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
+          <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
             <Kicker className="text-fg">Pizarra táctica</Kicker>
             <span className="font-mono text-[10px] text-fg-subtle">StatsBomb 360 · 120 × 80 m</span>
           </div>
 
-          <div className="flex items-center gap-0.5" role="group" aria-label="Capas">
+          <div className="ml-auto flex min-w-0 items-center gap-0.5 overflow-x-auto" role="group" aria-label="Capas">
             {LAYER_TOGGLES.map(({ key, label }) => {
               const [active, setActive] = layerState[key];
               return (
@@ -358,7 +356,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   type="button"
                   onClick={() => setActive(!active)}
                   aria-pressed={active}
-                  className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors ${
+                  className={`flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs transition-colors ${
                     active ? "bg-white/[0.07] text-fg" : "text-fg-subtle hover:bg-white/[0.04] hover:text-fg-muted"
                   }`}
                 >
@@ -613,12 +611,12 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         </div>
 
         {/* Footer: hint, legend, readouts */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-[11px] text-fg-subtle">
-          <div className="flex items-center gap-2">
-            <Move className="h-3.5 w-3.5" />
-            <span>Arrastra a cualquier jugador para simular el escenario.</span>
+        <div className="flex h-8 flex-nowrap items-center justify-between gap-4 border-t border-line px-4 text-[11px] text-fg-subtle">
+          <div className="flex min-w-0 items-center gap-2">
+            <Move className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Arrastra a cualquier jugador para simular el escenario.</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-4">
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />ARG</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />FRA</span>
