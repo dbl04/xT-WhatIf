@@ -29,13 +29,26 @@ interface PlaybackBarProps {
   onSpeedChange?: (speed: number) => void;
 }
 
-// Descripciones tácticas canónicas para los 5 momentos clave de la Final 2022
+// Descripciones tácticas canónicas oficiales de los 5 Golden Highlights de la Final 2022
 function getMomentLabel(frame: MatchFramePayload, index: number): string {
+  if (frame.minute === 21 && frame.second === 18) {
+    return "21:18 • Penalti a Di María (Desborde vs Dembélé)";
+  }
   if (frame.minute === 35 && frame.second === 42) {
-    return "35:42 - Gol de Di María (Pase de Mac Allister)";
+    return "35:42 • Gol 2-0 Di María (Contragolpe Mac Allister)";
+  }
+  if (frame.minute === 80 && frame.second === 25) {
+    return "80:25 • Gol 2-2 Mbappé (Volea Acrobática)";
   }
   if (frame.minute === 79 && frame.second === 15) {
-    return "79:15 - Conducción de Mbappé (Transición Francia)";
+    // Soporte legacy
+    return "80:25 • Gol 2-2 Mbappé (Volea Acrobática)";
+  }
+  if (frame.minute === 108 && frame.second === 31) {
+    return "108:31 • Gol 3-2 Messi (Rebote en Prórroga)";
+  }
+  if (frame.minute === 122 && frame.second === 43) {
+    return "122:43 • Atajada Legendaria Dibu Martínez vs Kolo Muani";
   }
   const minStr = String(frame.minute).padStart(2, "0");
   const secStr = String(frame.second).padStart(2, "0");
@@ -147,7 +160,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             className="bg-transparent text-xs font-semibold text-cyan-200 outline-none cursor-pointer pr-1"
           >
             {frames.map((f, i) => (
-              <option key={`${f.event_uuid || "moment"}-${i}`} value={i} className="bg-slate-900 text-slate-200">
+              <option key={f.event_uuid || i} value={i} className="bg-slate-900 text-slate-200">
                 {getMomentLabel(f, i)}
               </option>
             ))}
@@ -196,20 +209,61 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             <SkipForward className="w-4 h-4" />
           </button>
 
-        {/* Timeline Slider Scrubber */}
-        <div className="flex-1 flex items-center gap-2">
-          <span className="text-[10px] font-mono text-slate-500">00:00</span>
-          <div className="relative flex-1 flex items-center">
-            <input
-              type="range"
-              min="0"
-              max="90"
-              value={timelineProgress}
-              onChange={(e) => setTimelineProgress(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none"
-            />
+          {/* Timeline Slider Scrubber (0' a 125') */}
+          <div className="flex-1 flex items-center gap-2">
+            <span className="text-[10px] font-mono text-slate-500">00:00</span>
+            <div className="relative flex-1 flex items-center">
+              {/* Marcas Visuales Sutiles: 45', 90' y 120' */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-slate-600/70 pointer-events-none z-10"
+                style={{ left: `${(45 / 125) * 100}%` }}
+                title="45' Descanso"
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-amber-500/70 pointer-events-none z-10 shadow-sm shadow-amber-500/50"
+                style={{ left: `${(90 / 125) * 100}%` }}
+                title="90' Fin Tiempo Reglamentario"
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-cyan-400/80 pointer-events-none z-10 shadow-sm shadow-cyan-400/50"
+                style={{ left: `${(120 / 125) * 100}%` }}
+                title="120' Prórroga"
+              />
+
+              <input
+                type="range"
+                min="0"
+                max="125"
+                step="0.1"
+                value={timelineProgress}
+                onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none relative z-20"
+              />
+            </div>
+            <span className="text-[10px] font-mono text-slate-500">125:00</span>
           </div>
-          <span className="text-[10px] font-mono text-slate-500">90:00</span>
+        </div>
+
+        {/* Etiquetas de marcas de tiempo del partido (45', 90', 120') */}
+        <div className="relative w-full h-3 flex items-center pointer-events-none px-28 hidden sm:flex">
+          <span
+            className="absolute -translate-x-1/2 text-[9px] font-mono text-slate-500"
+            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(45 / 125)})` }}
+          >
+            45'
+          </span>
+          <span
+            className="absolute -translate-x-1/2 text-[9px] font-mono text-amber-400/90 font-semibold"
+            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(90 / 125)})` }}
+          >
+            90' (Fin Reg.)
+          </span>
+          <span
+            className="absolute -translate-x-1/2 text-[9px] font-mono text-cyan-300 font-semibold"
+            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(120 / 125)})` }}
+          >
+            120'
+          </span>
         </div>
       </div>
 
