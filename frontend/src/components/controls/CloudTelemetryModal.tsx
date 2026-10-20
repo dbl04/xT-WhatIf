@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { RefreshCw, Zap, Power, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
 import { StressBurstResponse } from "@/types/match";
+import { API_BASE_URL } from "@/lib/api";
 
 interface CloudTelemetryData {
   service_role: string;
@@ -49,7 +50,7 @@ interface CloudTelemetryModalProps {
 export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
   isOpen,
   onClose,
-  apiBaseUrl = "http://localhost:8000",
+  apiBaseUrl = API_BASE_URL,
 }) => {
   const [telemetry, setTelemetry] = useState<CloudTelemetryData>({
     service_role: "aca-gateway",

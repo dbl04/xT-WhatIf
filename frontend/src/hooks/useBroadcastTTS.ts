@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AgentMessage } from "@/types/match";
+import { API_BASE_URL } from "@/lib/api";
 
 export interface UseBroadcastTTSOptions {
   messages: AgentMessage[];
@@ -121,7 +122,7 @@ export function useBroadcastTTS({
         // First try backend synthesize endpoint with fast timeout
         let handledWithAudio = false;
         try {
-          const res = await fetch("/api/v1/tts/synthesize", {
+          const res = await fetch(`${API_BASE_URL}/api/v1/tts/synthesize`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
