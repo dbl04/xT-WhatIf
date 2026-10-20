@@ -28,6 +28,27 @@ interface StressBurstResult {
   engine: string;
 }
 
+/** POST /api/v1/cloud/stress-burst response (backend/app/main.py). */
+interface StressBurstApiResponse {
+  simulations_count: number;
+  total_time_ms: number;
+  average_latency_ms: number;
+  throughput_simulations_per_sec: number;
+  kd_tree_lookups: number;
+  engine: string;
+}
+
+function normalizeBurstResult(api: StressBurstApiResponse): StressBurstResult {
+  return {
+    burst_count: api.simulations_count,
+    total_elapsed_ms: api.total_time_ms,
+    avg_latency_ms: api.average_latency_ms,
+    sims_per_second: api.throughput_simulations_per_sec,
+    kd_tree_lookups: api.kd_tree_lookups,
+    engine: api.engine,
+  };
+}
+
 interface CloudTelemetryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -94,13 +115,14 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       });
 
       if (res.ok) {
-        const data: StressBurstResult = await res.json();
+        const data = normalizeBurstResult(await res.json());
         setBurstResult(data);
         setTelemetry((prev) => ({
           ...prev,
           total_simulations: prev.total_simulations + 25,
           last_compute_latency_ms: data.avg_latency_ms,
         }));
+        setIsBursting(false);
         return;
       }
     } catch {
