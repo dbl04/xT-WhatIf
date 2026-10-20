@@ -3,7 +3,8 @@
 
 import React, { useState } from "react";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
-import { BrainCircuit, Sparkles, CheckCircle2, RefreshCw } from "lucide-react";
+import { RotateCcw, Loader2 } from "lucide-react";
+import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 
 export interface AutoCoachPanelProps {
   currentFrame: MatchFramePayload;
@@ -76,10 +77,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
     });
 
     const elapsed = Math.max(1.2, Math.round((performance.now() - t0) * 10) / 10);
-    const names = adjustmentsList
-      .map((a) => `${a.playerName} (-${a.displacement}m)`)
-      .join(", ");
-    const badge = `⚡ 48 micro-basculaciones evaluadas en ${elapsed}ms • Óptimo: ${names}`;
+    const badge = `48 configuraciones · ${elapsed} ms`;
 
     return { updatedPlayers, badge, adjustmentsList };
   };
@@ -100,10 +98,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
 
       if (res.ok) {
         const data = await res.json();
-        const names = data.adjustments
-          .map((a: { name: string; displacement_m: number }) => `${a.name} (-${a.displacement_m}m)`)
-          .join(", ");
-        const badge = `⚡ ${data.evaluated_configurations} micro-basculaciones evaluadas en ${data.compute_time_ms}ms • Óptimo: ${names}`;
+        const badge = `${data.evaluated_configurations} configuraciones · ${data.compute_time_ms} ms`;
         setLastResultBadge(badge);
         setAdjustments(
           data.adjustments.map((a: { name: string; displacement_m: number }) => ({
@@ -127,58 +122,56 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2 p-3 bg-slate-950/80 border border-slate-800 rounded-2xl shadow-xl backdrop-blur-md">
+    <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-950/80 text-indigo-400 border border-indigo-800/60">
-            <BrainCircuit className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-              Auto-Coach AI
-            </h4>
-            <p className="text-[10px] text-slate-400 font-medium">
-              Optimizador Espacial Inverso (Anillo legal &le; 6.0m)
-            </p>
-          </div>
-        </div>
+        <Kicker>Auto-Coach</Kicker>
+        <span className="font-mono text-[10px] text-fg-subtle">radio ≤ 6.0 m</span>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {onResetDefense && adjustments.length > 0 && (
-            <button
-              onClick={() => {
-                setLastResultBadge(null);
-                setAdjustments([]);
-                onResetDefense();
-              }}
-              className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 transition text-xs"
-              title="Restaurar posiciones originales"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-          )}
+      <p className="text-[12px] leading-snug text-fg-muted">
+        Recoloca a los dos defensores más cercanos para minimizar el xT rival.
+      </p>
 
-          <button
-            onClick={handleRunOptimizer}
-            disabled={isSolving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 active:scale-95 transition disabled:opacity-50"
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleRunOptimizer}
+          disabled={isSolving}
+          className="flex-1"
+        >
+          {isSolving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          <span>{isSolving ? "Optimizando…" : "Optimizar defensa"}</span>
+        </Button>
+
+        {onResetDefense && adjustments.length > 0 && (
+          <IconButton
+            size="sm"
+            onClick={() => {
+              setLastResultBadge(null);
+              setAdjustments([]);
+              onResetDefense();
+            }}
+            title="Restaurar posiciones originales"
+            aria-label="Restaurar posiciones originales"
           >
-            {isSolving ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-            )}
-            <span>Auto-Fix Defensa (IA Óptima)</span>
-          </button>
-        </div>
+            <RotateCcw className="h-3.5 w-3.5" />
+          </IconButton>
+        )}
       </div>
 
       {lastResultBadge && (
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-indigo-950/40 border border-indigo-800/40 text-[11px] text-indigo-300">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="font-mono text-[10px] leading-tight truncate">
-            {lastResultBadge}
-          </span>
+        <div className="flex flex-col rounded-md border border-line">
+          {adjustments.map((a) => (
+            <div
+              key={a.playerName}
+              className="flex items-center justify-between border-b border-line px-2.5 py-1.5 text-[12px] last:border-b-0"
+            >
+              <span className="truncate text-fg">{a.playerName}</span>
+              <span className="font-mono text-[11px] tabular-nums text-fg-muted">{a.displacement} m</span>
+            </div>
+          ))}
+          <div className="px-2.5 py-1.5 font-mono text-[10px] text-fg-subtle">{lastResultBadge}</div>
         </div>
       )}
     </div>

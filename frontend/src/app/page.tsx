@@ -11,20 +11,18 @@ import { DemoGuideModal } from "@/components/controls/DemoGuideModal";
 import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
+import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import {
-  Ghost,
-  Cpu,
-  Zap,
-  Camera,
-  Cloud,
-  Sparkles,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  BrainCircuit,
+  Download,
+  Columns2,
+  Server,
+  HelpCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ArrowUpRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -92,104 +90,117 @@ export default function DashboardPage() {
     }
   };
 
+  const clock = `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
+  const isLive = connectionMode === "live";
+
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 select-none flex flex-col">
-      {/* 1. Top Broadcast Navbar (z-30) */}
-      <header className="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 z-30">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20">
-            <Ghost className="w-5 h-5 fill-current" />
+    <main className="relative flex h-screen w-screen select-none flex-col overflow-hidden bg-ink text-fg">
+      {/* 1. Top Broadcast Bar */}
+      <header className="z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4 sm:px-5">
+        <div className="flex min-w-0 items-center gap-4">
+          {/* Wordmark */}
+          <div className="flex items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight">
+            <span className="text-fg">xT</span>
+            <span className="text-signal-green">/</span>
+            <span className="text-fg">WhatIf</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold tracking-tight text-slate-100">
-                xT-WhatIf
-              </h1>
-              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                Premier League Broadcast HUD (120x80)
+
+          <span className="hidden h-6 w-px bg-line-strong sm:block" />
+
+          {/* Scorebug */}
+          <div className="hidden items-stretch overflow-hidden rounded-[3px] border border-line-strong font-display text-sm font-bold uppercase leading-none tracking-wide sm:flex">
+            <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
+              <span className="h-2.5 w-1 bg-team-home" />
+              ARG
+            </span>
+            <span className="flex min-w-[58px] items-center justify-center bg-ink-800 px-2.5 tabular-nums text-fg">
+              {clock}
+            </span>
+            <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
+              FRA
+              <span className="h-2.5 w-1 bg-ink" />
+            </span>
+          </div>
+
+          <div className="hidden min-w-0 flex-col lg:flex">
+            <Kicker>Final · Copa del Mundo 2022</Kicker>
+            <span className="truncate text-xs text-fg-muted">
+              Lusail · Argentina v Francia ·{" "}
+              <span className={currentFrame.is_counterfactual_mode ? "text-signal-green" : "text-fg"}>
+                {currentFrame.is_counterfactual_mode ? "Escenario simulado" : "Jugada real"}
               </span>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Argentina vs Francia • Final Copa del Mundo 2022 (Minuto {currentFrame.minute}:{String(currentFrame.second).padStart(2, "0")})
-            </p>
+            </span>
           </div>
         </div>
 
-        {/* Action Controls & Navigation */}
-        <div className="flex items-center gap-2">
-          {/* Toggle HUD Drawer */}
-          <button
+        {/* Navigation */}
+        <nav className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
             onClick={() => setIsHudDrawerOpen((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 ${
-              isHudDrawerOpen
-                ? "bg-indigo-600/20 border-indigo-500/50 text-indigo-300"
-                : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
-            }`}
-            title="Mostrar / Ocultar HUD Táctico & Auto-Coach"
+            title="Mostrar / ocultar el panel táctico"
+            className={isHudDrawerOpen ? "text-fg" : undefined}
           >
-            <BrainCircuit className="w-3.5 h-3.5 text-indigo-400" />
-            <span>{isHudDrawerOpen ? "Ocultar HUD" : "🧠 Panel Táctico"}</span>
-          </button>
+            {isHudDrawerOpen ? (
+              <PanelLeftClose className="h-3.5 w-3.5" />
+            ) : (
+              <PanelLeftOpen className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden md:inline">Panel</span>
+          </Button>
 
-          {/* Botón: Guía Rápida Demo 60s */}
-          <button
-            onClick={() => setIsDemoGuideOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold transition shadow-sm active:scale-95"
-            title="Cómo probar xT-WhatIf en 60 segundos"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>🎯 Guía 60s</span>
-          </button>
-
-          {/* Botón: Split Lab Comparador 1v1 */}
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setIsScenarioModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/50 text-purple-300 text-xs font-bold transition shadow-sm active:scale-95"
-            title="Abrir Split Lab para comparar hipótesis contrafácticas 1v1"
+            title="Comparar dos hipótesis contrafácticas"
           >
-            <Layers className="w-3.5 h-3.5 text-purple-400" />
-            <span>⚖️ Split Lab 1v1</span>
-          </button>
+            <Columns2 className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Comparar</span>
+          </Button>
 
-          {/* Botón: Telemetría Cloud AKS / ACA */}
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setIsCloudTelemetryOpen(true)}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/50 text-cyan-300 text-xs font-bold transition shadow-sm active:scale-95"
-            title="Abrir Panel de Telemetría en Vivo de Azure Container Apps y Kubernetes"
+            className="hidden md:inline-flex"
+            title="Telemetría de Azure Container Apps y AKS"
           >
-            <Cloud className="w-3.5 h-3.5 text-cyan-400" />
-            <span>☁️ Cloud Telemetry</span>
-          </button>
+            <Server className="h-3.5 w-3.5" />
+            <span>Infraestructura</span>
+          </Button>
 
-          {/* Botón: Exportar Informe Táctico */}
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition shadow-sm active:scale-95"
-            title="Generar tarjeta ejecutiva táctica en alta resolución 2K PNG"
+          <IconButton
+            onClick={() => setIsDemoGuideOpen(true)}
+            className="hidden sm:inline-flex"
+            title="Guía rápida de demostración"
+            aria-label="Guía rápida"
           >
-            <Camera className="w-3.5 h-3.5 text-emerald-400" />
-            <span>📸 Exportar</span>
-          </button>
+            <HelpCircle className="h-4 w-4" />
+          </IconButton>
 
-          {/* Estado de Conexión Dual-Mode */}
-          {connectionMode === "live" ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/80 text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-emerald-200 font-bold font-mono text-[11px]">LIVE</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/70 border border-amber-700/80 text-xs">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-amber-200 font-bold font-mono text-[11px]">OFFLINE</span>
-            </div>
-          )}
-        </div>
+          <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
+
+          <span
+            className="mr-2 hidden items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted sm:inline-flex"
+            title={isLive ? "Conectado al motor en vivo" : "Sin backend: datos locales"}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-green" : "bg-fg-subtle"}`} />
+            {isLive ? "Live" : "Offline"}
+          </span>
+
+          <Button variant="primary" onClick={() => setIsExportModalOpen(true)} title="Exportar informe táctico en PNG">
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+        </nav>
       </header>
 
-      {/* 2. Main Full-Screen Stadium Viewport */}
-      <div className="flex-1 w-full h-full relative z-10 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-        {/* Cancha 120x80 a pantalla completa panorámica */}
-        <div className="w-full h-full max-w-[1720px] flex items-center justify-center">
+      {/* 2. Main Stadium Viewport */}
+      <div className="relative z-10 flex h-full w-full flex-1 items-center justify-center overflow-hidden p-2 sm:p-4">
+        {/* Width capped so the 3:2 pitch plus its bars always fits the viewport height */}
+        <div
+          className="flex h-full w-full items-center justify-center"
+          style={{ maxWidth: "min(1720px, calc((100vh - 10.5rem) * 1.5))" }}
+        >
           <TacticalPitch2D
             ref={pitchRef}
             players={currentFrame.players}
@@ -214,76 +225,73 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* 3. Floating Collapsible HUD Drawer (Top-Left) */}
-        <div className="absolute top-4 left-4 z-30 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        {/* 3. Tactical Dock (Top-Left) */}
+        <div className="pointer-events-none absolute left-4 top-4 z-30 flex w-full max-w-[340px] flex-col">
           <AnimatePresence>
             {isHudDrawerOpen && (
-              <motion.div
-                initial={{ opacity: 0, x: -30, scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -30, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="pointer-events-auto flex flex-col gap-2.5 p-3 rounded-2xl bg-slate-950/85 backdrop-blur-md border border-slate-800/80 shadow-2xl"
+              <motion.aside
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+                className="pointer-events-auto flex max-h-[calc(100vh-15rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
-                {/* Presets Rápidos */}
-                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/60">
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                      Simulaciones Rápidas:
+                {/* Escenarios rápidos */}
+                <section className="border-b border-line p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <Kicker>Escenarios rápidos</Kicker>
+                    <span className="font-mono text-[10px] text-fg-subtle">
+                      {currentPresets.length}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setIsHudDrawerOpen(false)}
-                    className="p-1 rounded-lg text-slate-500 hover:text-slate-300"
-                    title="Minimizar HUD"
-                  >
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  <ul className="-mx-1 flex flex-col">
+                    {currentPresets.map((preset) => (
+                      <li key={preset.id}>
+                        <button
+                          onClick={() => applyPreset(preset)}
+                          className="group flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg"
+                        >
+                          <span className="truncate">{preset.label}</span>
+                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-colors group-hover:text-signal-green" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {currentPresets.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => applyPreset(preset)}
-                      className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/60 hover:border-amber-500/50 hover:text-amber-200 transition active:scale-95 shadow-sm"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
+                {/* Auto-Coach */}
+                <section className="border-b border-line p-3">
+                  <AutoCoachPanel
+                    currentFrame={currentFrame}
+                    onApplyOptimalDefense={(optimizedPlayers) => {
+                      optimizedPlayers.forEach((p) => {
+                        if (p.is_modified) {
+                          updatePlayerPosition(p.player_id, p.x, p.y);
+                        }
+                      });
+                      triggerSimulation();
+                    }}
+                    onResetDefense={() => resetSimulation()}
+                  />
+                </section>
 
-                {/* Auto-Coach AI Optimizer */}
-                <AutoCoachPanel
-                  currentFrame={currentFrame}
-                  onApplyOptimalDefense={(optimizedPlayers) => {
-                    optimizedPlayers.forEach((p) => {
-                      if (p.is_modified) {
-                        updatePlayerPosition(p.player_id, p.x, p.y);
-                      }
-                    });
-                    triggerSimulation();
-                  }}
-                  onResetDefense={() => resetSimulation()}
-                />
-
-                {/* Métricas xT en Formato Compacto */}
-                <XtDeltaPanel
-                  metrics={currentFrame.metrics}
-                  isCounterfactualMode={currentFrame.is_counterfactual_mode}
-                  onReset={() => {
-                    setIsPlaying(false);
-                    resetSimulation();
-                  }}
-                  onExportReport={() => setIsExportModalOpen(true)}
-                />
-              </motion.div>
+                {/* Métricas xT */}
+                <section className="p-3">
+                  <XtDeltaPanel
+                    metrics={currentFrame.metrics}
+                    isCounterfactualMode={currentFrame.is_counterfactual_mode}
+                    onReset={() => {
+                      setIsPlaying(false);
+                      resetSimulation();
+                    }}
+                  />
+                </section>
+              </motion.aside>
             )}
           </AnimatePresence>
         </div>
 
-        {/* 4. Lower-Third Televisivo Emergente (BroadcastCommentatorCard) */}
+        {/* 4. Lower-Third */}
         <BroadcastCommentatorCard
           messages={currentFrame.agent_debate}
           activeSpeakingRole={tts.activeSpeaker}
@@ -294,11 +302,13 @@ export default function DashboardPage() {
           onPlaySingleMessage={tts.playSingleMessage}
           onPlayFullDebate={tts.play}
           onStopAudio={tts.stop}
+          clockLabel={clock}
+          eventType={currentFrame.event_type}
         />
 
-        {/* 5. Bottom Transport Dock (PlaybackBar + Audio) */}
-        <div className="absolute bottom-2 inset-x-0 mx-auto z-30 flex justify-center px-4 pointer-events-none">
-          <div className="w-full max-w-4xl bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-2xl p-2 shadow-2xl pointer-events-auto">
+        {/* 5. Transport Dock */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 mx-auto flex justify-center px-4">
+          <div className="pointer-events-auto w-full max-w-5xl">
             <PlaybackBar
               frames={frames}
               currentFrameIndex={currentFrameIndex}

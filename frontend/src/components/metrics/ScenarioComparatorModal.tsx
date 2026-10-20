@@ -3,17 +3,8 @@
 
 import React, { useState } from "react";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
-import {
-  X,
-  Pin,
-  CheckCircle2,
-  TrendingDown,
-  TrendingUp,
-  Activity,
-  Award,
-  RotateCcw,
-  Layers,
-} from "lucide-react";
+import { Pin, RotateCcw } from "lucide-react";
+import { Button, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
 
 export interface SavedScenario {
   id: string;
@@ -39,90 +30,48 @@ function calculateTotalDisplacement(players: PlayerNode[]): number {
   return Math.round(total * 10) / 10;
 }
 
+const hair = { vectorEffect: "non-scaling-stroke" as const, strokeWidth: 0.5 };
+
 function MiniPitchPreview({ frame }: { frame: MatchFramePayload }) {
   return (
-    <div className="w-full h-24 bg-slate-900/90 rounded-xl border border-slate-800 overflow-hidden relative">
-      <svg
-        viewBox="0 0 120 80"
-        className="w-full h-full"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* Pitch boundary and markings */}
-        <rect
-          x="0"
-          y="0"
-          width="120"
-          height="80"
-          fill="#064e3b"
-          fillOpacity="0.3"
-          stroke="#10b981"
-          strokeWidth="0.5"
-          strokeOpacity="0.4"
-        />
-        <line
-          x1="60"
-          y1="0"
-          x2="60"
-          y2="80"
-          stroke="#10b981"
-          strokeWidth="0.4"
-          strokeOpacity="0.4"
-        />
-        <circle
-          cx="60"
-          cy="40"
-          r="9.15"
-          fill="none"
-          stroke="#10b981"
-          strokeWidth="0.4"
-          strokeOpacity="0.4"
-        />
-        <rect
-          x="102"
-          y="18"
-          width="18"
-          height="44"
-          fill="none"
-          stroke="#10b981"
-          strokeWidth="0.4"
-          strokeOpacity="0.4"
-        />
+    <div className="aspect-[120/80] w-full overflow-hidden rounded-[3px] border border-line bg-turf">
+      <svg viewBox="0 0 120 80" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+        <g stroke="rgba(255,255,255,0.6)" fill="none">
+          <rect x="0" y="0" width="120" height="80" {...hair} />
+          <line x1="60" y1="0" x2="60" y2="80" {...hair} />
+          <circle cx="60" cy="40" r="9.15" {...hair} />
+          <rect x="0" y="19.85" width="16.5" height="40.3" {...hair} />
+          <rect x="103.5" y="19.85" width="16.5" height="40.3" {...hair} />
+        </g>
 
-        {/* Players */}
-        {frame.players.map((p) => {
-          const isHome = p.team === "home";
-          return (
-            <circle
-              key={p.player_id}
-              cx={p.x}
-              cy={p.y}
-              r={p.is_modified ? 2.4 : 1.4}
-              fill={
-                p.is_modified
-                  ? "#f59e0b"
-                  : isHome
-                  ? "#38bdf8"
-                  : "#f43f5e"
-              }
-              stroke={p.is_modified ? "#ffffff" : "none"}
-              strokeWidth="0.6"
-            />
-          );
-        })}
+        {frame.players.map((p) => (
+          <circle
+            key={p.player_id}
+            cx={p.x}
+            cy={p.y}
+            r={p.is_modified ? 2.2 : 1.6}
+            fill={p.team === "home" ? "#75aadb" : "#f4f0f8"}
+            stroke={p.is_modified ? "#00ff85" : "#0b0214"}
+            vectorEffect="non-scaling-stroke"
+            strokeWidth={p.is_modified ? 1.5 : 0.5}
+          />
+        ))}
 
-        {/* Ball */}
-        <circle
-          cx={frame.ball_x}
-          cy={frame.ball_y}
-          r="1.6"
-          fill="#ffffff"
-          stroke="#000000"
-          strokeWidth="0.4"
-        />
+        <circle cx={frame.ball_x} cy={frame.ball_y} r="1.1" fill="#f4f0f8" stroke="#0b0214" {...hair} />
       </svg>
     </div>
   );
 }
+
+const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="flex items-baseline justify-between border-b border-line py-1.5 last:border-b-0">
+    <span className="text-[12px] text-fg-muted">{label}</span>
+    <span className="font-mono text-[12px] tabular-nums text-fg">{children}</span>
+  </div>
+);
+
+const deltaClass = (delta: number) => (delta >= 0 ? "text-signal-green" : "text-signal-magenta");
+const signed = (n: number, digits = 3) => `${n > 0 ? "+" : ""}${n.toFixed(digits)}`;
 
 export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = ({
   isOpen,
@@ -165,251 +114,118 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
   const effA = getEfficiencyRatio(scenarioA);
   const effB = getEfficiencyRatio(scenarioB);
 
-  let verdict = "Fija ambos escenarios para calcular el balance táctico óptimo.";
+  let verdict = "Fija ambos escenarios para comparar su eficiencia táctica.";
+  let winner: "A" | "B" | null = null;
   if (scenarioA && scenarioB) {
     if (effA > effB) {
-      verdict = `🏆 El Escenario A ofrece mayor eficiencia táctica (${effA > 0 ? "+" : ""}${effA} ΔxT/m): mayor reducción de peligro con menor desgaste físico.`;
+      winner = "A";
+      verdict = `El escenario A es más eficiente (${effA > 0 ? "+" : ""}${effA} ΔxT/m): reduce más peligro con menos desgaste físico.`;
     } else if (effB > effA) {
-      verdict = `🏆 El Escenario B ofrece mayor eficiencia táctica (${effB > 0 ? "+" : ""}${effB} ΔxT/m): mejor bloqueo de carril interior respecto a los metros recorridos.`;
+      winner = "B";
+      verdict = `El escenario B es más eficiente (${effB > 0 ? "+" : ""}${effB} ΔxT/m): mejor cierre del carril interior por metro recorrido.`;
     } else {
-      verdict = "⚖️ Ambos escenarios presentan un perfil de riesgo/recompensa idéntico.";
+      verdict = "Ambos escenarios tienen el mismo perfil de riesgo/recompensa.";
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/60">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-cyan-950/80 text-cyan-400 border border-cyan-800/60">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <span>Split Lab: Comparador 1v1 de Escenarios</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-                  Head-to-Head
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400">
-                Guarda 2 hipótesis contrafácticas y evalúa la relación Reducción de Peligro vs. Esfuerzo Físico
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Action Toolbar to Pin current state */}
-        <div className="flex items-center justify-between px-6 py-3 bg-slate-900/40 border-b border-slate-800/60 text-xs">
-          <span className="text-slate-400 font-medium">
-            Estado actual en pizarra: {currentFrame.players.filter((p) => p.is_modified).length} jugadores modificados
+  const renderScenario = (key: "A" | "B", sc: SavedScenario | null) => (
+    <div className="flex flex-col gap-3 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-fg font-display text-sm font-extrabold text-ink">
+            {key}
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePinScenarioA}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 font-semibold transition active:scale-95"
-            >
-              <Pin className="w-3.5 h-3.5" />
-              <span>📌 Fijar como Escenario A</span>
-            </button>
-            <button
-              onClick={handlePinScenarioB}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700/60 font-semibold transition active:scale-95"
-            >
-              <Pin className="w-3.5 h-3.5" />
-              <span>📌 Fijar como Escenario B</span>
-            </button>
-          </div>
+          <Kicker className="text-fg">Escenario {key}</Kicker>
         </div>
+        {sc && winner === key && <Tag tone="green">Más eficiente</Tag>}
+        {sc && winner !== key && <span className="font-mono text-[10px] text-fg-subtle">{sc.timestamp}</span>}
+      </div>
 
-        {/* Comparison Grid: Base vs A vs B */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 overflow-y-auto">
-          {/* Column 1: Base Reality */}
-          <div className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                1. Realidad Base (StatsBomb)
-              </span>
-              <span className="text-[10px] font-mono text-slate-500">Oficial</span>
-            </div>
-
-            <MiniPitchPreview frame={currentFrame} />
-
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-800/60">
-                <span className="text-slate-400">Amenaza Base (xT):</span>
-                <span className="font-mono font-bold text-slate-200">
-                  {currentFrame.metrics.original_xt.toFixed(3)}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-800/60">
-                <span className="text-slate-400">Control Voronoi:</span>
-                <span className="font-mono font-bold text-slate-200">
-                  {currentFrame.metrics.space_control_home_pct.toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-800/60">
-                <span className="text-slate-400">Éxito de Pase:</span>
-                <span className="font-mono font-bold text-slate-200">
-                  {currentFrame.metrics.pass_completion_prob.toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-400">Desplazamiento:</span>
-                <span className="font-mono font-bold text-slate-500">0.0 m</span>
-              </div>
-            </div>
+      {sc ? (
+        <>
+          <MiniPitchPreview frame={sc.frame} />
+          <div>
+            <Row label="Amenaza (xT)">
+              {sc.frame.metrics.simulated_xt.toFixed(3)}{" "}
+              <span className={deltaClass(sc.frame.metrics.xt_delta)}>({signed(sc.frame.metrics.xt_delta)})</span>
+            </Row>
+            <Row label="Control Voronoi">{sc.frame.metrics.space_control_home_pct.toFixed(1)}%</Row>
+            <Row label="Éxito de pase">{sc.frame.metrics.pass_completion_prob.toFixed(1)}%</Row>
+            <Row label="Desplazamiento total">{calculateTotalDisplacement(sc.frame.players)} m</Row>
           </div>
 
-          {/* Column 2: Scenario A */}
-          <div className="flex flex-col gap-3 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/40 relative">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                2. Escenario A
-              </span>
-              {scenarioA && (
-                <span className="text-[10px] font-mono text-cyan-500">
-                  {scenarioA.timestamp}
-                </span>
-              )}
-            </div>
-
-            {scenarioA ? (
-              <>
-                <MiniPitchPreview frame={scenarioA.frame} />
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-cyan-900/40">
-                    <span className="text-slate-400">Amenaza (xT):</span>
-                    <span className="font-mono font-bold text-cyan-300">
-                      {scenarioA.frame.metrics.simulated_xt.toFixed(3)} (
-                      {scenarioA.frame.metrics.xt_delta > 0 ? "+" : ""}
-                      {scenarioA.frame.metrics.xt_delta.toFixed(3)})
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-cyan-900/40">
-                    <span className="text-slate-400">Control Voronoi:</span>
-                    <span className="font-mono font-bold text-cyan-300">
-                      {scenarioA.frame.metrics.space_control_home_pct.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-cyan-900/40">
-                    <span className="text-slate-400">Éxito de Pase:</span>
-                    <span className="font-mono font-bold text-cyan-300">
-                      {scenarioA.frame.metrics.pass_completion_prob.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-slate-400">Desplazamiento Total:</span>
-                    <span className="font-mono font-bold text-amber-300">
-                      {calculateTotalDisplacement(scenarioA.frame.players)} m
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    onRestoreScenario(scenarioA.frame);
-                    onClose();
-                  }}
-                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs transition active:scale-95"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restaurar en Pizarra</span>
-                </button>
-              </>
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-center p-4 text-slate-500 text-xs">
-                <Pin className="w-6 h-6 mb-2 opacity-40" />
-                <p>Mueve jugadores en la pizarra y pulsa &ldquo;Fijar como Escenario A&rdquo;.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Column 3: Scenario B */}
-          <div className="flex flex-col gap-3 p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40 relative">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
-                3. Escenario B
-              </span>
-              {scenarioB && (
-                <span className="text-[10px] font-mono text-purple-500">
-                  {scenarioB.timestamp}
-                </span>
-              )}
-            </div>
-
-            {scenarioB ? (
-              <>
-                <MiniPitchPreview frame={scenarioB.frame} />
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-purple-900/40">
-                    <span className="text-slate-400">Amenaza (xT):</span>
-                    <span className="font-mono font-bold text-purple-300">
-                      {scenarioB.frame.metrics.simulated_xt.toFixed(3)} (
-                      {scenarioB.frame.metrics.xt_delta > 0 ? "+" : ""}
-                      {scenarioB.frame.metrics.xt_delta.toFixed(3)})
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-purple-900/40">
-                    <span className="text-slate-400">Control Voronoi:</span>
-                    <span className="font-mono font-bold text-purple-300">
-                      {scenarioB.frame.metrics.space_control_home_pct.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-purple-900/40">
-                    <span className="text-slate-400">Éxito de Pase:</span>
-                    <span className="font-mono font-bold text-purple-300">
-                      {scenarioB.frame.metrics.pass_completion_prob.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-slate-400">Desplazamiento Total:</span>
-                    <span className="font-mono font-bold text-amber-300">
-                      {calculateTotalDisplacement(scenarioB.frame.players)} m
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    onRestoreScenario(scenarioB.frame);
-                    onClose();
-                  }}
-                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition active:scale-95"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restaurar en Pizarra</span>
-                </button>
-              </>
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-center p-4 text-slate-500 text-xs">
-                <Pin className="w-6 h-6 mb-2 opacity-40" />
-                <p>Mueve a otros jugadores y pulsa &ldquo;Fijar como Escenario B&rdquo;.</p>
-              </div>
-            )}
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              onRestoreScenario(sc.frame);
+              onClose();
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restaurar en la pizarra
+          </Button>
+        </>
+      ) : (
+        <div className="flex aspect-[120/80] w-full flex-col items-center justify-center gap-2 rounded-[3px] border border-dashed border-line-strong px-4 text-center text-[12px] text-fg-subtle">
+          <Pin className="h-4 w-4" />
+          Mueve jugadores y pulsa «Fijar {key}».
         </div>
+      )}
+    </div>
+  );
 
-        {/* Verdict Bar */}
-        <div className="px-6 py-4 bg-slate-900/80 border-t border-slate-800 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 shrink-0">
-            <Award className="w-5 h-5" />
-          </div>
-          <div className="flex-1 text-xs">
-            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">
-              Veredicto de Eficiencia Contrafáctica (ΔxT / Desgaste Físico)
-            </div>
-            <p className="text-slate-200 font-medium mt-0.5">{verdict}</p>
-          </div>
+  return (
+    <ModalShell
+      kicker="Comparador"
+      title="Escenario A vs B"
+      description="Guarda dos hipótesis y compara la reducción de peligro frente al esfuerzo físico."
+      onClose={onClose}
+      className="max-w-5xl"
+      footer={
+        <div className="flex w-full items-start gap-4">
+          <Kicker className="shrink-0 pt-0.5">Veredicto</Kicker>
+          <p className="text-[13px] text-fg">{verdict}</p>
+        </div>
+      }
+    >
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-2.5">
+        <span className="text-[12px] text-fg-muted">
+          En la pizarra:{" "}
+          <span className="font-mono text-fg">{currentFrame.players.filter((p) => p.is_modified).length}</span> jugadores
+          modificados
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="secondary" onClick={handlePinScenarioA}>
+            <Pin className="h-3.5 w-3.5" />
+            Fijar A
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handlePinScenarioB}>
+            <Pin className="h-3.5 w-3.5" />
+            Fijar B
+          </Button>
         </div>
       </div>
-    </div>
+
+      {/* Base vs A vs B */}
+      <div className="grid grid-cols-1 divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
+        <div className="flex flex-col gap-3 p-4">
+          <div className="flex items-center justify-between">
+            <Kicker className="text-fg">Realidad</Kicker>
+            <span className="font-mono text-[10px] text-fg-subtle">StatsBomb 360</span>
+          </div>
+          <MiniPitchPreview frame={currentFrame} />
+          <div>
+            <Row label="Amenaza base (xT)">{currentFrame.metrics.original_xt.toFixed(3)}</Row>
+            <Row label="Control Voronoi">{currentFrame.metrics.space_control_home_pct.toFixed(1)}%</Row>
+            <Row label="Éxito de pase">{currentFrame.metrics.pass_completion_prob.toFixed(1)}%</Row>
+            <Row label="Desplazamiento">0.0 m</Row>
+          </div>
+        </div>
+        {renderScenario("A", scenarioA)}
+        {renderScenario("B", scenarioB)}
+      </div>
+    </ModalShell>
   );
 };

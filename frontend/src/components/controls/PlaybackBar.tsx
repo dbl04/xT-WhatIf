@@ -3,16 +3,16 @@
 
 import React, { useState, useEffect } from "react";
 import { MatchFramePayload } from "@/types/match";
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  FastForward,
-  SkipBack,
-  SkipForward,
-  Clock,
-  Film,
-} from "lucide-react";
+import { Play, Pause, RotateCcw, SkipBack, SkipForward, ChevronDown } from "lucide-react";
+import { Button, IconButton } from "@/components/ui/primitives";
+
+const SPEEDS = [0.5, 1, 2] as const;
+const TIMELINE_MAX = 125;
+const TIMELINE_MARKS = [
+  { minute: 45, label: "45'" },
+  { minute: 90, label: "90'" },
+  { minute: 120, label: "120'" },
+];
 
 interface PlaybackBarProps {
   frames?: MatchFramePayload[];
@@ -32,28 +32,28 @@ interface PlaybackBarProps {
 // Descripciones tácticas canónicas oficiales de los 5 Golden Highlights de la Final 2022
 function getMomentLabel(frame: MatchFramePayload, index: number): string {
   if (frame.minute === 21 && frame.second === 18) {
-    return "21:18 • Penalti a Di María (Desborde vs Dembélé)";
+    return "21:18 · Penalti a Di María (Desborde vs Dembélé)";
   }
   if (frame.minute === 35 && frame.second === 42) {
-    return "35:42 • Gol 2-0 Di María (Contragolpe Mac Allister)";
+    return "35:42 · Gol 2-0 Di María (Contragolpe Mac Allister)";
   }
   if (frame.minute === 80 && frame.second === 25) {
-    return "80:25 • Gol 2-2 Mbappé (Volea Acrobática)";
+    return "80:25 · Gol 2-2 Mbappé (Volea Acrobática)";
   }
   if (frame.minute === 79 && frame.second === 15) {
     // Soporte legacy
-    return "80:25 • Gol 2-2 Mbappé (Volea Acrobática)";
+    return "80:25 · Gol 2-2 Mbappé (Volea Acrobática)";
   }
   if (frame.minute === 108 && frame.second === 31) {
-    return "108:31 • Gol 3-2 Messi (Rebote en Prórroga)";
+    return "108:31 · Gol 3-2 Messi (Rebote en Prórroga)";
   }
   if (frame.minute === 122 && frame.second === 43) {
-    return "122:43 • Atajada Legendaria Dibu Martínez vs Kolo Muani";
+    return "122:43 · Atajada Legendaria Dibu Martínez vs Kolo Muani";
   }
   const minStr = String(frame.minute).padStart(2, "0");
   const secStr = String(frame.second).padStart(2, "0");
   const teamLabel = frame.possession_team === "home" ? "Argentina" : "Francia";
-  return `${minStr}:${secStr} • ${frame.event_type} (${teamLabel})`;
+  return `${minStr}:${secStr} · ${frame.event_type} (${teamLabel})`;
 }
 
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
@@ -93,13 +93,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
     }
   };
 
-  const handleSpeedToggle = () => {
-    // Cicla entre 0.5x -> 1x -> 2x -> 0.5x
-    let nextSpeed = 1;
-    if (speed === 0.5) nextSpeed = 1;
-    else if (speed === 1) nextSpeed = 2;
-    else if (speed === 2) nextSpeed = 0.5;
-
+  const handleSpeedSelect = (nextSpeed: number) => {
     setSpeed(nextSpeed);
     if (onSpeedChange) {
       onSpeedChange(nextSpeed);
@@ -128,173 +122,135 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   };
 
   const formattedTime = `${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+  const progressPct = Math.max(0, Math.min(100, (timelineProgress / TIMELINE_MAX) * 100));
 
   return (
-    <div className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-4">
-      {/* Reloj y Selector Rápido de Jugadas Clave (Match Moment Selector) */}
-      <div className="flex items-center gap-3">
-        {/* Reloj Oficial */}
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
-          <Clock className="w-4 h-4 text-emerald-400" />
-          <span className="font-mono font-bold text-sm text-slate-100">
-            {formattedTime}
-          </span>
-        </div>
+    <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line-strong bg-ink-900/95 px-2 py-1.5 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm">
+      {/* Transport */}
+      <div className="flex items-center gap-0.5">
+        <IconButton
+          onClick={() => {
+            if (selectFrame && currentFrameIndex > 0) {
+              selectFrame(currentFrameIndex - 1);
+            }
+          }}
+          disabled={currentFrameIndex <= 0}
+          title="Jugada anterior"
+          aria-label="Jugada anterior"
+        >
+          <SkipBack className="h-3.5 w-3.5" />
+        </IconButton>
 
-        {/* ============================================================== */}
-        {/* MATCH MOMENT SELECTOR (5 GOLDEN HIGHLIGHTS)                    */}
-        {/* ============================================================== */}
-        <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-xl shadow-inner">
-          <Film className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-            Jugada Clave:
-          </span>
-          <select
-            value={currentFrameIndex}
-            onChange={(e) => {
-              const idx = Number(e.target.value);
-              if (selectFrame) {
-                selectFrame(idx);
-              }
-            }}
-            className="bg-transparent text-xs font-semibold text-cyan-200 outline-none cursor-pointer pr-1"
-          >
-            {frames.map((f, i) => (
-              <option key={f.event_uuid || i} value={i} className="bg-slate-900 text-slate-200">
-                {getMomentLabel(f, i)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <button
+          type="button"
+          onClick={handlePlayToggle}
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-fg text-ink transition-colors hover:bg-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-green"
+          title={isPlaying ? "Pausar" : "Reproducir"}
+          aria-label={isPlaying ? "Pausar" : "Reproducir"}
+        >
+          {isPlaying ? (
+            <Pause className="h-3.5 w-3.5 fill-current" />
+          ) : (
+            <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+          )}
+        </button>
+
+        <IconButton
+          onClick={() => {
+            if (selectFrame && currentFrameIndex < frames.length - 1) {
+              selectFrame(currentFrameIndex + 1);
+            }
+          }}
+          disabled={currentFrameIndex >= frames.length - 1}
+          title="Siguiente jugada"
+          aria-label="Siguiente jugada"
+        >
+          <SkipForward className="h-3.5 w-3.5" />
+        </IconButton>
       </div>
 
-      {/* Controles de Reproducción y Scrubber Central (Prórroga 125') */}
-      <div className="flex-1 max-w-xl flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (selectFrame && currentFrameIndex > 0) {
-                selectFrame(currentFrameIndex - 1);
-              }
-            }}
-            disabled={currentFrameIndex <= 0}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
-            title="Jugada Anterior"
-          >
-            <SkipBack className="w-4 h-4" />
-          </button>
+      {/* Clock */}
+      <span className="min-w-[52px] font-display text-xl font-bold leading-none tabular-nums text-fg">
+        {formattedTime}
+      </span>
 
-          <button
-            onClick={handlePlayToggle}
-            className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition shadow-lg shadow-emerald-500/20 active:scale-95"
-            title={isPlaying ? "Pausar" : "Reproducir"}
-          >
-            {isPlaying ? (
-              <Pause className="w-4 h-4 fill-current" />
-            ) : (
-              <Play className="w-4 h-4 fill-current ml-0.5" />
-            )}
-          </button>
+      {/* Match moment selector */}
+      <label className="relative flex h-8 min-w-0 max-w-[300px] items-center rounded-md border border-line bg-ink-800 pl-2.5 pr-7 transition-colors hover:border-line-strong">
+        <span className="sr-only">Jugada clave</span>
+        <select
+          value={currentFrameIndex}
+          onChange={(e) => {
+            const idx = Number(e.target.value);
+            if (selectFrame) {
+              selectFrame(idx);
+            }
+          }}
+          className="w-full cursor-pointer appearance-none truncate bg-transparent text-[13px] text-fg outline-none"
+        >
+          {frames.map((f, i) => (
+            <option key={f.event_uuid || i} value={i} className="bg-ink-900 text-fg">
+              {getMomentLabel(f, i)}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-fg-subtle" />
+      </label>
 
-          <button
-            onClick={() => {
-              if (selectFrame && currentFrameIndex < frames.length - 1) {
-                selectFrame(currentFrameIndex + 1);
-              }
-            }}
-            disabled={currentFrameIndex >= frames.length - 1}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
-            title="Siguiente Jugada"
-          >
-            <SkipForward className="w-4 h-4" />
-          </button>
-
-          {/* Timeline Slider Scrubber (0' a 125') */}
-          <div className="flex-1 flex items-center gap-2">
-            <span className="text-[10px] font-mono text-slate-500">00:00</span>
-            <div className="relative flex-1 flex items-center">
-              {/* Marcas Visuales Sutiles: 45', 90' y 120' */}
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-slate-600/70 pointer-events-none z-10"
-                style={{ left: `${(45 / 125) * 100}%` }}
-                title="45' Descanso"
-              />
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-amber-500/70 pointer-events-none z-10 shadow-sm shadow-amber-500/50"
-                style={{ left: `${(90 / 125) * 100}%` }}
-                title="90' Fin Tiempo Reglamentario"
-              />
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-cyan-400/80 pointer-events-none z-10 shadow-sm shadow-cyan-400/50"
-                style={{ left: `${(120 / 125) * 100}%` }}
-                title="120' Prórroga"
-              />
-
-              <input
-                type="range"
-                min="0"
-                max="125"
-                step="0.1"
-                value={timelineProgress}
-                onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none relative z-20"
-              />
+      {/* Timeline scrubber 0'-125' */}
+      <div className="flex min-w-[180px] flex-1 items-center gap-2">
+        <span className="font-mono text-[10px] tabular-nums text-fg-subtle">0'</span>
+        <div className="relative flex-1 pb-3">
+          {TIMELINE_MARKS.map((m) => (
+            <div
+              key={m.minute}
+              className="pointer-events-none absolute top-0 flex -translate-x-1/2 flex-col items-center"
+              style={{ left: `${(m.minute / TIMELINE_MAX) * 100}%` }}
+            >
+              <span className="mt-[5px] h-1.5 w-px bg-fg-subtle" />
+              <span className="mt-1 font-mono text-[9px] leading-none text-fg-subtle">{m.label}</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-500">125:00</span>
-          </div>
+          ))}
+          <input
+            type="range"
+            min="0"
+            max={TIMELINE_MAX}
+            step="0.1"
+            value={timelineProgress}
+            onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
+            aria-label="Línea de tiempo del partido"
+            className="pl-range relative z-10 block"
+            style={{ "--pct": `${progressPct}%` } as React.CSSProperties}
+          />
         </div>
-
-        {/* Etiquetas de marcas de tiempo del partido (45', 90', 120') */}
-        <div className="relative w-full h-3 flex items-center pointer-events-none px-28 hidden sm:flex">
-          <span
-            className="absolute -translate-x-1/2 text-[9px] font-mono text-slate-500"
-            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(45 / 125)})` }}
-          >
-            45'
-          </span>
-          <span
-            className="absolute -translate-x-1/2 text-[9px] font-mono text-amber-400/90 font-semibold"
-            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(90 / 125)})` }}
-          >
-            90' (Fin Reg.)
-          </span>
-          <span
-            className="absolute -translate-x-1/2 text-[9px] font-mono text-cyan-300 font-semibold"
-            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(120 / 125)})` }}
-          >
-            120'
-          </span>
-        </div>
+        <span className="font-mono text-[10px] tabular-nums text-fg-subtle">125'</span>
       </div>
 
-      {/* Velocidad y Botón Ámbar de Reseteo (Entregable 3) */}
-      <div className="flex items-center gap-2.5">
-        {/* Selector de Velocidad */}
-        <button
-          onClick={handleSpeedToggle}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono font-bold text-slate-300 transition"
-          title="Alternar velocidad (0.5x, 1x, 2x)"
-        >
-          <FastForward className="w-3.5 h-3.5 text-slate-400" />
-          {speed}x
-        </button>
-
-        {/* ============================================================== */}
-        {/* BOTÓN ÁMBAR: RESETEAR SIMULACIÓN (VOLVER A REALIDAD)           */}
-        {/* ============================================================== */}
-        <button
-          onClick={onResetSimulation}
-          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-medium text-xs transition active:scale-95 shadow-md ${
-            isCounterfactualMode
-              ? "bg-amber-950/80 hover:bg-amber-900 border border-amber-600/80 text-amber-300 shadow-amber-950/60 animate-pulse"
-              : "bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400"
-          }`}
-          title="Restablecer posiciones al frame real de StatsBomb 360"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Resetear Simulación (Volver a Realidad)</span>
-        </button>
+      {/* Speed */}
+      <div className="flex h-8 items-center rounded-md border border-line bg-ink-800 p-0.5" role="group" aria-label="Velocidad">
+        {SPEEDS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => handleSpeedSelect(s)}
+            className={`h-full rounded-[4px] px-2 font-mono text-[11px] tabular-nums transition-colors ${
+              speed === s ? "bg-white/[0.1] text-fg" : "text-fg-subtle hover:text-fg"
+            }`}
+            aria-pressed={speed === s}
+          >
+            {s}×
+          </button>
+        ))}
       </div>
+
+      {/* Reset to reality */}
+      <Button
+        variant={isCounterfactualMode ? "secondary" : "ghost"}
+        onClick={onResetSimulation}
+        title="Restablecer posiciones al frame real de StatsBomb 360"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+        <span className="hidden lg:inline">Volver a la realidad</span>
+      </Button>
     </div>
   );
 };

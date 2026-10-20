@@ -2,18 +2,9 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  Volume2,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
-  Radio,
-  Users,
-  Play,
-  Square,
-} from "lucide-react";
-import { AgentMessage } from "@/types/match";
-import { CommentatorAvatar } from "@/components/agents/CommentatorAvatars";
+import { Volume2, Minus, Play, Square, ChevronUp } from "lucide-react";
+import { AgentMessage, AgentRole } from "@/types/match";
+import { Button, IconButton, Tag } from "@/components/ui/primitives";
 
 interface BroadcastCommentatorCardProps {
   messages: AgentMessage[];
@@ -25,7 +16,21 @@ interface BroadcastCommentatorCardProps {
   onPlaySingleMessage?: (msg: AgentMessage) => void;
   onPlayFullDebate?: () => void;
   onStopAudio?: () => void;
+  /** Match clock shown in the strap, e.g. "35:42". */
+  clockLabel?: string;
+  eventType?: string;
 }
+
+/** Editorial credentials for each pundit (name comes from the backend message). */
+const PUNDIT_ROLE: Record<AgentRole, { title: string }> = {
+  data_scientist: { title: "Analista de datos" },
+  classic_coach: { title: "Analista táctico" },
+};
+
+/** "Dr. Voronoi (Data Scientist)" -> "Dr. Voronoi" for the name plate. */
+const plateName = (agentName: string) => agentName.replace(/\s*\(.*\)\s*$/, "");
+
+const springIn = { type: "tween", duration: 0.22, ease: [0.2, 0.8, 0.2, 1] } as const;
 
 export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> = ({
   messages,
@@ -36,6 +41,8 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   onPlaySingleMessage,
   onPlayFullDebate,
   onStopAudio,
+  clockLabel,
+  eventType,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
@@ -68,207 +75,205 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
 
   if (!currentMessage && !isSimulating) return null;
 
-  const isQuant = currentMessage?.agent_role === "data_scientist";
   const currentlyTalkingThisCard =
     isSpeaking &&
     (!activeSpeakingRole || activeSpeakingRole === currentMessage?.agent_role);
 
+  const role = currentMessage ? PUNDIT_ROLE[currentMessage.agent_role] : null;
+  const strapContext = [clockLabel, eventType].filter(Boolean).join(" · ");
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex flex-col items-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[5.25rem] z-40 flex flex-col items-center px-4">
       <AnimatePresence mode="wait">
         {isSimulating ? (
-          /* ESTADO SHIMMER MIENTRAS RECALCULA EL SWARM */
+          /* RECALCULATING STRAP */
           <motion.div
             key="simulating-lower-third"
-            initial={{ y: 90, opacity: 0 }}
+            initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 90, opacity: 0 }}
-            className="pointer-events-auto flex items-center gap-4 rounded-2xl border border-cyan-400/40 bg-slate-950/90 px-6 py-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.75)] backdrop-blur-xl"
+            exit={{ y: 16, opacity: 0 }}
+            transition={springIn}
+            className="pointer-events-auto w-full max-w-5xl overflow-hidden rounded-[3px] border border-line-strong bg-ink-900/95 backdrop-blur-sm"
           >
-            <Sparkles className="h-5 w-5 animate-spin text-cyan-400" />
-            <span className="text-sm font-semibold tracking-wide text-slate-100">
-              Recalculando geometría xT 16×12 y sintetizando debate en la cabina...
-            </span>
+            <div className="flex items-center gap-4 px-4 py-3">
+              <span className="font-display text-sm font-bold uppercase tracking-[0.14em] text-signal-green">
+                Tactical Analysis
+              </span>
+              <span className="h-4 w-px bg-line-strong" />
+              <span className="text-[13px] text-fg-muted">
+                Recalculando la rejilla xT 16×12 y preparando el análisis…
+              </span>
+            </div>
+            <div className="relative h-px w-full overflow-hidden bg-line">
+              <div className="absolute inset-y-0 left-0 w-1/3 animate-progress-indeterminate bg-signal-green" />
+            </div>
           </motion.div>
         ) : isMinimized ? (
-          /* PÍLDORA COMPACTA MINIMIZADA (100% VISIBILIDAD DE CANCHA) */
+          /* COLLAPSED STRAP */
           <motion.div
             key="minimized-pill"
-            initial={{ y: 60, opacity: 0 }}
+            initial={{ y: 12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 60, opacity: 0 }}
-            className="pointer-events-auto flex items-center gap-3 rounded-full border border-slate-700/80 bg-slate-950/90 px-4 py-2 shadow-2xl backdrop-blur-xl"
+            exit={{ y: 12, opacity: 0 }}
+            transition={springIn}
+            className="pointer-events-auto flex items-center gap-3 rounded-[3px] border border-line-strong bg-ink-900/95 py-1 pl-3 pr-1 backdrop-blur-sm"
           >
-            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-              🎙️ Cabina Táctica IA ({messages.length} intervenciones)
+            <span className="font-display text-xs font-bold uppercase tracking-[0.14em] text-fg">
+              Tactical Analysis
+            </span>
+            <span className="font-mono text-[10px] text-fg-subtle">
+              {messages.length} {messages.length === 1 ? "intervención" : "intervenciones"}
             </span>
             {onPlayFullDebate && (
-              <button
-                onClick={onPlayFullDebate}
-                className="flex items-center gap-1.5 rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/30 transition"
-              >
+              <Button variant="ghost" size="sm" onClick={onPlayFullDebate}>
                 <Volume2 className="h-3.5 w-3.5" />
-                Escuchar Debate
-              </button>
+                Escuchar
+              </Button>
             )}
-            <button
+            <IconButton
+              size="sm"
               onClick={() => setIsMinimized(false)}
-              className="flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700 transition"
+              title="Mostrar análisis"
+              aria-label="Mostrar análisis"
             >
               <ChevronUp className="h-3.5 w-3.5" />
-              Abrir Lower-Third
-            </button>
+            </IconButton>
           </motion.div>
         ) : (
-          /* LOWER-THIRD TELEVISIVO COMPLETO */
+          /* FULL LOWER-THIRD */
           <motion.div
             key={`card-${currentMessage.message_id || selectedIndex}`}
-            initial={{ y: 110, opacity: 0, scale: 0.97 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 110, opacity: 0, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className={`pointer-events-auto relative w-full max-w-4xl overflow-hidden rounded-2xl border backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.85)] transition-colors ${
-              isQuant
-                ? "border-cyan-400/50 bg-gradient-to-r from-slate-950/95 via-slate-900/95 to-cyan-950/85"
-                : "border-amber-400/50 bg-gradient-to-r from-slate-950/95 via-slate-900/95 to-amber-950/85"
-            }`}
+            initial={{ y: 16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 16, opacity: 0 }}
+            transition={springIn}
+            className="pointer-events-auto w-full max-w-5xl"
           >
-            {/* Barra superior de sintonía estilo Premier League Broadcast */}
-            <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-2">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-widest ${
-                    currentlyTalkingThisCard
-                      ? "bg-rose-600 text-white animate-pulse"
-                      : isQuant
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/30"
-                      : "bg-amber-500/20 text-amber-300 border border-amber-400/30"
-                  }`}
-                >
-                  <Radio className="h-3 w-3" />
-                  {currentlyTalkingThisCard ? "ON AIR • LIVE VOICE" : currentMessage.avatar_badge}
+            {/* Top strap: programme ident + pundit switcher + controls */}
+            <div className="flex items-stretch">
+              <div className="flex items-center gap-2 bg-signal-green px-3 py-1">
+                <span className="font-display text-[13px] font-extrabold uppercase leading-none tracking-[0.14em] text-ink">
+                  Tactical Analysis
                 </span>
-
-                {/* Selector de comentarista (1/2 Dr. Voronoi vs 2/2 Míster Bianchi) */}
-                <div className="ml-2 flex items-center gap-1 rounded-lg bg-slate-900/90 p-0.5 border border-slate-800">
-                  {messages.map((msg, idx) => {
-                    const active = idx === selectedIndex;
-                    const quantTab = msg.agent_role === "data_scientist";
-                    return (
-                      <button
-                        key={msg.message_id || idx}
-                        onClick={() => {
-                          setSelectedIndex(idx);
-                          onHighlightPlayersRef.current?.(msg.highlighted_player_ids || []);
-                        }}
-                        className={`rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
-                          active
-                            ? quantTab
-                              ? "bg-cyan-500 text-slate-950 shadow-sm"
-                              : "bg-amber-400 text-slate-950 shadow-sm"
-                            : "text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        {quantTab ? "1. Dr. Voronoi [QUANT]" : "2. Míster Bianchi [COACH]"}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
+              {strapContext && (
+                <div className="flex items-center bg-ink px-3 font-display text-[13px] font-semibold uppercase leading-none tracking-[0.08em] text-fg-muted">
+                  {strapContext}
+                </div>
+              )}
 
-              {/* Controles de Audio y Minimizar */}
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-1 rounded-t-[3px] border border-b-0 border-line-strong bg-ink-900/95 px-1 backdrop-blur-sm">
+                {messages.length > 1 && (
+                  <div className="flex items-center" role="tablist" aria-label="Comentaristas">
+                    {messages.map((msg, idx) => {
+                      const active = idx === selectedIndex;
+                      return (
+                        <button
+                          key={msg.message_id || idx}
+                          role="tab"
+                          aria-selected={active}
+                          onClick={() => {
+                            setSelectedIndex(idx);
+                            onHighlightPlayersRef.current?.(msg.highlighted_player_ids || []);
+                          }}
+                          className={`relative h-7 px-2.5 font-display text-[13px] font-semibold uppercase tracking-wide transition-colors ${
+                            active ? "text-fg" : "text-fg-subtle hover:text-fg-muted"
+                          }`}
+                        >
+                          <span className="mr-1.5 font-mono text-[10px] text-fg-subtle">
+                            {String(idx + 1).padStart(2, "0")}
+                          </span>
+                          {plateName(msg.agent_name).split(" ").pop()}
+                          {active && <span className="absolute inset-x-2.5 -bottom-px h-px bg-fg" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <span className="mx-1 h-4 w-px bg-line-strong" />
+
                 {onPlaySingleMessage && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() =>
                       currentlyTalkingThisCard && onStopAudio
                         ? onStopAudio()
                         : onPlaySingleMessage(currentMessage)
                     }
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                      currentlyTalkingThisCard
-                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                        : isQuant
-                        ? "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
-                        : "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
-                    }`}
+                    className={currentlyTalkingThisCard ? "text-fg" : undefined}
                   >
                     {currentlyTalkingThisCard ? (
                       <>
-                        <Square className="h-3 w-3 fill-current" /> Detener Voz
+                        <Square className="h-3 w-3 fill-current" /> Detener
                       </>
                     ) : (
                       <>
-                        <Play className="h-3 w-3 fill-current" /> Escuchar Turno
+                        <Play className="h-3 w-3 fill-current" /> Escuchar
                       </>
                     )}
-                  </button>
+                  </Button>
                 )}
 
-                <button
+                <IconButton
+                  size="sm"
                   onClick={() => {
                     setIsMinimized(true);
                     onHighlightPlayersRef.current?.([]);
                   }}
-                  title="Minimizar tarjeta para despejar la cancha"
-                  className="rounded-lg bg-slate-800/80 p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                  title="Ocultar análisis"
+                  aria-label="Ocultar análisis"
                 >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
+                  <Minus className="h-3.5 w-3.5" />
+                </IconButton>
               </div>
             </div>
 
-            {/* Cuerpo Principal del Lower-Third: Avatar SVG + Análisis + Chips Métricos */}
-            <div className="flex items-center gap-5 px-5 py-3.5">
-              <CommentatorAvatar
-                isSpeaking={currentlyTalkingThisCard}
-                role={currentMessage.agent_role}
-                size={84}
-              />
-
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span
-                    className={`text-xs font-extrabold uppercase tracking-wider ${
-                      isQuant ? "text-cyan-400" : "text-amber-400"
-                    }`}
-                  >
-                    {currentMessage.agent_name}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    • {currentMessage.timestamp_label}
-                  </span>
-                  <span
-                    className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-mono font-bold ${
-                      isQuant
-                        ? "bg-cyan-500/15 text-cyan-300 border border-cyan-400/30"
-                        : "bg-amber-500/15 text-amber-300 border border-amber-400/30"
-                    }`}
-                  >
-                    {currentMessage.referenced_metric}
-                  </span>
+            {/* Main plate */}
+            <div className="flex items-stretch overflow-hidden rounded-b-[3px] rounded-tr-[3px] border border-line-strong bg-ink-900/95 backdrop-blur-sm">
+              {/* Name plate */}
+              <div className="flex w-[220px] shrink-0 flex-col justify-between bg-fg px-4 py-3 text-ink">
+                <div>
+                  <div className="font-display text-[26px] font-extrabold uppercase leading-[0.95] tracking-tight">
+                    {plateName(currentMessage.agent_name)}
+                  </div>
+                  <div className="mt-1 text-[11px] font-medium leading-tight text-ink/70">
+                    {role?.title}
+                  </div>
                 </div>
+                <div className="mt-3 flex items-center gap-1.5">
+                  <span className="inline-flex h-5 items-center rounded-[2px] bg-ink px-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-fg">
+                    {currentMessage.avatar_badge}
+                  </span>
+                  {currentlyTalkingThisCard && (
+                    <span className="inline-flex h-5 items-center gap-1 rounded-[2px] border border-ink/30 px-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-ink">
+                      <span className="h-1.5 w-1.5 rounded-full bg-signal-magenta" />
+                      En antena
+                    </span>
+                  )}
+                </div>
+              </div>
 
-                <h4 className="text-base font-extrabold text-white leading-snug mb-1 truncate">
-                  &ldquo;{currentMessage.headline}&rdquo;
+              {/* Analysis */}
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-5 py-3">
+                <h4 className="truncate font-display text-[22px] font-bold leading-tight text-fg">
+                  {currentMessage.headline}
                 </h4>
-
-                <p className="text-xs sm:text-sm text-slate-200/95 leading-relaxed line-clamp-2">
+                <p className="line-clamp-2 text-[13px] leading-relaxed text-fg-muted">
                   {currentMessage.analysis_body}
                 </p>
-
-                {currentMessage.highlighted_player_ids?.length > 0 && (
-                  <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
-                    <Users className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>
-                      Jugadores iluminados en cancha:{" "}
-                      <strong className="text-slate-200">
-                        #{currentMessage.highlighted_player_ids.join(", #")}
-                      </strong>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <Tag tone="green">{currentMessage.referenced_metric}</Tag>
+                  {currentMessage.highlighted_player_ids?.length > 0 && (
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-fg-subtle">
+                      En foco ·{" "}
+                      <span className="text-fg-muted">
+                        #{currentMessage.highlighted_player_ids.join("  #")}
+                      </span>
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
