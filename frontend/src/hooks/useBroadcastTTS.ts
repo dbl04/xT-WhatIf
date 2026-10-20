@@ -29,16 +29,20 @@ export function useBroadcastTTS({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesRef = useRef<AgentMessage[]>(messages);
+  const onActiveSpeakerChangeRef = useRef(onActiveSpeakerChange);
 
+  // Keep refs up-to-date without triggering re-render loops
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
+  useEffect(() => {
+    onActiveSpeakerChangeRef.current = onActiveSpeakerChange;
+  }, [onActiveSpeakerChange]);
+
   const stopAll = useCallback(() => {
+    const wasPlaying = isPlayingRef.current;
     isPlayingRef.current = false;
-    setIsPlaying(false);
-    setActiveSpeaker(null);
-    setActiveMessageIndex(-1);
 
     if (pauseTimeoutRef.current) {
       clearTimeout(pauseTimeoutRef.current);
@@ -54,10 +58,15 @@ export function useBroadcastTTS({
       window.speechSynthesis.cancel();
     }
 
-    if (onActiveSpeakerChange) {
-      onActiveSpeakerChange(null, []);
+    // Use functional state updates to avoid unnecessary renders if already false/null
+    setIsPlaying((prev) => (prev ? false : prev));
+    setActiveSpeaker((prev) => (prev !== null ? null : prev));
+    setActiveMessageIndex((prev) => (prev !== -1 ? -1 : prev));
+
+    if (wasPlaying) {
+      onActiveSpeakerChangeRef.current?.(null, []);
     }
-  }, [onActiveSpeakerChange]);
+  }, []);
 
   const speakWithWebSpeech = useCallback(
     (msg: AgentMessage): Promise<void> => {
@@ -106,9 +115,7 @@ export function useBroadcastTTS({
         msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
       setActiveSpeaker(role);
 
-      if (onActiveSpeakerChange) {
-        onActiveSpeakerChange(role, msg.highlighted_player_ids || []);
-      }
+      onActiveSpeakerChangeRef.current?.(role, msg.highlighted_player_ids || []);
 
       try {
         // First try backend synthesize endpoint with fast timeout
@@ -158,16 +165,35 @@ export function useBroadcastTTS({
         }
       }, 350);
     },
-    [onActiveSpeakerChange, speakWithWebSpeech, stopAll]
+    [speakWithWebSpeech, stopAll]
+  );
+
+  const playSingleMessage = useCallback(
+    async (msg: AgentMessage) => {
+      stopAll();
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      const role =
+        msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
+      setActiveSpeaker(role);
+      onActiveSpeakerChangeRef.current?.(role, msg.highlighted_player_ids || []);
+
+      try {
+        await speakWithWebSpeech(msg);
+      } finally {
+        stopAll();
+      }
+    },
+    [speakWithWebSpeech, stopAll]
   );
 
   const play = useCallback(() => {
-    if (!messages.length) return;
+    if (!messagesRef.current.length) return;
     stopAll();
     isPlayingRef.current = true;
     setIsPlaying(true);
     playMessageIndex(0);
-  }, [messages.length, playMessageIndex, stopAll]);
+  }, [playMessageIndex, stopAll]);
 
   const pause = useCallback(() => {
     stopAll();
@@ -183,15 +209,7 @@ export function useBroadcastTTS({
     });
   }, [stopAll]);
 
-  // Handle auto-play on new simulation if enabled
-  useEffect(() => {
-    if (autoPlayOnNewSimulation && messages.length > 0) {
-      play();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, autoPlayOnNewSimulation]);
-
-  // Cleanup on unmount
+  // Clean unmount ONLY (stopAll is completely stable with [] dependencies)
   useEffect(() => {
     return () => {
       stopAll();
@@ -204,6 +222,7 @@ export function useBroadcastTTS({
     activeSpeaker,
     activeMessageIndex,
     play,
+    playSingleMessage,
     pause,
     stop: stopAll,
     toggleMute,
