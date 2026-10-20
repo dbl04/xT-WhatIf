@@ -11,15 +11,14 @@ import {
   SkipBack,
   SkipForward,
   Clock,
-  Activity,
   Film,
-  Sparkles,
 } from "lucide-react";
 
 interface PlaybackBarProps {
   frames?: MatchFramePayload[];
   currentFrameIndex?: number;
   onSelectFrameIndex?: (index: number) => void;
+  onSelectFrame?: (index: number) => void;
   minute?: number;
   second?: number;
   eventType?: string;
@@ -30,24 +29,38 @@ interface PlaybackBarProps {
   onSpeedChange?: (speed: number) => void;
 }
 
-// Descripciones tácticas canónicas para los momentos clave de la Final 2022
+// Descripciones tácticas canónicas oficiales de los 5 Golden Highlights de la Final 2022
 function getMomentLabel(frame: MatchFramePayload, index: number): string {
+  if (frame.minute === 21 && frame.second === 18) {
+    return "21:18 • Penalti a Di María (Desborde vs Dembélé)";
+  }
   if (frame.minute === 35 && frame.second === 42) {
-    return "35:42 - Gol de Di María (Pase de Mac Allister)";
+    return "35:42 • Gol 2-0 Di María (Contragolpe Mac Allister)";
+  }
+  if (frame.minute === 80 && frame.second === 25) {
+    return "80:25 • Gol 2-2 Mbappé (Volea Acrobática)";
   }
   if (frame.minute === 79 && frame.second === 15) {
-    return "79:15 - Conducción de Mbappé (Transición Francia)";
+    // Soporte legacy
+    return "80:25 • Gol 2-2 Mbappé (Volea Acrobática)";
+  }
+  if (frame.minute === 108 && frame.second === 31) {
+    return "108:31 • Gol 3-2 Messi (Rebote en Prórroga)";
+  }
+  if (frame.minute === 122 && frame.second === 43) {
+    return "122:43 • Atajada Legendaria Dibu Martínez vs Kolo Muani";
   }
   const minStr = String(frame.minute).padStart(2, "0");
   const secStr = String(frame.second).padStart(2, "0");
   const teamLabel = frame.possession_team === "home" ? "Argentina" : "Francia";
-  return `${minStr}:${secStr} - ${frame.event_type} (${teamLabel})`;
+  return `${minStr}:${secStr} • ${frame.event_type} (${teamLabel})`;
 }
 
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   frames = [],
   currentFrameIndex = 0,
   onSelectFrameIndex,
+  onSelectFrame,
   minute = 35,
   second = 42,
   eventType = "Pass",
@@ -59,14 +72,18 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
 }) => {
   const [internalPlaying, setInternalPlaying] = useState<boolean>(false);
   const [speed, setSpeed] = useState<number>(1);
-  const [timelineProgress, setTimelineProgress] = useState<number>(minute);
+
+  // Sincronización continua de timeline con tiempo decimal (minuto + segundo / 60)
+  const currentDecimalTime = minute + (second || 0) / 60;
+  const [timelineProgress, setTimelineProgress] = useState<number>(currentDecimalTime);
 
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalPlaying;
+  const selectFrame = onSelectFrame || onSelectFrameIndex;
 
   // Actualiza progreso al cambiar el frame
   useEffect(() => {
-    setTimelineProgress(minute);
-  }, [minute]);
+    setTimelineProgress(minute + (second || 0) / 60);
+  }, [minute, second]);
 
   const handlePlayToggle = () => {
     if (onTogglePlay) {
@@ -89,6 +106,27 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
     }
   };
 
+  // Scrubber interactivo: busca el frame más próximo al minuto arrastrado
+  const handleSliderChange = (newVal: number) => {
+    setTimelineProgress(newVal);
+    if (!frames || frames.length === 0) return;
+
+    let closestIdx = 0;
+    let minDiff = Infinity;
+    frames.forEach((f, idx) => {
+      const fTime = f.minute + (f.second || 0) / 60;
+      const diff = Math.abs(fTime - newVal);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = idx;
+      }
+    });
+
+    if (selectFrame) {
+      selectFrame(closestIdx);
+    }
+  };
+
   const formattedTime = `${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
 
   return (
@@ -104,7 +142,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         </div>
 
         {/* ============================================================== */}
-        {/* MATCH MOMENT SELECTOR (ENTREGABLE 3)                           */}
+        {/* MATCH MOMENT SELECTOR (5 GOLDEN HIGHLIGHTS)                    */}
         {/* ============================================================== */}
         <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-xl shadow-inner">
           <Film className="w-3.5 h-3.5 text-cyan-400" />
@@ -115,8 +153,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             value={currentFrameIndex}
             onChange={(e) => {
               const idx = Number(e.target.value);
-              if (onSelectFrameIndex) {
-                onSelectFrameIndex(idx);
+              if (selectFrame) {
+                selectFrame(idx);
               }
             }}
             className="bg-transparent text-xs font-semibold text-cyan-200 outline-none cursor-pointer pr-1"
@@ -130,60 +168,102 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         </div>
       </div>
 
-      {/* Controles de Reproducción y Scrubber Central */}
-      <div className="flex-1 max-w-xl flex items-center gap-3">
-        <button
-          onClick={() => {
-            if (onSelectFrameIndex && currentFrameIndex > 0) {
-              onSelectFrameIndex(currentFrameIndex - 1);
-            }
-          }}
-          disabled={currentFrameIndex <= 0}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
-          title="Jugada Anterior"
-        >
-          <SkipBack className="w-4 h-4" />
-        </button>
+      {/* Controles de Reproducción y Scrubber Central (Prórroga 125') */}
+      <div className="flex-1 max-w-xl flex flex-col gap-1">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (selectFrame && currentFrameIndex > 0) {
+                selectFrame(currentFrameIndex - 1);
+              }
+            }}
+            disabled={currentFrameIndex <= 0}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
+            title="Jugada Anterior"
+          >
+            <SkipBack className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={handlePlayToggle}
-          className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition shadow-lg shadow-emerald-500/20 active:scale-95"
-          title={isPlaying ? "Pausar" : "Reproducir"}
-        >
-          {isPlaying ? (
-            <Pause className="w-4 h-4 fill-current" />
-          ) : (
-            <Play className="w-4 h-4 fill-current ml-0.5" />
-          )}
-        </button>
+          <button
+            onClick={handlePlayToggle}
+            className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition shadow-lg shadow-emerald-500/20 active:scale-95"
+            title={isPlaying ? "Pausar" : "Reproducir"}
+          >
+            {isPlaying ? (
+              <Pause className="w-4 h-4 fill-current" />
+            ) : (
+              <Play className="w-4 h-4 fill-current ml-0.5" />
+            )}
+          </button>
 
-        <button
-          onClick={() => {
-            if (onSelectFrameIndex && currentFrameIndex < frames.length - 1) {
-              onSelectFrameIndex(currentFrameIndex + 1);
-            }
-          }}
-          disabled={currentFrameIndex >= frames.length - 1}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
-          title="Siguiente Jugada"
-        >
-          <SkipForward className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => {
+              if (selectFrame && currentFrameIndex < frames.length - 1) {
+                selectFrame(currentFrameIndex + 1);
+              }
+            }}
+            disabled={currentFrameIndex >= frames.length - 1}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition disabled:opacity-40"
+            title="Siguiente Jugada"
+          >
+            <SkipForward className="w-4 h-4" />
+          </button>
 
-        {/* Timeline Slider Scrubber */}
-        <div className="flex-1 flex items-center gap-2">
-          <span className="text-[10px] font-mono text-slate-500">00:00</span>
-          <div className="relative flex-1 flex items-center">
-            <input
-              type="range"
-              min="0"
-              max="90"
-              value={timelineProgress}
-              onChange={(e) => setTimelineProgress(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none"
-            />
+          {/* Timeline Slider Scrubber (0' a 125') */}
+          <div className="flex-1 flex items-center gap-2">
+            <span className="text-[10px] font-mono text-slate-500">00:00</span>
+            <div className="relative flex-1 flex items-center">
+              {/* Marcas Visuales Sutiles: 45', 90' y 120' */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-slate-600/70 pointer-events-none z-10"
+                style={{ left: `${(45 / 125) * 100}%` }}
+                title="45' Descanso"
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-amber-500/70 pointer-events-none z-10 shadow-sm shadow-amber-500/50"
+                style={{ left: `${(90 / 125) * 100}%` }}
+                title="90' Fin Tiempo Reglamentario"
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-cyan-400/80 pointer-events-none z-10 shadow-sm shadow-cyan-400/50"
+                style={{ left: `${(120 / 125) * 100}%` }}
+                title="120' Prórroga"
+              />
+
+              <input
+                type="range"
+                min="0"
+                max="125"
+                step="0.1"
+                value={timelineProgress}
+                onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none relative z-20"
+              />
+            </div>
+            <span className="text-[10px] font-mono text-slate-500">125:00</span>
           </div>
-          <span className="text-[10px] font-mono text-slate-500">90:00</span>
+        </div>
+
+        {/* Etiquetas de marcas de tiempo del partido (45', 90', 120') */}
+        <div className="relative w-full h-3 flex items-center pointer-events-none px-28 hidden sm:flex">
+          <span
+            className="absolute -translate-x-1/2 text-[9px] font-mono text-slate-500"
+            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(45 / 125)})` }}
+          >
+            45'
+          </span>
+          <span
+            className="absolute -translate-x-1/2 text-[9px] font-mono text-amber-400/90 font-semibold"
+            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(90 / 125)})` }}
+          >
+            90' (Fin Reg.)
+          </span>
+          <span
+            className="absolute -translate-x-1/2 text-[9px] font-mono text-cyan-300 font-semibold"
+            style={{ left: `calc(7.2rem + (100% - 11.5rem) * ${(120 / 125)})` }}
+          >
+            120'
+          </span>
         </div>
       </div>
 

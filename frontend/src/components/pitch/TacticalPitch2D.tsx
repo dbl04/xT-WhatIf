@@ -19,6 +19,7 @@ import {
   getTacticalZoneName,
 } from "@/lib/coordinates";
 import { Move, Grid, Ghost, Eye } from "lucide-react";
+import { computeVoronoiCells } from "@/lib/voronoi";
 
 // ======================================================================
 // CONSTANTES DE ARQUITECTURA
@@ -100,12 +101,14 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     ref
   ) {
     // Toggle states
+    const [showVoronoi, setShowVoronoi] = useState<boolean>(true);
     const [showXtGrid, setShowXtGrid] = useState<boolean>(true);
     const [showPassCorridor, setShowPassCorridor] = useState<boolean>(true);
     const [showGhostMode, setShowGhostMode] = useState<boolean>(true);
 
     // Interaction states
     const [draggingId, setDraggingId] = useState<number | null>(null);
+    const [dragPos, setDragPos] = useState<{ id: number; x: number; y: number } | null>(null);
     const [hoveredZone, setHoveredZone] = useState<string | null>(null);
     const [hoveredCellXt, setHoveredCellXt] = useState<number | null>(null);
     const svgRef = useRef<SVGSVGElement | null>(null);
@@ -234,6 +237,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         const rect = svgRef.current.getBoundingClientRect();
         const { x, y } = screenToStatsbomb(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
         setHoveredZone(getTacticalZoneName(x, y));
+        setDragPos({ id: draggingId, x, y });
         onPlayerMove(draggingId, x, y);
       },
       [draggingId, onPlayerMove]
@@ -244,6 +248,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         const droppedId = draggingId;
         try { (e.target as Element).releasePointerCapture(e.pointerId); } catch {}
         setDraggingId(null);
+        setDragPos(null);
         setHoveredZone(null);
         if (onSimulationTrigger) onSimulationTrigger(droppedId);
       }
@@ -274,8 +279,22 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       return players.find((p) => p.player_id === metrics.optimal_pass_target_id) || null;
     }, [players, metrics?.optimal_pass_target_id]);
 
-    // Use animated or static players
-    const renderPlayers = isPlaying && animProgress > 0 ? animatedPlayers : players;
+    // Use animated or static players, unified with instant pointer drag position for 60 FPS
+    const renderPlayers = useMemo(() => {
+      const base = isPlaying && animProgress > 0 ? animatedPlayers : players;
+      if (!dragPos) return base;
+      return base.map((p) =>
+        p.player_id === dragPos.id
+          ? { ...p, x: dragPos.x, y: dragPos.y, is_modified: true }
+          : p
+      );
+    }, [isPlaying, animProgress, animatedPlayers, players, dragPos]);
+
+    // Voronoi tessellation and territorial dispute frontier (Dr. Voronoi)
+    const voronoiData = useMemo(() => {
+      if (!showVoronoi) return { cells: [], frontiers: [] };
+      return computeVoronoiCells(renderPlayers, STATSBOMB_PITCH_LENGTH, STATSBOMB_PITCH_WIDTH);
+    }, [showVoronoi, renderPlayers]);
 
     return (
       <div className="relative w-full flex flex-col bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden select-none">
@@ -295,6 +314,19 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
           {/* Toggle Bar */}
           <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setShowVoronoi(!showVoronoi)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                showVoronoi
+                  ? "bg-sky-950 text-sky-300 border border-sky-500/70 shadow-sm shadow-sky-950/60"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+              }`}
+              title="Dominio Territorial Voronoi (Dr. Voronoi)"
+            >
+              <span className="text-xs">🔷</span>
+              <span>Dominio Voronoi</span>
+            </button>
+
             <button
               onClick={() => setShowXtGrid(!showXtGrid)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
@@ -389,6 +421,72 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
             {/* Grass */}
             <rect width="120" height="80" fill="url(#pitchGrassStripes)" />
+
+            {/* ============================================================== */}
+            {/* VORONOI TERRITORIAL DOMAIN LAYER (Dominio Voronoi - Dr. Voronoi) */}
+            {/* ============================================================== */}
+            {showVoronoi && (
+              <g id="voronoiDominioLayer" pointerEvents="none">
+                {/* Voronoi Polygons per player */}
+                {voronoiData.cells.map((cell) => {
+                  const isHome = cell.team === "home";
+                  return (
+                    <polygon
+                      key={`voronoi-${cell.playerId}`}
+                      points={cell.svgPoints}
+                      fill={isHome ? "rgba(56, 189, 248, 0.16)" : "rgba(244, 63, 94, 0.14)"}
+                      stroke={isHome ? "rgba(56, 189, 248, 0.35)" : "rgba(244, 63, 94, 0.3)"}
+                      strokeWidth="0.4"
+                    />
+                  );
+                })}
+
+                {/* Dispute Frontiers between Teams (Demarcating with Bright Line in Offensive Third) */}
+                {voronoiData.frontiers.map((f, idx) => {
+                  if (f.isOffensiveThird) {
+                    return (
+                      <g key={`frontier-${idx}`}>
+                        {/* Glowing halo */}
+                        <line
+                          x1={f.p1.x}
+                          y1={f.p1.y}
+                          x2={f.p2.x}
+                          y2={f.p2.y}
+                          stroke="#38bdf8"
+                          strokeWidth="1.4"
+                          filter="url(#haloHighlight)"
+                          strokeLinecap="round"
+                        />
+                        {/* Bright neon core line */}
+                        <line
+                          x1={f.p1.x}
+                          y1={f.p1.y}
+                          x2={f.p2.x}
+                          y2={f.p2.y}
+                          stroke="#ffffff"
+                          strokeWidth="0.6"
+                          strokeLinecap="round"
+                          opacity="0.95"
+                        />
+                      </g>
+                    );
+                  }
+                  return (
+                    <line
+                      key={`frontier-${idx}`}
+                      x1={f.p1.x}
+                      y1={f.p1.y}
+                      x2={f.p2.x}
+                      y2={f.p2.y}
+                      stroke="rgba(255, 255, 255, 0.25)"
+                      strokeWidth="0.4"
+                      strokeDasharray="1.5 1"
+                      strokeLinecap="round"
+                    />
+                  );
+                })}
+              </g>
+            )}
 
             {/* xT GRID (Toggle 1) */}
             {showXtGrid && (

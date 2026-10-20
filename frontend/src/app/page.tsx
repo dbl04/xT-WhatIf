@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { TacticalPitch2D, TacticalPitch2DHandle } from "@/components/pitch/TacticalPitch2D";
 import { AgentDebateFeed } from "@/components/agents/AgentDebateFeed";
 import { XtDeltaPanel } from "@/components/metrics/XtDeltaPanel";
@@ -10,6 +10,7 @@ import { ExportReportModal } from "@/components/controls/ExportReportModal";
 import { CloudTelemetryModal } from "@/components/controls/CloudTelemetryModal";
 import { DemoGuideModal } from "@/components/controls/DemoGuideModal";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
+import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { Ghost, Cpu, Zap, Camera, Cloud, HelpCircle, Sparkles } from "lucide-react";
 
 export default function DashboardPage() {
@@ -39,19 +40,16 @@ export default function DashboardPage() {
   const [isDemoGuideOpen, setIsDemoGuideOpen] = useState<boolean>(false);
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
 
-  // Escenarios contrafactuales preconfigurados
-  const applyPresetScenario = (type: string) => {
+  // Presets tácticos dinámicos contextualizados por jugada (Entregable 4)
+  const currentPresets = useMemo(
+    () => getPresetsForFrame(currentFrame),
+    [currentFrame]
+  );
+
+  const applyPreset = (preset: TacticalPreset) => {
     setIsPlaying(false);
-    if (type === "kounde_wide") {
-      updatePlayerPosition(5, 88.0, 25.0);
-      triggerSimulation();
-    } else if (type === "dimaria_deep") {
-      updatePlayerPosition(11, 102.0, 14.0);
-      triggerSimulation();
-    } else if (type === "messi_inside") {
-      updatePlayerPosition(10, 84.0, 44.0);
-      triggerSimulation();
-    }
+    updatePlayerPosition(preset.playerId, preset.targetX, preset.targetY);
+    triggerSimulation();
   };
 
   const handleTogglePlay = () => {
@@ -148,33 +146,24 @@ export default function DashboardPage() {
       <div className="flex-1 p-4 max-w-[1800px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden min-h-0">
         {/* Left Column: Pitch, Playback Bar, Preset Buttons, Telemetry (8 cols) */}
         <div className="lg:col-span-8 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
-          {/* Quick Preset Buttons Bar */}
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/70 border border-slate-800 shrink-0">
+          {/* Quick Preset Buttons Bar - Contextualized by Highlight (Entregable 4) */}
+          <div className="flex flex-wrap items-center justify-between p-2.5 rounded-2xl bg-slate-900/70 border border-slate-800 shrink-0 gap-2">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Simulaciones Rápidas:
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => applyPresetScenario("kounde_wide")}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-              >
-                Koundé Retrasado (88.0, 25.0)
-              </button>
-              <button
-                onClick={() => applyPresetScenario("dimaria_deep")}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-              >
-                Di María Ruptura Profunda
-              </button>
-              <button
-                onClick={() => applyPresetScenario("messi_inside")}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
-              >
-                Messi Interior
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {currentPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => applyPreset(preset)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 hover:border-amber-500/50 hover:text-amber-200 transition active:scale-95 shadow-sm"
+                >
+                  {preset.label}
+                </button>
+              ))}
             </div>
           </div>
 

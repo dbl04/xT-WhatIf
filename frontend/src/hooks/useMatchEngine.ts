@@ -8,128 +8,12 @@ import {
   CounterfactualRequest,
 } from "@/types/match";
 import sampleMockFrame from "@/mocks/sample_frame.json";
+import curatedGoldenFrames from "@/mocks/match_3869685_frames.json";
 
-// Segundo momento curado (Final Mundial 2022: Mbappé en transición contra Romero y Otamendi)
-// Idéntico al contrato oficial de backend/app/services/statsbomb_loader.py
-const CURATED_FRAME_2: MatchFramePayload = {
-  match_id: 3869685,
-  event_uuid: "c3a88b21-7e4a-4d2b-88a1-99b6182ef012",
-  minute: 79,
-  second: 15,
-  event_type: "Carry",
-  possession_team: "away",
-  is_counterfactual_mode: false,
-  ball_x: 42.0,
-  ball_y: 28.0,
-  ball_end_x: 24.0,
-  ball_end_y: 36.0,
-  players: [
-    {
-      player_id: 102,
-      name: "K. Mbappé",
-      jersey_number: 10,
-      team: "away",
-      is_actor: true,
-      is_keeper: false,
-      x: 42.0,
-      y: 28.0,
-      original_x: 42.0,
-      original_y: 28.0,
-      is_modified: false,
-    },
-    {
-      player_id: 109,
-      name: "M. Thuram",
-      jersey_number: 26,
-      team: "away",
-      is_actor: false,
-      is_keeper: false,
-      x: 36.0,
-      y: 48.0,
-      original_x: 36.0,
-      original_y: 48.0,
-      is_modified: false,
-    },
-    {
-      player_id: 13,
-      name: "C. Romero",
-      jersey_number: 13,
-      team: "home",
-      is_actor: false,
-      is_keeper: false,
-      x: 32.0,
-      y: 32.0,
-      original_x: 32.0,
-      original_y: 32.0,
-      is_modified: false,
-    },
-    {
-      player_id: 19,
-      name: "N. Otamendi",
-      jersey_number: 19,
-      team: "home",
-      is_actor: false,
-      is_keeper: false,
-      x: 28.0,
-      y: 44.0,
-      original_x: 28.0,
-      original_y: 44.0,
-      is_modified: false,
-    },
-    {
-      player_id: 23,
-      name: "E. Martínez",
-      jersey_number: 23,
-      team: "home",
-      is_actor: false,
-      is_keeper: true,
-      x: 6.0,
-      y: 40.0,
-      original_x: 6.0,
-      original_y: 40.0,
-      is_modified: false,
-    },
-  ],
-  metrics: {
-    original_xt: 0.36,
-    simulated_xt: 0.36,
-    xt_delta: 0.0,
-    space_control_home_pct: 42.0,
-    optimal_pass_target_id: 109,
-    pass_completion_prob: 64.5,
-  },
-  agent_debate: [
-    {
-      message_id: "msg-03",
-      agent_role: "data_scientist",
-      agent_name: "Dr. Voronoi (Data Scientist)",
-      avatar_badge: "AI-QUANT",
-      timestamp_label: "79:15 [BASE]",
-      headline: "Aceleración de Mbappé en transición (xT = 0.36)",
-      analysis_body:
-        "Conducción en diagonal con velocidad relativa superior. El ángulo de tiro o pase a Thuram supera el 64% de amenaza.",
-      referenced_metric: "xT: 0.36 | Espacio Abierto",
-      highlighted_player_ids: [102, 13],
-    },
-    {
-      message_id: "msg-04",
-      agent_role: "classic_coach",
-      agent_name: "Míster Bianchi (Entrenador Clásico)",
-      avatar_badge: "PRO-COACH",
-      timestamp_label: "79:15 [BASE]",
-      headline: "Romero debe temporizar, no tirarse al suelo",
-      analysis_body:
-        "Si el Cuti compra el amague hacia afuera, Mbappé se perfila a su pierna derecha. Hay que aguantarlo dos metros para que baje el retroceso de De Paul.",
-      referenced_metric: "Distancia de Temporización < 2.5m",
-      highlighted_player_ids: [102, 13, 19],
-    },
-  ],
-};
-
-const DEFAULT_OFFLINE_FRAMES: MatchFramePayload[] = [
-  sampleMockFrame as MatchFramePayload,
-  CURATED_FRAME_2,
-];
+// Catálogo Oficial de los 5 Golden Highlights del Mundial 2022 (Argentina vs Francia)
+// 100% de paridad con backend/app/data/cache/match_3869685_frames.json
+export const DEFAULT_OFFLINE_FRAMES: MatchFramePayload[] =
+  curatedGoldenFrames as MatchFramePayload[];
 
 export interface UseMatchEngineOptions {
   matchId?: number;
@@ -275,7 +159,10 @@ export function useMatchEngine({
   }, [wsUrl, matchId, currentFrameIndex]);
 
   // Frame actual activo
-  const currentFrame = frames[currentFrameIndex] || frames[0] || (sampleMockFrame as MatchFramePayload);
+  const currentFrame =
+    frames[currentFrameIndex] ||
+    frames[0] ||
+    (DEFAULT_OFFLINE_FRAMES[0] as MatchFramePayload);
 
   // 3. Actualización de posición de jugador (en coordenadas canónicas StatsBomb 120x80)
   const updatePlayerPosition = useCallback(

@@ -393,6 +393,19 @@
         "is_modified": false
       },
       {
+        "player_id": 24,
+        "name": "E. Fernández",
+        "jersey_number": 24,
+        "team": "home",
+        "is_actor": false,
+        "is_keeper": false,
+        "x": 48.0,
+        "y": 24.0,
+        "original_x": 48.0,
+        "original_y": 24.0,
+        "is_modified": false
+      },
+      {
         "player_id": 13,
         "name": "C. Romero",
         "jersey_number": 13,
@@ -535,6 +548,19 @@
         "y": 41.0,
         "original_x": 108.5,
         "original_y": 41.0,
+        "is_modified": false
+      },
+      {
+        "player_id": 18,
+        "name": "D. Upamecano",
+        "jersey_number": 18,
+        "team": "away",
+        "is_actor": false,
+        "is_keeper": false,
+        "x": 105.0,
+        "y": 32.0,
+        "original_x": 105.0,
+        "original_y": 32.0,
         "is_modified": false
       },
       {
