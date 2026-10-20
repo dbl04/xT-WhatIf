@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
 import { TacticalPitch2D, TacticalPitch2DHandle } from "@/components/pitch/TacticalPitch2D";
 import { XtDeltaPanel } from "@/components/metrics/XtDeltaPanel";
 import { PlaybackBar } from "@/components/controls/PlaybackBar";
@@ -47,9 +47,16 @@ export default function DashboardPage() {
   } = useMatchEngine();
 
   // Audio broadcast hook
+  const handleActiveSpeakerChange = useCallback(
+    (_role: "data_scientist" | "classic_coach" | null, pIds: number[]) => {
+      setHighlightedPlayerIds(pIds);
+    },
+    [setHighlightedPlayerIds]
+  );
+
   const tts = useBroadcastTTS({
     messages: currentFrame.agent_debate,
-    onActiveSpeakerChange: (_role, pIds) => setHighlightedPlayerIds(pIds),
+    onActiveSpeakerChange: handleActiveSpeakerChange,
   });
 
   // Estados de interacción, cinemática y modales

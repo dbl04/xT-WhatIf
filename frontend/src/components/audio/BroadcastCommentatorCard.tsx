@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Volume2,
@@ -39,11 +39,15 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
+  const onHighlightPlayersRef = useRef(onHighlightPlayers);
 
-  // Cuando el TTS cambia de locutor o llegan nuevos mensajes tras arrastrar un jugador,
-  // abrimos automáticamente el Lower-Third y enfocamos al comentarista que habla
   useEffect(() => {
-    if (activeSpeakingRole) {
+    onHighlightPlayersRef.current = onHighlightPlayers;
+  }, [onHighlightPlayers]);
+
+  // Cuando el TTS cambia de locutor, enfocamos al comentarista activo
+  useEffect(() => {
+    if (activeSpeakingRole && messages.length > 0) {
       const idx = messages.findIndex((m) => m.agent_role === activeSpeakingRole);
       if (idx !== -1) {
         setSelectedIndex(idx);
@@ -52,24 +56,15 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
     }
   }, [activeSpeakingRole, messages]);
 
-  // Al cambiar de jugada o recibir una nueva simulación contrafactual, mostrar la tarjeta
-  useEffect(() => {
-    if (messages.length > 0) {
-      setSelectedIndex(0);
-      setIsMinimized(false);
-    }
-  }, [messages]);
-
   const currentMessage = messages[selectedIndex] || messages[0];
 
-  // Iluminar en el césped los jugadores citados por la tarjeta visible
+  // Iluminar en el césped los jugadores citados por la tarjeta visible sin disparar renders cíclicos
+  const currentMsgId = currentMessage?.message_id;
   useEffect(() => {
-    if (!isMinimized && currentMessage && onHighlightPlayers) {
-      onHighlightPlayers(currentMessage.highlighted_player_ids || []);
-    } else if (isMinimized && onHighlightPlayers) {
-      onHighlightPlayers([]);
+    if (!isMinimized && currentMessage?.highlighted_player_ids?.length) {
+      onHighlightPlayersRef.current?.(currentMessage.highlighted_player_ids);
     }
-  }, [currentMessage, isMinimized, onHighlightPlayers]);
+  }, [selectedIndex, isMinimized, currentMsgId]);
 
   if (!currentMessage && !isSimulating) return null;
 
@@ -163,7 +158,10 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
                     return (
                       <button
                         key={msg.message_id || idx}
-                        onClick={() => setSelectedIndex(idx)}
+                        onClick={() => {
+                          setSelectedIndex(idx);
+                          onHighlightPlayersRef.current?.(msg.highlighted_player_ids || []);
+                        }}
                         className={`rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
                           active
                             ? quantTab
@@ -209,7 +207,10 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
                 )}
 
                 <button
-                  onClick={() => setIsMinimized(true)}
+                  onClick={() => {
+                    setIsMinimized(true);
+                    onHighlightPlayersRef.current?.([]);
+                  }}
                   title="Minimizar tarjeta para despejar la cancha"
                   className="rounded-lg bg-slate-800/80 p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white transition"
                 >
