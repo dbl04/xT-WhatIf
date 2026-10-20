@@ -15,6 +15,7 @@ import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
+import { getMatchInfo } from "@/lib/match";
 import { PlayerNode } from "@/types/match";
 import {
   Download,
@@ -120,6 +121,7 @@ export default function DashboardPage() {
       eventType: currentFrame.event_type,
       isCounterfactual: currentFrame.is_counterfactual_mode,
       possessionTeam: currentFrame.possession_team,
+      fixture: getMatchInfo(currentFrame),
     }),
     [
       currentFrame.minute,
@@ -127,8 +129,12 @@ export default function DashboardPage() {
       currentFrame.event_type,
       currentFrame.is_counterfactual_mode,
       currentFrame.possession_team,
+      currentFrame.match_info,
     ]
   );
+
+  const fixture = getMatchInfo(currentFrame);
+  const teamShortNames = { home: fixture.home.short_name, away: fixture.away.short_name };
 
   const clock = `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
   const isLive = connectionMode === "live";
@@ -151,23 +157,24 @@ export default function DashboardPage() {
           <div className="hidden items-stretch overflow-hidden rounded-[3px] border border-line-strong font-display text-sm font-bold uppercase leading-none tracking-wide sm:flex">
             <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
               <span className="h-2.5 w-1 bg-team-home" />
-              ARG
+              {fixture.home.short_name}
             </span>
             <span className="flex min-w-[58px] items-center justify-center bg-ink-800 px-2.5 tabular-nums text-fg">
               {clock}
             </span>
             <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
-              FRA
+              {fixture.away.short_name}
               <span className="h-2.5 w-1 bg-ink" />
             </span>
           </div>
 
           <div className="hidden min-w-0 flex-col lg:flex">
-            <Kicker>Final · Copa del Mundo 2022</Kicker>
+            <Kicker>{fixture.competition} · Datos sintéticos</Kicker>
             <span className="truncate text-xs text-fg-muted">
-              Lusail · Argentina v Francia ·{" "}
+              {fixture.venue ? `${fixture.venue} · ` : ""}
+              {fixture.home.name} v {fixture.away.name} ·{" "}
               <span className={currentFrame.is_counterfactual_mode ? "text-signal-green" : "text-fg"}>
-                {currentFrame.is_counterfactual_mode ? "Escenario simulado" : "Jugada real"}
+                {currentFrame.is_counterfactual_mode ? "Escenario simulado" : "Jugada original"}
               </span>
             </span>
           </div>
@@ -245,6 +252,7 @@ export default function DashboardPage() {
         >
           <TacticalPitch2D
             ref={pitchRef}
+            teamShortNames={teamShortNames}
             players={currentFrame.players}
             ballX={currentFrame.ball_x}
             ballY={currentFrame.ball_y}
@@ -313,6 +321,7 @@ export default function DashboardPage() {
                 {/* Métricas xT */}
                 <section className="p-3">
                   <XtDeltaPanel
+                    teamShortNames={teamShortNames}
                     metrics={currentFrame.metrics}
                     isCounterfactualMode={currentFrame.is_counterfactual_mode}
                     onReset={() => {

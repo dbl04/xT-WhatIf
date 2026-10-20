@@ -14,7 +14,7 @@ export interface PlayerNode {
   team: TeamSide;
   is_actor: boolean;
   is_keeper: boolean;
-  // StatsBomb Standard Coordinates: X [0.0 - 120.0], Y [0.0 - 80.0]
+  // Canonical pitch coordinates: X [0.0 - 120.0], Y [0.0 - 80.0]
   x: number;
   y: number;
   original_x?: number | null;
@@ -43,6 +43,22 @@ export interface AgentMessage {
   highlighted_player_ids: number[];
 }
 
+export interface TeamInfo {
+  name: string;
+  short_name: string;
+  primary_color: string;
+}
+
+/** Fixture metadata. All match data in this project is synthetic (fictional clubs and players). */
+export interface MatchInfo {
+  competition: string;
+  venue: string;
+  home: TeamInfo;
+  away: TeamInfo;
+  data_source: string;
+  seed?: number | null;
+}
+
 export interface MatchFramePayload {
   match_id: number;
   event_uuid: string;
@@ -58,6 +74,9 @@ export interface MatchFramePayload {
   players: PlayerNode[];
   metrics: TacticalMetrics;
   agent_debate: AgentMessage[];
+  /** Human-readable name of the moment, e.g. "Pase atrás desde la línea de fondo". */
+  moment_label?: string | null;
+  match_info?: MatchInfo | null;
 }
 
 export interface CounterfactualRequest {

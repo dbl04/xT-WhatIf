@@ -82,6 +82,7 @@ export interface TacticalPitch2DProps {
   onSimulationTrigger?: (playerId: number) => void;
   onAnimationEnd?: () => void;
   onDragStart?: () => void;
+  teamShortNames?: { home: string; away: string };
 }
 
 export interface TacticalPitch2DHandle {
@@ -123,6 +124,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       onSimulationTrigger,
       onAnimationEnd,
       onDragStart,
+      teamShortNames = { home: "LOC", away: "VIS" },
     },
     ref
   ) {
@@ -344,7 +346,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
             <Kicker className="text-fg">Pizarra táctica</Kicker>
-            <span className="font-mono text-[10px] text-fg-subtle">StatsBomb 360 · 120 × 80 m</span>
+            <span className="font-mono text-[10px] text-fg-subtle">Datos sintéticos · 120 × 80 m</span>
           </div>
 
           <div className="ml-auto flex min-w-0 items-center gap-0.5 overflow-x-auto" role="group" aria-label="Capas">
@@ -618,8 +620,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />ARG</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />FRA</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />{teamShortNames.home}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />{teamShortNames.away}</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-green" />Con balón</span>
               <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-green" />Pase óptimo</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-magenta" />Inercia &gt; 6 m</span>

@@ -211,8 +211,8 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
       <div className="grid grid-cols-1 divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
         <div className="flex flex-col gap-3 p-4">
           <div className="flex items-center justify-between">
-            <Kicker className="text-fg">Realidad</Kicker>
-            <span className="font-mono text-[10px] text-fg-subtle">StatsBomb 360</span>
+            <Kicker className="text-fg">Original</Kicker>
+            <span className="font-mono text-[10px] text-fg-subtle">Jugada sin cambios</span>
           </div>
           <MiniPitchPreview frame={currentFrame} />
           <div>

@@ -8,12 +8,13 @@ import {
   CounterfactualRequest,
 } from "@/types/match";
 import sampleMockFrame from "@/mocks/sample_frame.json";
-import curatedGoldenFrames from "@/mocks/match_3869685_frames.json";
+import syntheticMatchFrames from "@/mocks/match_900001_frames.json";
+import { DEFAULT_MATCH_ID } from "@/lib/match";
 
-// Catálogo Oficial de los 5 Golden Highlights del Mundial 2022 (Argentina vs Francia)
-// 100% de paridad con backend/app/data/cache/match_3869685_frames.json
+// Momentos clave del partido sintético; mismo fichero que genera el backend
+// (backend/app/data/cache/match_900001_frames.json, ver synthetic_generator.py)
 export const DEFAULT_OFFLINE_FRAMES: MatchFramePayload[] =
-  curatedGoldenFrames as MatchFramePayload[];
+  syntheticMatchFrames as MatchFramePayload[];
 
 export interface UseMatchEngineOptions {
   matchId?: number;
@@ -24,7 +25,7 @@ export interface UseMatchEngineOptions {
 export type ConnectionMode = "live" | "offline";
 
 export function useMatchEngine({
-  matchId = 3869685,
+  matchId = DEFAULT_MATCH_ID,
   apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
   wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws",
 }: UseMatchEngineOptions = {}) {
@@ -182,7 +183,7 @@ export function useMatchEngine({
     frames[0] ||
     (DEFAULT_OFFLINE_FRAMES[0] as MatchFramePayload);
 
-  // 3. Actualización de posición de jugador (en coordenadas canónicas StatsBomb 120x80)
+  // 3. Actualización de posición de jugador (en coordenadas canónicas 120x80)
   const updatePlayerPosition = useCallback(
     (playerId: number, newX: number, newY: number) => {
       setFrames((prevFrames) => {

@@ -11,6 +11,7 @@ interface XtDeltaPanelProps {
   isCounterfactualMode?: boolean;
   onReset?: () => void;
   onExportReport?: () => void;
+  teamShortNames?: { home: string; away: string };
 }
 
 const Stat: React.FC<{
@@ -39,6 +40,7 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
   isCounterfactualMode = false,
   onReset,
   onExportReport,
+  teamShortNames = { home: "LOC", away: "VIS" },
 }) => {
   const isPositive = metrics.xt_delta >= 0;
   // Δ rounds to 0.00 on the untouched play (and on moves that change nothing): stay neutral.
@@ -52,9 +54,9 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       <div className="flex items-center justify-between">
         <Kicker>Expected Threat</Kicker>
         <div className="flex items-center gap-1">
-          {isCounterfactualMode ? <Tag tone="green">Simulado</Tag> : <Tag>Real</Tag>}
+          {isCounterfactualMode ? <Tag tone="green">Simulado</Tag> : <Tag>Original</Tag>}
           {isCounterfactualMode && onReset && (
-            <IconButton size="sm" onClick={onReset} title="Restablecer jugada real" aria-label="Restablecer jugada real">
+            <IconButton size="sm" onClick={onReset} title="Restablecer jugada original" aria-label="Restablecer jugada original">
               <RotateCcw className="h-3.5 w-3.5" />
             </IconButton>
           )}
@@ -69,7 +71,7 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       {/* Main figures */}
       <div className="grid grid-cols-3 divide-x divide-line">
         <div className="pr-3">
-          <Stat label="xT real" value={metrics.original_xt.toFixed(2)} tone="muted" />
+          <Stat label="xT original" value={metrics.original_xt.toFixed(2)} tone="muted" />
         </div>
         <div className="px-3">
           <Stat label="xT simulado" value={metrics.simulated_xt.toFixed(2)} />
@@ -84,7 +86,7 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       </div>
       <p className="-mt-1 text-[11px] text-fg-subtle">
         {isUnchanged
-          ? "Sin cambios respecto a la jugada real."
+          ? "Sin cambios respecto a la jugada original."
           : isPositive
           ? "El cambio genera más peligro."
           : "El cambio reduce el peligro."}
@@ -100,8 +102,8 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
           <div className="h-full flex-1 bg-team-away/80" />
         </div>
         <div className="flex items-center justify-between font-display text-sm font-semibold uppercase tabular-nums">
-          <span className="text-team-home">ARG {homePct.toFixed(1)}%</span>
-          <span className="text-fg-muted">{(100 - homePct).toFixed(1)}% FRA</span>
+          <span className="text-team-home">{teamShortNames.home} {homePct.toFixed(1)}%</span>
+          <span className="text-fg-muted">{(100 - homePct).toFixed(1)}% {teamShortNames.away}</span>
         </div>
       </div>
 

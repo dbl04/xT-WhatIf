@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MatchFramePayload, PlayerNode, CounterfactualRequest } from "@/types/match";
 import sampleMockFrame from "@/mocks/sample_frame.json";
+import { DEFAULT_MATCH_ID } from "@/lib/match";
 
 interface UseMatchSocketOptions {
   matchId?: number;
@@ -11,7 +12,7 @@ interface UseMatchSocketOptions {
 }
 
 export const useMatchSocket = ({
-  matchId = 3869685,
+  matchId = DEFAULT_MATCH_ID,
   wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws",
 }: UseMatchSocketOptions = {}) => {
   const [currentFrame, setCurrentFrame] = useState<MatchFramePayload>(sampleMockFrame as MatchFramePayload);

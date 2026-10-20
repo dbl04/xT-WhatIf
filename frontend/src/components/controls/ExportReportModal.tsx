@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { TacticalMetrics, AgentMessage } from "@/types/match";
+import { TacticalMetrics, AgentMessage, MatchInfo } from "@/types/match";
 import { Download, Check, Loader2 } from "lucide-react";
 import { Button, ModalShell, Tag } from "@/components/ui/primitives";
 import { displayFont, sansFont, monoFont } from "@/lib/fonts";
@@ -18,6 +18,7 @@ interface ExportReportModalProps {
     eventType: string;
     isCounterfactual: boolean;
     possessionTeam: "home" | "away";
+    fixture: MatchInfo;
   };
   metrics: TacticalMetrics;
   debateMessages: AgentMessage[];
@@ -197,18 +198,18 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           const timeStr = `${String(matchInfo.minute).padStart(2, "0")}:${String(matchInfo.second).padStart(2, "0")}`;
           ctx.fillStyle = R.fg;
           ctx.font = `800 64px ${DISPLAY}`;
-          ctx.fillText("ARGENTINA v FRANCIA", M, 142);
+          ctx.fillText(`${matchInfo.fixture.home.name} v ${matchInfo.fixture.away.name}`.toUpperCase(), M, 142);
 
           ctx.font = `600 22px ${DISPLAY}`;
           ctx.fillStyle = R.muted;
           ctx.fillText(
-            `FINAL · COPA DEL MUNDO 2022 · ${timeStr} · ${matchInfo.eventType.toUpperCase()}`,
+            `${matchInfo.fixture.competition} · ${timeStr} · ${matchInfo.eventType} · DATOS SINTÉTICOS`.toUpperCase(),
             M,
             176
           );
 
           // Mode tag
-          const modeText = matchInfo.isCounterfactual ? "ESCENARIO SIMULADO" : "JUGADA REAL · STATSBOMB 360";
+          const modeText = matchInfo.isCounterfactual ? "ESCENARIO SIMULADO" : "JUGADA ORIGINAL";
           ctx.font = `600 13px ${MONO}`;
           const modeW = ctx.measureText(modeText).width + 20;
           ctx.strokeStyle = matchInfo.isCounterfactual ? R.green : R.fg;
@@ -276,10 +277,10 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           y += 36;
           ctx.font = `600 22px ${DISPLAY}`;
           ctx.fillStyle = R.home;
-          ctx.fillText(`ARG ${homePct.toFixed(1)}%`, colX, y);
+          ctx.fillText(`${matchInfo.fixture.home.short_name} ${homePct.toFixed(1)}%`, colX, y);
           ctx.fillStyle = R.muted;
           ctx.textAlign = "right";
-          ctx.fillText(`${(100 - homePct).toFixed(1)}% FRA`, colX + colW, y);
+          ctx.fillText(`${(100 - homePct).toFixed(1)}% ${matchInfo.fixture.away.short_name}`, colX + colW, y);
           ctx.textAlign = "left";
           y += 44;
 
@@ -353,7 +354,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           hairline(M, height - 52, width - M, height - 52);
           ctx.font = `500 12px ${MONO}`;
           ctx.fillStyle = R.subtle;
-          ctx.fillText("xT-WhatIf © 2026 · Inteligencia táctica contrafactual · StatsBomb 360 · Teselación de Voronoi · Penalización de inercia r = 6,0 m", M, height - 24);
+          ctx.fillText("xT-WhatIf © 2026 · Inteligencia táctica contrafactual · Datos sintéticos · Teselación de Voronoi · Penalización de inercia r = 6,0 m", M, height - 24);
 
           URL.revokeObjectURL(blobUrl);
 
@@ -385,8 +386,8 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
     if (!previewUrl) return;
     const a = document.createElement("a");
     const timeStr = `${String(matchInfo.minute).padStart(2, "0")}${String(matchInfo.second).padStart(2, "0")}`;
-    const mode = matchInfo.isCounterfactual ? "WhatIf-Simulated" : "Real-Base";
-    a.download = `xT-Scout-Report-Final2022-Min${timeStr}-${mode}.png`;
+    const mode = matchInfo.isCounterfactual ? "WhatIf-Simulated" : "Original";
+    a.download = `xT-Scout-Report-${matchInfo.fixture.home.short_name}-${matchInfo.fixture.away.short_name}-Min${timeStr}-${mode}.png`;
     a.href = previewUrl;
     document.body.appendChild(a);
     a.click();

@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "xT-WhatIf | Interactive Tactical Counterfactual Engine",
   description:
-    "Explore football counterfactual scenarios on StatsBomb 360 freeze-frames. Real-time xT calculation, Voronoi dominance, and multi-agent AI debates.",
+    "Explore football counterfactual scenarios on synthetic 360-style freeze-frames. Real-time xT calculation, Voronoi dominance, and multi-agent AI debates.",
 };
 
 export default function RootLayout({
