@@ -11,7 +11,7 @@ import base64
 import logging
 import asyncio
 from typing import Optional, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import APIRouter
 from app.core.config import settings
 
@@ -21,7 +21,8 @@ router = APIRouter(prefix="/api/v1/tts", tags=["tts"])
 
 
 class TTSRequest(BaseModel):
-    text: str
+    # Paid Azure TTS call: cap the length (a debate turn is ~400 characters).
+    text: str = Field(..., min_length=1, max_length=1200)
     agent_role: Literal["data_scientist", "classic_coach"]
 
 

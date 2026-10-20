@@ -134,6 +134,10 @@ export function useMatchEngine({
               setCurrentFrameIndex(message.frame_index);
             }
             setIsThinking(false);
+          } else if (message.type === "SIMULATION_ERROR") {
+            // Rate-limited or rejected by the backend: stop waiting for a result.
+            console.warn("Simulation rejected by backend:", message.reason);
+            setIsThinking(false);
           } else if (message.type === "SIMULATION_UPDATE" && message.payload) {
             setFrames((prev) => {
               const updated = [...prev];

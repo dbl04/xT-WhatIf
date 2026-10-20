@@ -11,10 +11,12 @@ import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 import httpx
+from pydantic import ValidationError
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.rate_limit import WS_SIMULATE_BUCKET, allow, client_key, rate_limit_middleware
 from app.schemas.match_contract import (
     MatchFramePayload, CounterfactualRequest, PlayerNode
 )
@@ -39,13 +41,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS or ["*"],
-    allow_credentials=True,
+    # The API uses no cookies; credentials must never be combined with a wildcard origin.
+    allow_credentials="*" not in (settings.CORS_ORIGINS or ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 # Subagent Routers (TTS & Auto-Coach Optimizer)
+app.middleware("http")(rate_limit_middleware)
 app.include_router(tts_router)
 app.include_router(optimizer_router)
 
@@ -136,11 +140,35 @@ def get_active_instance_id() -> str:
     return os.getenv("CONTAINER_APP_REPLICA_NAME") or os.getenv("HOSTNAME", "local-dev-node")
 
 
+_chaos_enabled_at: Optional[float] = None
+
+
+def _expire_chaos_if_due() -> None:
+    """Chaos mode is shared by every visitor of the demo: switch it off automatically."""
+    global _chaos_enabled_at
+    if not cloud_metrics_store["chaos_force_aks_failure"]:
+        _chaos_enabled_at = None
+        return
+    if _chaos_enabled_at is None:
+        _chaos_enabled_at = time.time()
+    elif time.time() - _chaos_enabled_at >= settings.CHAOS_AUTO_RESET_SECONDS:
+        cloud_metrics_store["chaos_force_aks_failure"] = False
+        _chaos_enabled_at = None
+        logger.info("Chaos mode auto-reset after %ss.", settings.CHAOS_AUTO_RESET_SECONDS)
+
+
+def chaos_seconds_remaining() -> Optional[int]:
+    if _chaos_enabled_at is None or not cloud_metrics_store["chaos_force_aks_failure"]:
+        return None
+    return max(0, int(settings.CHAOS_AUTO_RESET_SECONDS - (time.time() - _chaos_enabled_at)))
+
+
 def compute_dynamic_cluster_scaling() -> Dict[str, Any]:
     """
     Dynamically computes KEDA ACA Gateway replicas (1..10) and AKS Worker pods (3..12)
     based on real-time simulation throughput, estimated CPU utilization, and circuit breaker state.
     """
+    _expire_chaos_if_due()
     now = time.time()
     # Prune timestamps older than 20 seconds
     cutoff = now - 20.0
@@ -197,6 +225,7 @@ async def execute_simulation(request: CounterfactualRequest, base_frame: MatchFr
     If running as ACA Gateway and AKS_WORKER_URL is set, delegates computation via async HTTP.
     Circuit Breaker: Automatically falls back to in-process local execution if remote worker fails or times out.
     """
+    _expire_chaos_if_due()
     cloud_metrics_store["total_simulations"] += 1
     _recent_simulation_timestamps.append(time.time())
 
@@ -289,12 +318,18 @@ async def get_cloud_telemetry():
         "aks_worker_pods": scaling["aks_worker_pods"],
         "estimated_cpu_utilization_pct": scaling["estimated_cpu_utilization_pct"],
         "keda_active": True,
+        "chaos_auto_reset_in_s": chaos_seconds_remaining(),
     }
 
 
 @app.post("/api/v1/cloud/chaos-toggle", tags=["Cloud Telemetry"])
 async def toggle_chaos_mode(force: Optional[bool] = None):
-    """Toggles simulated AKS cluster failure to demonstrate Circuit Breaker fallback."""
+    """Toggles simulated AKS cluster failure to demonstrate Circuit Breaker fallback.
+
+    The failure is simulated and global; it switches itself off after CHAOS_AUTO_RESET_SECONDS.
+    """
+    global _chaos_enabled_at
+    _expire_chaos_if_due()
     if force is not None:
         cloud_metrics_store["chaos_force_aks_failure"] = force
     else:
@@ -302,6 +337,9 @@ async def toggle_chaos_mode(force: Optional[bool] = None):
 
     if cloud_metrics_store["chaos_force_aks_failure"]:
         cloud_metrics_store["circuit_breaker_trips"] += 1
+        _chaos_enabled_at = time.time()
+    else:
+        _chaos_enabled_at = None
 
     scaling = compute_dynamic_cluster_scaling()
 
@@ -323,6 +361,7 @@ async def toggle_chaos_mode(force: Optional[bool] = None):
             else "Operación normal restablecida: Clúster AKS saludable y sincronizado."
         ),
         "fallback_latency_ms": cloud_metrics_store["last_compute_latency_ms"] or 3.8,
+        "chaos_auto_reset_in_s": chaos_seconds_remaining(),
         "metrics": cloud_metrics_store
     }
 
@@ -419,8 +458,14 @@ async def match_websocket_endpoint(websocket: WebSocket, match_id: int):
             "payload": base_frame.model_dump()
         })
 
+        ws_client = client_key(websocket.headers, websocket.client.host if websocket.client else None)
+
         while True:
             data = await websocket.receive_text()
+            if len(data.encode("utf-8")) > settings.WS_MAX_MESSAGE_BYTES:
+                await websocket.close(code=1009, reason="Message too large")
+                ws_manager.disconnect(websocket)
+                return
             message = json.loads(data)
 
             action = message.get("action")
@@ -448,8 +493,19 @@ async def match_websocket_endpoint(websocket: WebSocket, match_id: int):
 
             # 3. Interactive Counterfactual Simulation
             elif action == "simulate" or msg_type == "SIMULATE_MOVE":
-                payload_data = message.get("payload", {})
-                request_data = CounterfactualRequest(**payload_data)
+                allowed, retry_after = allow(WS_SIMULATE_BUCKET, ws_client)
+                if not allowed:
+                    await websocket.send_json({
+                        "type": "SIMULATION_ERROR",
+                        "reason": "rate_limited",
+                        "retry_after_s": retry_after,
+                    })
+                    continue
+                try:
+                    request_data = CounterfactualRequest(**message.get("payload", {}))
+                except ValidationError:
+                    await websocket.send_json({"type": "SIMULATION_ERROR", "reason": "invalid_payload"})
+                    continue
 
                 # Match base frame by event_uuid
                 matching_base = next(

@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "xT-WhatIf Engine"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
+
+    # Public demo guardrails (see app/core/rate_limit.py)
+    RATE_LIMIT_ENABLED: bool = True
+    # Chaos mode is global state on a shared demo: it switches itself off after this long.
+    CHAOS_AUTO_RESET_SECONDS: int = 90
+    # Largest WebSocket message accepted, in bytes (a full 22-player frame is ~6 KB).
+    WS_MAX_MESSAGE_BYTES: int = 64_000
     BACKEND_HOST: str = "0.0.0.0"
     BACKEND_PORT: int = 8000
     CORS_ORIGINS: List[str] = Field(
