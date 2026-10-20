@@ -161,6 +161,26 @@ export function useBroadcastTTS({
     [onActiveSpeakerChange, speakWithWebSpeech, stopAll]
   );
 
+  const playSingleMessage = useCallback(
+    async (msg: AgentMessage) => {
+      stopAll();
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      const role =
+        msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
+      setActiveSpeaker(role);
+      if (onActiveSpeakerChange) {
+        onActiveSpeakerChange(role, msg.highlighted_player_ids || []);
+      }
+      try {
+        await speakWithWebSpeech(msg);
+      } finally {
+        stopAll();
+      }
+    },
+    [onActiveSpeakerChange, speakWithWebSpeech, stopAll]
+  );
+
   const play = useCallback(() => {
     if (!messages.length) return;
     stopAll();
@@ -204,6 +224,7 @@ export function useBroadcastTTS({
     activeSpeaker,
     activeMessageIndex,
     play,
+    playSingleMessage,
     pause,
     stop: stopAll,
     toggleMute,
