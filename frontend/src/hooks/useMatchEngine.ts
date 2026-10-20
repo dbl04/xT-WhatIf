@@ -113,12 +113,25 @@ export function useMatchEngine({
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          if (message.type === "INITIAL_FRAME" && message.payload) {
+          if ((message.type === "INITIAL_FRAME" || message.type === "FRAME_UPDATE") && message.payload) {
             setFrames((prev) => {
               const updated = [...prev];
-              updated[0] = message.payload;
+              const targetIdx =
+                typeof message.frame_index === "number" &&
+                message.frame_index >= 0 &&
+                message.frame_index < updated.length
+                  ? message.frame_index
+                  : updated.findIndex(
+                      (f) => f.event_uuid === message.payload.event_uuid
+                    );
+              if (targetIdx !== -1) {
+                updated[targetIdx] = message.payload;
+              }
               return updated;
             });
+            if (typeof message.frame_index === "number") {
+              setCurrentFrameIndex(message.frame_index);
+            }
             setIsThinking(false);
           } else if (message.type === "SIMULATION_UPDATE" && message.payload) {
             setFrames((prev) => {
@@ -128,6 +141,11 @@ export function useMatchEngine({
               );
               if (idx !== -1) {
                 updated[idx] = message.payload;
+              } else if (
+                typeof message.frame_index === "number" &&
+                message.frame_index < updated.length
+              ) {
+                updated[message.frame_index] = message.payload;
               } else {
                 updated[currentFrameIndex] = message.payload;
               }
