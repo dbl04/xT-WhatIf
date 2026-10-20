@@ -21,6 +21,8 @@ from app.schemas.match_contract import (
 from app.services.statsbomb_loader import loader
 from app.services.tactical_math import simulate_counterfactual
 from app.services.agent_swarm import swarm, _simulation_cache
+from app.services.tts_service import router as tts_router
+from app.services.tactical_optimizer import router as optimizer_router
 
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +42,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Subagent Routers (TTS & Auto-Coach Optimizer)
+app.include_router(tts_router)
+app.include_router(optimizer_router)
 
 
 @app.get("/health", tags=["Health"])

@@ -9,9 +9,12 @@ import { PlaybackBar } from "@/components/controls/PlaybackBar";
 import { ExportReportModal } from "@/components/controls/ExportReportModal";
 import { CloudTelemetryModal } from "@/components/controls/CloudTelemetryModal";
 import { DemoGuideModal } from "@/components/controls/DemoGuideModal";
+import { BroadcastAudioPlayer } from "@/components/audio/BroadcastAudioPlayer";
+import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
+import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
-import { Ghost, Cpu, Zap, Camera, Cloud, HelpCircle, Sparkles } from "lucide-react";
+import { Ghost, Cpu, Zap, Camera, Cloud, HelpCircle, Sparkles, Layers } from "lucide-react";
 
 export default function DashboardPage() {
   const {
@@ -38,6 +41,7 @@ export default function DashboardPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isCloudTelemetryOpen, setIsCloudTelemetryOpen] = useState<boolean>(false);
   const [isDemoGuideOpen, setIsDemoGuideOpen] = useState<boolean>(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
 
   // Presets tácticos dinámicos contextualizados por jugada (Entregable 4)
@@ -118,6 +122,16 @@ export default function DashboardPage() {
             <span>📸 Exportar Informe</span>
           </button>
 
+          {/* Botón 4: Split Lab Comparador 1v1 */}
+          <button
+            onClick={() => setIsScenarioModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/50 text-purple-300 text-xs font-bold transition shadow-sm active:scale-95"
+            title="Abrir Split Lab para comparar hipótesis contrafácticas 1v1"
+          >
+            <Layers className="w-3.5 h-3.5 text-purple-400" />
+            <span>⚖️ Split Lab 1v1</span>
+          </button>
+
           {/* Estado de Conexión Dual-Mode */}
           {connectionMode === "live" ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/80 text-xs shadow-md shadow-emerald-950/40">
@@ -165,6 +179,22 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Auto-Coach AI (Optimizador Espacial Inverso Defensivo) */}
+          <div className="shrink-0">
+            <AutoCoachPanel
+              currentFrame={currentFrame}
+              onApplyOptimalDefense={(optimizedPlayers) => {
+                optimizedPlayers.forEach((p) => {
+                  if (p.is_modified) {
+                    updatePlayerPosition(p.player_id, p.x, p.y);
+                  }
+                });
+                triggerSimulation();
+              }}
+              onResetDefense={() => resetSimulation()}
+            />
           </div>
 
           {/* Interactive 2D Pitch con Capas Tácticas, Animación Cinemática y Anillo de Inercia */}
@@ -231,7 +261,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column: Cabina de Debate Multiagente con Sincronización Inversa (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col min-h-0 h-full overflow-hidden">
+        <div className="lg:col-span-4 flex flex-col gap-3 min-h-0 h-full overflow-hidden">
+          <BroadcastAudioPlayer
+            messages={currentFrame.agent_debate}
+            onActiveSpeakerChange={(_role, playerIds) => setHighlightedPlayerIds(playerIds)}
+          />
           <AgentDebateFeed
             messages={currentFrame.agent_debate}
             isThinking={isThinking}
@@ -269,6 +303,20 @@ export default function DashboardPage() {
       <DemoGuideModal
         isOpen={isDemoGuideOpen}
         onClose={() => setIsDemoGuideOpen(false)}
+      />
+      {/* Modal 4: Split Lab Comparador 1v1 (Escenario A vs B) */}
+      <ScenarioComparatorModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        currentFrame={currentFrame}
+        onRestoreScenario={(restoredFrame) => {
+          restoredFrame.players.forEach((p) => {
+            if (p.is_modified) {
+              updatePlayerPosition(p.player_id, p.x, p.y);
+            }
+          });
+          triggerSimulation();
+        }}
       />
     </main>
   );
