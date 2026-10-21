@@ -42,10 +42,10 @@ htmlcov/
 .coverage
 .coverage.*
 
-# StatsBomb Local Cache (track curated frames and gitkeep)
+# Synthetic match cache (track the committed generated fixtures and gitkeep)
 backend/app/data/cache/*.json
 !backend/app/data/cache/.gitkeep
-!backend/app/data/cache/match_3869685_frames.json
+!backend/app/data/cache/match_900001_frames.json
 
 
 # -----------------------------------------------------------------------------

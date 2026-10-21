@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { MatchFramePayload } from "@/types/match";
 import { Play, Pause, RotateCcw, SkipBack, SkipForward, ChevronDown } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/primitives";
+import { formatMomentLabel } from "@/lib/match";
 
 const SPEEDS = [0.5, 1, 2] as const;
 const TIMELINE_MAX = 125;
@@ -27,33 +28,6 @@ interface PlaybackBarProps {
   onTogglePlay?: () => void;
   onResetSimulation?: () => void;
   onSpeedChange?: (speed: number) => void;
-}
-
-// Descripciones tácticas canónicas oficiales de los 5 Golden Highlights de la Final 2022
-function getMomentLabel(frame: MatchFramePayload, index: number): string {
-  if (frame.minute === 21 && frame.second === 18) {
-    return "21:18 · Penalti a Di María (Desborde vs Dembélé)";
-  }
-  if (frame.minute === 35 && frame.second === 42) {
-    return "35:42 · Gol 2-0 Di María (Contragolpe Mac Allister)";
-  }
-  if (frame.minute === 80 && frame.second === 25) {
-    return "80:25 · Gol 2-2 Mbappé (Volea Acrobática)";
-  }
-  if (frame.minute === 79 && frame.second === 15) {
-    // Soporte legacy
-    return "80:25 · Gol 2-2 Mbappé (Volea Acrobática)";
-  }
-  if (frame.minute === 108 && frame.second === 31) {
-    return "108:31 · Gol 3-2 Messi (Rebote en Prórroga)";
-  }
-  if (frame.minute === 122 && frame.second === 43) {
-    return "122:43 · Atajada Legendaria Dibu Martínez vs Kolo Muani";
-  }
-  const minStr = String(frame.minute).padStart(2, "0");
-  const secStr = String(frame.second).padStart(2, "0");
-  const teamLabel = frame.possession_team === "home" ? "Argentina" : "Francia";
-  return `${minStr}:${secStr} · ${frame.event_type} (${teamLabel})`;
 }
 
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
@@ -189,7 +163,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         >
           {frames.map((f, i) => (
             <option key={f.event_uuid || i} value={i} className="bg-ink-900 text-fg">
-              {getMomentLabel(f, i)}
+              {formatMomentLabel(f)}
             </option>
           ))}
         </select>
@@ -246,10 +220,10 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
       <Button
         variant={isCounterfactualMode ? "secondary" : "ghost"}
         onClick={onResetSimulation}
-        title="Restablecer posiciones al frame real de StatsBomb 360"
+        title="Restablecer las posiciones originales de la jugada"
       >
         <RotateCcw className="h-3.5 w-3.5" />
-        <span className="hidden lg:inline">Volver a la realidad</span>
+        <span className="hidden lg:inline">Restablecer jugada</span>
       </Button>
     </div>
   );

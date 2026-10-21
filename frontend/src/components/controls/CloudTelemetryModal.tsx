@@ -128,7 +128,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       avg_latency_ms: 0.74,
       sims_per_second: 1358.7,
       kd_tree_lookups: 25 * 22 * 192,
-      engine: "Scipy Voronoi + KDTree + StatsBomb 16x12 Expected Threat",
+      engine: "Scipy Voronoi + KDTree + 16x12 Expected Threat",
     };
     setBurstResult(simulatedResult);
     setTelemetry((prev) => ({

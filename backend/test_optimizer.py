@@ -17,14 +17,15 @@ if sys.platform == "win32":
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app.schemas.match_contract import MatchFramePayload
-from app.services.statsbomb_loader import loader
+from app.services.match_loader import loader
+from app.services.synthetic_generator import DEFAULT_MATCH_ID
 from app.services.tactical_optimizer import solve_optimal_defense, OptimizeDefenseRequest
 
 
 async def run_optimizer_test():
-    print("--- 1. Loading Golden Highlight 2 (Min 35:42) ---")
-    frames = loader.fetch_match_360_frames(3869685)
-    frame_data = frames[1]  # Highlight 2 (Min 35:42)
+    print("--- 1. Loading synthetic key moment 2 ---")
+    frames = loader.fetch_match_360_frames(DEFAULT_MATCH_ID)
+    frame_data = frames[1]
     frame = MatchFramePayload(**frame_data)
     print(f"Loaded event {frame.event_uuid} with {len(frame.players)} players.")
     print(f"Original xT: {frame.metrics.original_xt:.3f}, Pass Prob: {frame.metrics.pass_completion_prob:.1f}%")

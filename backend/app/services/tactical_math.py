@@ -1,6 +1,6 @@
 """
 Advanced Tactical Mathematical Engine for xT-WhatIf.
-Standard StatsBomb coordinates: X [0.0 - 120.0] and Y [0.0 - 80.0].
+Canonical pitch coordinates: X [0.0 - 120.0] and Y [0.0 - 80.0].
 
 Features:
 1. Vectorized Voronoi & Space Ownership on a fine 60x40 spatial grid over the active offensive third.

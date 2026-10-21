@@ -20,6 +20,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.config import settings
 from app.schemas.match_contract import CounterfactualRequest, PlayerNode, MatchFramePayload
+from app.services.match_loader import loader
+from app.services.synthetic_generator import DEFAULT_MATCH_ID
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -29,24 +31,20 @@ if sys.platform == "win32":
 class TestPhase3CloudArchitecture(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        # Move the defender closest to the ball in the first synthetic moment.
+        frame = MatchFramePayload(**loader.fetch_match_360_frames(DEFAULT_MATCH_ID)[0])
+        defenders = [p for p in frame.players if p.team != frame.possession_team and not p.is_keeper]
+        defender = min(defenders, key=lambda p: (p.x - frame.ball_x) ** 2 + (p.y - frame.ball_y) ** 2)
+        moved = defender.model_copy(update={
+            "x": round(min(119.0, defender.x + 4.0), 1),
+            "original_x": defender.x,
+            "original_y": defender.y,
+            "is_modified": True,
+        })
         self.test_payload = {
-            "match_id": 3869685,
-            "event_uuid": "e21a1102-1a4c-4e1b-9f11-77a8123cc101",
-            "modified_players": [
-                {
-                    "player_id": 5,
-                    "name": "J. Koundé",
-                    "jersey_number": 5,
-                    "team": "away",
-                    "is_actor": False,
-                    "is_keeper": False,
-                    "x": 88.0,
-                    "y": 25.0,
-                    "original_x": 93.0,
-                    "original_y": 18.0,
-                    "is_modified": True,
-                }
-            ],
+            "match_id": DEFAULT_MATCH_ID,
+            "event_uuid": frame.event_uuid,
+            "modified_players": [moved.model_dump(mode="json")],
         }
 
     def test_01_health_check_standalone(self):
@@ -101,7 +99,7 @@ class TestPhase3CloudArchitecture(unittest.TestCase):
         response = self.client.post("/api/v1/simulate", json=self.test_payload)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["match_id"], 3869685)
+        self.assertEqual(data["match_id"], DEFAULT_MATCH_ID)
         self.assertIsNotNone(data["metrics"]["simulated_xt"])
         print("  [OK] AKS Worker computes simulation directly in-process")
 

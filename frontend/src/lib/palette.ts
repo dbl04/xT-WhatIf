@@ -17,8 +17,8 @@ export const PALETTE = {
   turf: "#081f14",
   turfStripe: "#0a2418",
   pitchLine: "rgba(255, 255, 255, 0.72)",
-  home: "#75aadb", // Argentina celeste
-  away: "#f4f0f8", // France (white kit on the plum broadcast)
+  home: "#75aadb", // home club kit (celeste)
+  away: "#f4f0f8", // away club kit (white on the plum broadcast)
 } as const;
 
 /** SVG hairline: stays `px` screen pixels wide regardless of pitch zoom. */

@@ -107,7 +107,7 @@ class TacticalAgentSwarm:
         delta_ctx = self._extract_delta_context(frame)
 
         system_prompt = (
-            "Eres el motor de debate táctico de 'xT-WhatIf' para fútbol profesional (StatsBomb 360). "
+            "Eres el motor de debate táctico de 'xT-WhatIf' para fútbol profesional (fotogramas 360 sintéticos). "
             "Debes responder ÚNICAMENTE con un objeto JSON válido que contenga la clave 'debate' con un array de 2 mensajes: "
             "1. 'Dr. Voronoi' (agent_role: 'data_scientist', avatar_badge: 'AI-QUANT'): Analítico y estadístico, cita el impacto del Expected Threat (xT) sobre la matriz 16x12, el porcentaje de dominio de Voronoi y la probabilidad de pase. En highlighted_player_ids incluye el defensor movido y el receptor del pase.\n"
             "2. 'Míster Bianchi' (agent_role: 'classic_coach', avatar_badge: 'PRO-COACH'): Entrenador pragmático y de vestuario, usa jerga futbolística ('basculación', 'intervalo central-lateral', 'perfil de orientación', 'espalda del pivote'). Rebate o complementa las métricas advirtiendo de la nueva amenaza del receptor alternativo. En highlighted_player_ids incluye el defensor movido y el optimal_pass_target_id.\n\n"
@@ -141,7 +141,7 @@ class TacticalAgentSwarm:
         )
 
         user_prompt = (
-            f"Contexto del Partido: Final Copa del Mundo 2022 (Argentina vs Francia). Evento: {frame.event_type} en {frame.minute}:{frame.second:02d}.\n"
+            f"Contexto del Partido: {self._fixture_label(frame)}. Evento: {frame.event_type} en {frame.minute}:{frame.second:02d}.\n"
             f"Telemetría Contrafactual:\n"
             f"- Jugadores modificados: {delta_ctx['moved_summary']}\n"
             f"- xT Real: {frame.metrics.original_xt:.2f} -> xT Simulado: {frame.metrics.simulated_xt:.2f} (ΔxT: {frame.metrics.xt_delta:+.2f})\n"
@@ -172,6 +172,13 @@ class TacticalAgentSwarm:
             return [AgentMessage(**item) for item in debate_list]
 
         return None
+
+    @staticmethod
+    def _fixture_label(frame: MatchFramePayload) -> str:
+        info = frame.match_info
+        if info is None:
+            return "Partido sintético"
+        return f"{info.competition} ({info.home.name} vs {info.away.name}, datos sintéticos)"
 
     def _extract_delta_context(self, frame: MatchFramePayload) -> Dict[str, Any]:
         """Calculates structured delta variables: displacements, directions, and involved actors."""

@@ -46,6 +46,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ./backend
 
+      - name: Run Synthetic Data Generator Tests
+        run: python backend/test_synthetic_generator.py
+        env:
+          PYTHONPATH: ./backend
+
       - name: Run Phase 2 Math & AI Swarm Tests
         run: python backend/test_phase2.py
         env:

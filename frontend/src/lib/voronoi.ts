@@ -3,7 +3,7 @@
 /**
  * Voronoi Tessellation & Territorial Ownership Engine.
  * Computes exact clipped Voronoi polygons and home/away dispute frontiers
- * for the tactical pitch (120m x 80m standard StatsBomb coordinates).
+ * for the tactical pitch (canonical 120m x 80m coordinates).
  */
 
 export interface Point2D {

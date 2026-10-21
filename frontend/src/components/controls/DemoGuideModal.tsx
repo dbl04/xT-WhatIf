@@ -12,7 +12,7 @@ interface DemoGuideModalProps {
 const STEPS = [
   {
     title: "Elige una jugada clave",
-    desc: "Selecciona uno de los 5 momentos decisivos de la final (p. ej. 35:42, gol de Di María, o 80:25, volea de Mbappé) en el selector del dock inferior.",
+    desc: "Selecciona uno de los momentos clave del partido sintético (un contraataque, un pase atrás, un mano a mano…) en el selector del dock inferior.",
   },
   {
     title: "Reproduce la secuencia",
@@ -41,7 +41,7 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({ isOpen, onClose 
       footer={
         <>
           <span className="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
-            StatsBomb 360 · Azure
+            Datos sintéticos · Azure
           </span>
           <Button variant="primary" onClick={onClose}>
             Empezar
