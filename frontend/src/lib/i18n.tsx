@@ -237,6 +237,37 @@ const en = {
   "cloud.simulatedNote": "Replica, pod and CPU figures are simulated from request load for the demo.",
 
   "common.close": "Close",
+
+  // Onboarding: fan profile + team selection (xT Live Challenge)
+  "onboarding.kicker": "xT Live Challenge",
+  "onboarding.step": "Step {n} of {total}",
+  "fanProfile.title": "Create your fan profile",
+  "fanProfile.editTitle": "Edit your fan profile",
+  "fanProfile.desc": "No sign-up needed: your profile stays on this device.",
+  "fanProfile.nickname": "Nickname",
+  "fanProfile.nicknamePlaceholder": "e.g. TikiTaka10",
+  "fanProfile.nicknameHint": "2 to 20 characters. Shown on the live leaderboard.",
+  "fanProfile.nicknameTooShort": "Your nickname needs at least 2 characters.",
+  "fanProfile.nicknameTooLong": "Your nickname can be 20 characters at most.",
+  "fanProfile.languageHint": "Interface and commentary language.",
+  "fanProfile.audienceHint": "Who the pundits talk to during the match.",
+  "fanProfile.continue": "Continue",
+  "fanProfile.save": "Save profile",
+  "fanProfile.cancel": "Cancel",
+  "team.title": "Who are you supporting?",
+  "team.desc":
+    "Pick your side for this match. When play pauses, you boost their attack or shut down the rival's to score points.",
+  "team.greeting": "Hi, {name}",
+  "team.home": "Home",
+  "team.away": "Away",
+  "team.fans.one": "{n} fan",
+  "team.fans.other": "{n} fans",
+  "team.yourTeam": "Your team",
+  "team.pickFirst": "Pick a team to start.",
+  "team.start": "Start match",
+  "team.resume": "Back to match",
+  "team.editProfile": "Edit profile",
+  "fan.badgeTitle": "Change team or edit your profile",
 };
 
 export type MessageKey = keyof typeof en;
@@ -452,6 +483,36 @@ const es: Record<MessageKey, string> = {
   "cloud.simulatedNote": "Las cifras de réplicas, pods y CPU se simulan a partir de la carga de peticiones para la demo.",
 
   "common.close": "Cerrar",
+
+  "onboarding.kicker": "xT Live Challenge",
+  "onboarding.step": "Paso {n} de {total}",
+  "fanProfile.title": "Crea tu perfil de aficionado",
+  "fanProfile.editTitle": "Edita tu perfil de aficionado",
+  "fanProfile.desc": "Sin registro: tu perfil se guarda solo en este dispositivo.",
+  "fanProfile.nickname": "Apodo",
+  "fanProfile.nicknamePlaceholder": "p. ej. TikiTaka10",
+  "fanProfile.nicknameHint": "Entre 2 y 20 caracteres. Aparecerá en la clasificación en directo.",
+  "fanProfile.nicknameTooShort": "Tu apodo debe tener al menos 2 caracteres.",
+  "fanProfile.nicknameTooLong": "Tu apodo puede tener como máximo 20 caracteres.",
+  "fanProfile.languageHint": "Idioma de la interfaz y de los comentarios.",
+  "fanProfile.audienceHint": "A quién se dirigen los comentaristas durante el partido.",
+  "fanProfile.continue": "Continuar",
+  "fanProfile.save": "Guardar perfil",
+  "fanProfile.cancel": "Cancelar",
+  "team.title": "¿Con quién vas?",
+  "team.desc":
+    "Elige tu equipo para este partido. Cuando se pare el juego, potencia su ataque o frena el del rival para sumar puntos.",
+  "team.greeting": "Hola, {name}",
+  "team.home": "Local",
+  "team.away": "Visitante",
+  "team.fans.one": "{n} aficionado",
+  "team.fans.other": "{n} aficionados",
+  "team.yourTeam": "Tu equipo",
+  "team.pickFirst": "Elige un equipo para empezar.",
+  "team.start": "Empezar partido",
+  "team.resume": "Volver al partido",
+  "team.editProfile": "Editar perfil",
+  "fan.badgeTitle": "Cambiar de equipo o editar tu perfil",
 };
 
 const DICTIONARIES: Record<Language, Record<MessageKey, string>> = { en, es };
