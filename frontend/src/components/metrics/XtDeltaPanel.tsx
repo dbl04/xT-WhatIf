@@ -5,6 +5,7 @@ import React from "react";
 import { TacticalMetrics } from "@/types/match";
 import { RotateCcw, Download } from "lucide-react";
 import { IconButton, Kicker, Tag } from "@/components/ui/primitives";
+import { useI18n } from "@/lib/i18n";
 
 interface XtDeltaPanelProps {
   metrics: TacticalMetrics;
@@ -40,8 +41,9 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
   isCounterfactualMode = false,
   onReset,
   onExportReport,
-  teamShortNames = { home: "LOC", away: "VIS" },
+  teamShortNames = { home: "HOM", away: "AWY" },
 }) => {
+  const { t } = useI18n();
   const isPositive = metrics.xt_delta >= 0;
   // Δ rounds to 0.00 on the untouched play (and on moves that change nothing): stay neutral.
   const isUnchanged = !isCounterfactualMode || Math.abs(metrics.xt_delta) < 0.005;
@@ -54,14 +56,14 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       <div className="flex items-center justify-between">
         <Kicker>Expected Threat</Kicker>
         <div className="flex items-center gap-1">
-          {isCounterfactualMode ? <Tag tone="green">Simulado</Tag> : <Tag>Original</Tag>}
+          {isCounterfactualMode ? <Tag tone="green">{t("xt.simulated")}</Tag> : <Tag>{t("xt.original")}</Tag>}
           {isCounterfactualMode && onReset && (
-            <IconButton size="sm" onClick={onReset} title="Restablecer jugada original" aria-label="Restablecer jugada original">
+            <IconButton size="sm" onClick={onReset} title={t("xt.reset")} aria-label={t("xt.reset")}>
               <RotateCcw className="h-3.5 w-3.5" />
             </IconButton>
           )}
           {onExportReport && (
-            <IconButton size="sm" onClick={onExportReport} title="Exportar informe táctico" aria-label="Exportar informe">
+            <IconButton size="sm" onClick={onExportReport} title={t("xt.export")} aria-label={t("xt.export")}>
               <Download className="h-3.5 w-3.5" />
             </IconButton>
           )}
@@ -71,10 +73,10 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       {/* Main figures */}
       <div className="grid grid-cols-3 divide-x divide-line">
         <div className="pr-3">
-          <Stat label="xT original" value={metrics.original_xt.toFixed(2)} tone="muted" />
+          <Stat label={t("xt.originalXt")} value={metrics.original_xt.toFixed(2)} tone="muted" />
         </div>
         <div className="px-3">
-          <Stat label="xT simulado" value={metrics.simulated_xt.toFixed(2)} />
+          <Stat label={t("xt.simulatedXt")} value={metrics.simulated_xt.toFixed(2)} />
         </div>
         <div className="pl-3">
           <Stat
@@ -86,16 +88,16 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       </div>
       <p className="-mt-1 text-[11px] text-fg-subtle">
         {isUnchanged
-          ? "Sin cambios respecto a la jugada original."
+          ? t("xt.unchanged")
           : isPositive
-          ? "El cambio genera más peligro."
-          : "El cambio reduce el peligro."}
+          ? t("xt.more")
+          : t("xt.less")}
       </p>
 
       {/* Territorial split */}
       <div className="flex flex-col gap-1.5 border-t border-line pt-3">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="font-mono uppercase tracking-wider text-fg-subtle">Control territorial</span>
+          <span className="font-mono uppercase tracking-wider text-fg-subtle">{t("xt.territory")}</span>
         </div>
         <div className="flex h-1.5 w-full overflow-hidden rounded-[1px] bg-white/[0.06]">
           <div className="h-full bg-team-home transition-[width] duration-300" style={{ width: `${homePct}%` }} />
@@ -110,7 +112,7 @@ export const XtDeltaPanel: React.FC<XtDeltaPanelProps> = ({
       {/* Pass probability */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="font-mono uppercase tracking-wider text-fg-subtle">Probabilidad de pase</span>
+          <span className="font-mono uppercase tracking-wider text-fg-subtle">{t("xt.pass")}</span>
           <span className="font-display text-sm font-semibold tabular-nums text-fg">{passPct.toFixed(1)}%</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-[1px] bg-white/[0.06]">

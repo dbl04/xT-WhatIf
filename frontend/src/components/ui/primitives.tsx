@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 // ======================================================================
 // BUTTON — quiet, hairline, Linear-style
@@ -129,6 +130,8 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   bodyClassName,
   children,
 }) => {
+  const { t } = useI18n();
+  const closeLabel = t("common.close");
   const dialogRef = useRef<HTMLDivElement | null>(null);
   // Only a press that starts AND ends on the backdrop closes the modal, so a text
   // selection dragged out of the panel doesn't dismiss it.
@@ -182,7 +185,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
           </div>
           <div className="flex items-center gap-1">
             {headerActions}
-            <IconButton onClick={onClose} aria-label="Cerrar" title="Cerrar">
+            <IconButton onClick={onClose} aria-label={closeLabel} title={closeLabel}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>

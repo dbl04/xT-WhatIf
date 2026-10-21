@@ -182,7 +182,7 @@ async def solve_optimal_defense(request: OptimizeDefenseRequest) -> OptimizeDefe
                     to_x=round(p.x, 1),
                     to_y=round(p.y, 1),
                     displacement_m=round(disp, 2),
-                    tactical_reason=f"Basculación de cobertura ({disp:.1f}m) interceptando cono hacia zona final."
+                    tactical_reason=f"Cover shift ({disp:.1f} m) cutting the passing cone towards the final third."
                 )
             )
             final_players.append(p_final)

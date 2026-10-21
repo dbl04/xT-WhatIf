@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { displayFont, sansFont, monoFont } from "@/lib/fonts";
+import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,10 +16,12 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="es"
+      lang="en"
       className={`dark ${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
     >
-      <body className="bg-ink text-fg min-h-screen antialiased">{children}</body>
+      <body className="bg-ink text-fg min-h-screen antialiased">
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

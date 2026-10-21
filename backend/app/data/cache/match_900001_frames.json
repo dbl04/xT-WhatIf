@@ -309,35 +309,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-64be2ffe",
+        "message_id": "msg-6850b171",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "5:03",
-        "headline": "Disparo desde la frontal del área: 0.10 xT en juego",
-        "analysis_body": "I. Kowalin inicia la acción en (97.0, 37.0). El valor de la jugada es 0.10 xT con un 11.7% de probabilidad de completar la acción y un control territorial local del 49.9% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
-        "referenced_metric": "xT: 0.10 | Prob. pase: 11.7%",
+        "headline": "Shot from the edge of the box: 0.10 xT in play",
+        "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.10 xT, with a 11.7% chance of completing the action and 49.9% local space control in the final third. The highest-value option is N. Haldorsen.",
+        "referenced_metric": "xT: 0.10 | Pass prob.: 11.7%",
         "highlighted_player_ids": [
           210,
           206
         ]
       },
       {
-        "message_id": "msg-15ee7ff1",
+        "message_id": "msg-5784b960",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "5:03",
-        "headline": "Presión de J. Castellan a 2.4 m",
-        "analysis_body": "J. Castellan es el primero en saltar y llega a 2.4 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 2.4 m",
+        "headline": "J. Castellan presses from 2.4 m",
+        "analysis_body": "J. Castellan is first to jump and gets within 2.4 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 2.4 m",
         "highlighted_player_ids": [
           106,
           210
         ]
       }
     ],
-    "moment_label": "Disparo desde la frontal del área",
+    "moment_label": "Shot from the edge of the box",
+    "moment_key": "edge_shot",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",
@@ -665,35 +666,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-12c1eb0d",
+        "message_id": "msg-91636d7f",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "19:10",
-        "headline": "Mano a mano con el portero: 0.11 xT en juego",
-        "analysis_body": "Z. Ombrell inicia la acción en (106.0, 44.0). El valor de la jugada es 0.11 xT con un 13.2% de probabilidad de completar la acción y un control territorial local del 39.4% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
-        "referenced_metric": "xT: 0.11 | Prob. pase: 13.2%",
+        "headline": "One-on-one with the keeper: 0.11 xT in play",
+        "analysis_body": "Z. Ombrell starts the action at (106.0, 44.0). The move is worth 0.11 xT, with a 13.2% chance of completing the action and 39.4% local space control in the final third. The highest-value option is N. Haldorsen.",
+        "referenced_metric": "xT: 0.11 | Pass prob.: 13.2%",
         "highlighted_player_ids": [
           209,
           206
         ]
       },
       {
-        "message_id": "msg-6bffdd29",
+        "message_id": "msg-c15e5e12",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "19:10",
-        "headline": "Presión de J. Castellan a 3.2 m",
-        "analysis_body": "J. Castellan es el primero en saltar y llega a 3.2 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 3.2 m",
+        "headline": "J. Castellan presses from 3.2 m",
+        "analysis_body": "J. Castellan is first to jump and gets within 3.2 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 3.2 m",
         "highlighted_player_ids": [
           106,
           209
         ]
       }
     ],
-    "moment_label": "Mano a mano con el portero",
+    "moment_label": "One-on-one with the keeper",
+    "moment_key": "one_v_one",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",
@@ -1021,35 +1023,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-d8739141",
+        "message_id": "msg-fc1f7246",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "37:09",
-        "headline": "Cambio de orientación a la banda contraria: 0.09 xT en juego",
-        "analysis_body": "D. Okonne inicia la acción en (71.0, 11.0). El valor de la jugada es 0.09 xT con un 33.4% de probabilidad de completar la acción y un control territorial local del 28.1% en el último tercio. La opción de mayor valor esperado es M. Ferrant.",
-        "referenced_metric": "xT: 0.09 | Prob. pase: 33.4%",
+        "headline": "Switch of play to the far side: 0.09 xT in play",
+        "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.09 xT, with a 33.4% chance of completing the action and 28.1% local space control in the final third. The highest-value option is M. Ferrant.",
+        "referenced_metric": "xT: 0.09 | Pass prob.: 33.4%",
         "highlighted_player_ids": [
           102,
           108
         ]
       },
       {
-        "message_id": "msg-99781176",
+        "message_id": "msg-4b47ec36",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "37:09",
-        "headline": "Presión de I. Kowalin a 3.0 m",
-        "analysis_body": "I. Kowalin es el primero en saltar y llega a 3.0 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 3.0 m",
+        "headline": "I. Kowalin presses from 3.0 m",
+        "analysis_body": "I. Kowalin is first to jump and gets within 3.0 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 3.0 m",
         "highlighted_player_ids": [
           210,
           102
         ]
       }
     ],
-    "moment_label": "Cambio de orientación a la banda contraria",
+    "moment_label": "Switch of play to the far side",
+    "moment_key": "switch",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",
@@ -1377,35 +1380,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-125cd4e4",
+        "message_id": "msg-d5741a1c",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "45:19",
-        "headline": "Conducción por banda hacia el área: 0.18 xT en juego",
-        "analysis_body": "E. Adeyo inicia la acción en (97.0, 13.0). El valor de la jugada es 0.18 xT con un 36.0% de probabilidad de completar la acción y un control territorial local del 46.9% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
-        "referenced_metric": "xT: 0.18 | Prob. pase: 36.0%",
+        "headline": "Wide carry into the box: 0.18 xT in play",
+        "analysis_body": "E. Adeyo starts the action at (97.0, 13.0). The move is worth 0.18 xT, with a 36.0% chance of completing the action and 46.9% local space control in the final third. The highest-value option is O. Thornwell.",
+        "referenced_metric": "xT: 0.18 | Pass prob.: 36.0%",
         "highlighted_player_ids": [
           107,
           109
         ]
       },
       {
-        "message_id": "msg-22abefca",
+        "message_id": "msg-ed83a45a",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "45:19",
-        "headline": "Presión de I. Kowalin a 2.2 m",
-        "analysis_body": "I. Kowalin es el primero en saltar y llega a 2.2 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 2.2 m",
+        "headline": "I. Kowalin presses from 2.2 m",
+        "analysis_body": "I. Kowalin is first to jump and gets within 2.2 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 2.2 m",
         "highlighted_player_ids": [
           210,
           107
         ]
       }
     ],
-    "moment_label": "Conducción por banda hacia el área",
+    "moment_label": "Wide carry into the box",
+    "moment_key": "wide_carry",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",
@@ -1733,35 +1737,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-6b0eedb2",
+        "message_id": "msg-4fca80be",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "55:12",
-        "headline": "Pase filtrado al pasillo interior: 0.25 xT en juego",
-        "analysis_body": "M. Ferrant inicia la acción en (87.0, 28.0). El valor de la jugada es 0.25 xT con un 49.9% de probabilidad de completar la acción y un control territorial local del 47.2% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
-        "referenced_metric": "xT: 0.25 | Prob. pase: 49.9%",
+        "headline": "Through ball into the half-space: 0.25 xT in play",
+        "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.25 xT, with a 49.9% chance of completing the action and 47.2% local space control in the final third. The highest-value option is O. Thornwell.",
+        "referenced_metric": "xT: 0.25 | Pass prob.: 49.9%",
         "highlighted_player_ids": [
           108,
           109
         ]
       },
       {
-        "message_id": "msg-32f8d985",
+        "message_id": "msg-37f50ea8",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "55:12",
-        "headline": "Presión de N. Haldorsen a 3.0 m",
-        "analysis_body": "N. Haldorsen es el primero en saltar y llega a 3.0 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 3.0 m",
+        "headline": "N. Haldorsen presses from 3.0 m",
+        "analysis_body": "N. Haldorsen is first to jump and gets within 3.0 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 3.0 m",
         "highlighted_player_ids": [
           206,
           108
         ]
       }
     ],
-    "moment_label": "Pase filtrado al pasillo interior",
+    "moment_label": "Through ball into the half-space",
+    "moment_key": "half_space",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",
@@ -2089,35 +2094,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-e796d3aa",
+        "message_id": "msg-7604a200",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "71:48",
-        "headline": "Contraataque: pase al espacio: 0.22 xT en juego",
-        "analysis_body": "I. Kowalin inicia la acción en (60.0, 46.0). El valor de la jugada es 0.22 xT con un 57.1% de probabilidad de completar la acción y un control territorial local del 68.1% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
-        "referenced_metric": "xT: 0.22 | Prob. pase: 57.1%",
+        "headline": "Counter-attack: ball into space: 0.22 xT in play",
+        "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.22 xT, with a 57.1% chance of completing the action and 68.1% local space control in the final third. The highest-value option is Z. Ombrell.",
+        "referenced_metric": "xT: 0.22 | Pass prob.: 57.1%",
         "highlighted_player_ids": [
           210,
           209
         ]
       },
       {
-        "message_id": "msg-7d55925b",
+        "message_id": "msg-3d143b1a",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "71:48",
-        "headline": "Presión de M. Ferrant a 3.4 m",
-        "analysis_body": "M. Ferrant es el primero en saltar y llega a 3.4 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 3.4 m",
+        "headline": "M. Ferrant presses from 3.4 m",
+        "analysis_body": "M. Ferrant is first to jump and gets within 3.4 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 3.4 m",
         "highlighted_player_ids": [
           108,
           210
         ]
       }
     ],
-    "moment_label": "Contraataque: pase al espacio",
+    "moment_label": "Counter-attack: ball into space",
+    "moment_key": "counter_through",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",
@@ -2445,35 +2451,36 @@
     },
     "agent_debate": [
       {
-        "message_id": "msg-ec8b0b6f",
+        "message_id": "msg-b5a80b18",
         "agent_role": "data_scientist",
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "86:56",
-        "headline": "Pase atrás desde la línea de fondo: 0.17 xT en juego",
-        "analysis_body": "Y. Belcourt inicia la acción en (113.0, 71.0). El valor de la jugada es 0.17 xT con un 30.9% de probabilidad de completar la acción y un control territorial local del 47.3% en el último tercio. La opción de mayor valor esperado es I. Kowalin.",
-        "referenced_metric": "xT: 0.17 | Prob. pase: 30.9%",
+        "headline": "Cut-back from the byline: 0.17 xT in play",
+        "analysis_body": "Y. Belcourt starts the action at (113.0, 71.0). The move is worth 0.17 xT, with a 30.9% chance of completing the action and 47.3% local space control in the final third. The highest-value option is I. Kowalin.",
+        "referenced_metric": "xT: 0.17 | Pass prob.: 30.9%",
         "highlighted_player_ids": [
           211,
           210
         ]
       },
       {
-        "message_id": "msg-574f167e",
+        "message_id": "msg-d866929a",
         "agent_role": "classic_coach",
-        "agent_name": "Míster Bianchi (Entrenador Clásico)",
+        "agent_name": "Coach Bianchi (Classic Coach)",
         "avatar_badge": "PRO-COACH",
         "timestamp_label": "86:56",
-        "headline": "Presión de D. Okonne a 2.0 m",
-        "analysis_body": "D. Okonne es el primero en saltar y llega a 2.0 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-        "referenced_metric": "Distancia de presión: 2.0 m",
+        "headline": "D. Okonne presses from 2.0 m",
+        "analysis_body": "D. Okonne is first to jump and gets within 2.0 m of the ball. Move a defender and check whether you close the lane without opening another.",
+        "referenced_metric": "Pressing distance: 2.0 m",
         "highlighted_player_ids": [
           102,
           211
         ]
       }
     ],
-    "moment_label": "Pase atrás desde la línea de fondo",
+    "moment_label": "Cut-back from the byline",
+    "moment_key": "cutback",
     "match_info": {
       "competition": "Synthetic League · Matchday 7",
       "venue": "Harbourside Park",

@@ -4,10 +4,10 @@ import { MatchFramePayload, MatchInfo } from "@/types/match";
 export const DEFAULT_MATCH_ID = 900001;
 
 const FALLBACK_INFO: MatchInfo = {
-  competition: "Partido sintético",
+  competition: "Synthetic match",
   venue: "",
-  home: { name: "Local", short_name: "LOC", primary_color: "#75aadb" },
-  away: { name: "Visitante", short_name: "VIS", primary_color: "#f4f0f8" },
+  home: { name: "Home", short_name: "HOM", primary_color: "#75aadb" },
+  away: { name: "Away", short_name: "AWY", primary_color: "#f4f0f8" },
   data_source: "synthetic",
 };
 
@@ -16,7 +16,7 @@ export function getMatchInfo(frame?: MatchFramePayload | null): MatchInfo {
   return frame?.match_info ?? FALLBACK_INFO;
 }
 
-/** "23:41 · Pase atrás desde la línea de fondo" */
+/** "86:56 · Cut-back from the byline (SMR)" */
 export function formatMomentLabel(frame: MatchFramePayload): string {
   const clock = `${String(frame.minute).padStart(2, "0")}:${String(frame.second).padStart(2, "0")}`;
   const possession = getMatchInfo(frame)[frame.possession_team].short_name;

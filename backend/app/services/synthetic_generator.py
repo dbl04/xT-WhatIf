@@ -39,14 +39,21 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from app.schemas.match_contract import (
-    AgentMessage,
-    AgentRole,
     MatchFramePayload,
     MatchInfo,
     PlayerNode,
     TacticalMetrics,
     TeamInfo,
     TeamSide,
+)
+from app.services.narration import (
+    AUDIENCES,
+    DEFAULT_AUDIENCE,
+    DEFAULT_LANGUAGE,
+    LANGUAGES,
+    base_debate,
+    localize_frame,
+    moment_label,
 )
 from app.services.tactical_math import simulate_counterfactual
 
@@ -98,9 +105,8 @@ AWAY_ID_BASE = 200
 
 @dataclass(frozen=True)
 class Scenario:
-    key: str
+    key: str  # also the narration key of the moment (narration.MOMENT_LABELS)
     event_type: str
-    label: str
     ball: Tuple[float, float]
     ball_end: Tuple[float, float]
     actor_role: str
@@ -117,24 +123,24 @@ class Scenario:
 # Coordinates are expressed with the attacking team going towards x = 120.
 # With y < 40 on the attacking team's right-hand side (RB / RW).
 SCENARIOS: List[Scenario] = [
-    Scenario("wide_carry", "Dribble", "Conducción por banda hacia el área",
+    Scenario("wide_carry", "Dribble",
              ball=(97.0, 13.0), ball_end=(106.0, 24.0), actor_role="RW", press_distance_m=2.2),
-    Scenario("counter_through", "Pass", "Contraataque: pase al espacio",
+    Scenario("counter_through", "Pass",
              ball=(60.0, 46.0), ball_end=(91.0, 34.0), actor_role="LCM", receiver_role="ST",
              press_distance_m=3.5, def_line_x=74.0, lane_clearance_m=5.0),
-    Scenario("cutback", "Pass", "Pase atrás desde la línea de fondo",
+    Scenario("cutback", "Pass",
              ball=(113.0, 71.0), ball_end=(103.0, 45.0), actor_role="LW", receiver_role="RCM",
              press_distance_m=2.0),
-    Scenario("half_space", "Pass", "Pase filtrado al pasillo interior",
+    Scenario("half_space", "Pass",
              ball=(87.0, 28.0), ball_end=(103.0, 33.0), actor_role="RCM", receiver_role="ST",
              press_distance_m=3.0),
-    Scenario("switch", "Pass", "Cambio de orientación a la banda contraria",
+    Scenario("switch", "Pass",
              ball=(71.0, 11.0), ball_end=(86.0, 70.0), actor_role="RB", receiver_role="LW",
              press_distance_m=3.0),
-    Scenario("edge_shot", "Shot", "Disparo desde la frontal del área",
+    Scenario("edge_shot", "Shot",
              ball=(97.0, 37.0), ball_end=(120.0, 38.5), actor_role="LCM", press_distance_m=2.4,
              lane_clearance_m=3.5),
-    Scenario("one_v_one", "Shot", "Mano a mano con el portero",
+    Scenario("one_v_one", "Shot",
              ball=(106.0, 44.0), ball_end=(120.0, 41.0), actor_role="ST", press_distance_m=3.2,
              keeper_rush_x=112.5, lane_clearance_m=3.0),
 ]
@@ -341,56 +347,6 @@ def _base_metrics(frame: MatchFramePayload) -> TacticalMetrics:
     )
 
 
-def _base_debate(frame: MatchFramePayload, scenario: Scenario, seed: int, index: int) -> List[AgentMessage]:
-    """Deterministic pre-move reading of the moment, written from the computed metrics."""
-    m = frame.metrics
-    by_id = {p.player_id: p for p in frame.players}
-    actor = next(p for p in frame.players if p.is_actor)
-    defenders = [p for p in frame.players if p.team != frame.possession_team and not p.is_keeper]
-    presser = min(defenders, key=lambda p: math.hypot(p.x - actor.x, p.y - actor.y))
-    press_gap = math.hypot(presser.x - actor.x, presser.y - actor.y)
-    optimal = by_id.get(m.optimal_pass_target_id) if m.optimal_pass_target_id else None
-    clock = f"{frame.minute}:{frame.second:02d}"
-
-    ds_body = (
-        f"{actor.name} inicia la acción en ({actor.x:.1f}, {actor.y:.1f}). El valor de la jugada es {m.original_xt:.2f} xT "
-        f"con un {m.pass_completion_prob:.1f}% de probabilidad de completar la acción y un control territorial local del "
-        f"{m.space_control_home_pct:.1f}% en el último tercio."
-    )
-    if optimal is not None and optimal.player_id != actor.player_id:
-        ds_body += f" La opción de mayor valor esperado es {optimal.name}."
-    coach_body = (
-        f"{presser.name} es el primero en saltar y llega a {press_gap:.1f} m del balón. "
-        f"Mueve a un defensor y comprueba si cierras el carril sin abrir otro."
-    )
-    highlighted_ds = [actor.player_id] + ([optimal.player_id] if optimal else [])
-    namespace = uuid.uuid5(uuid.NAMESPACE_URL, f"xt-whatif/synthetic/{seed}/{index}")
-    return [
-        AgentMessage(
-            message_id=f"msg-{str(uuid.uuid5(namespace, 'ds'))[:8]}",
-            agent_role=AgentRole.DATA_SCIENTIST,
-            agent_name="Dr. Voronoi (Data Scientist)",
-            avatar_badge="AI-QUANT",
-            timestamp_label=clock,
-            headline=f"{scenario.label}: {m.original_xt:.2f} xT en juego",
-            analysis_body=ds_body,
-            referenced_metric=f"xT: {m.original_xt:.2f} | Prob. pase: {m.pass_completion_prob:.1f}%",
-            highlighted_player_ids=highlighted_ds,
-        ),
-        AgentMessage(
-            message_id=f"msg-{str(uuid.uuid5(namespace, 'coach'))[:8]}",
-            agent_role=AgentRole.CLASSIC_COACH,
-            agent_name="Míster Bianchi (Entrenador Clásico)",
-            avatar_badge="PRO-COACH",
-            timestamp_label=clock,
-            headline=f"Presión de {presser.name} a {press_gap:.1f} m",
-            analysis_body=coach_body,
-            referenced_metric=f"Distancia de presión: {press_gap:.1f} m",
-            highlighted_player_ids=[presser.player_id, actor.player_id],
-        ),
-    ]
-
-
 def match_info(seed: int) -> MatchInfo:
     return MatchInfo(
         competition=COMPETITION,
@@ -437,11 +393,13 @@ def generate_match(match_id: int = DEFAULT_MATCH_ID, seed: Optional[int] = None)
                 space_control_home_pct=50.0, optimal_pass_target_id=None, pass_completion_prob=50.0,
             ),
             agent_debate=[],
-            moment_label=scenario.label,
+            moment_label=moment_label(scenario.key, DEFAULT_LANGUAGE),
+            moment_key=scenario.key,
             match_info=info,
         )
         frame.metrics = _base_metrics(frame)
-        frame.agent_debate = _base_debate(frame, scenario, seed, index)
+        # Committed fixtures carry the default profile; the API re-localises them per request.
+        frame.agent_debate = base_debate(frame, frame.moment_label, DEFAULT_LANGUAGE, DEFAULT_AUDIENCE)
         frames.append(frame)
     return frames
 
@@ -458,6 +416,22 @@ def _dump(frames: List[MatchFramePayload]) -> str:
     return json.dumps([f.model_dump(mode="json") for f in frames], ensure_ascii=False, indent=2) + "\n"
 
 
+def _dump_narration(frames: List[MatchFramePayload]) -> str:
+    """Offline copy of the per-profile narration: {event_uuid: {lang: {audience: {moment_label, agent_debate}}}}."""
+    table = {}
+    for f in frames:
+        table[f.event_uuid] = {}
+        for lang in LANGUAGES:
+            table[f.event_uuid][lang] = {}
+            for audience in AUDIENCES:
+                localized = localize_frame(f, lang, audience)
+                table[f.event_uuid][lang][audience] = {
+                    "moment_label": localized.moment_label,
+                    "agent_debate": [m.model_dump(mode="json") for m in localized.agent_debate],
+                }
+    return json.dumps(table, ensure_ascii=False, indent=2) + "\n"
+
+
 def write_fixtures(match_id: int, seed: Optional[int]) -> List[Path]:
     frames = generate_match(match_id, seed)
     text = _dump(frames)
@@ -468,11 +442,13 @@ def write_fixtures(match_id: int, seed: Optional[int]) -> List[Path]:
     for path in targets:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
+    narration = FRONTEND_MOCKS_DIR / f"match_{match_id}_narration.json"
+    narration.write_text(_dump_narration(frames), encoding="utf-8")
     sample = FRONTEND_MOCKS_DIR / "sample_frame.json"
     sample.write_text(
         json.dumps(frames[0].model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    return targets + [sample]
+    return targets + [narration, sample]
 
 
 def main() -> None:

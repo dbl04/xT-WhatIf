@@ -17,21 +17,23 @@ import {
   screenToStatsbomb,
   calculateDistanceMeters,
   getTacticalZoneName,
+  TacticalZone,
 } from "@/lib/coordinates";
+import { useI18n } from "@/lib/i18n";
 import { Move } from "lucide-react";
 import { Kicker } from "@/components/ui/primitives";
 import { PALETTE, hair } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
 
 // ======================================================================
-// CONSTANTES DE ARQUITECTURA
+// ARCHITECTURE CONSTANTS
 // ======================================================================
 const XT_GRID_COLS = 16;
 const XT_GRID_ROWS = 12;
 const CELL_W = STATSBOMB_PITCH_LENGTH / XT_GRID_COLS; // 7.5m
 const CELL_H = STATSBOMB_PITCH_WIDTH / XT_GRID_ROWS; // 6.6667m
 
-/** Radio de inercia física (sincronizado con tactical_math.py del backend) */
+/** Physical inertia radius (kept in sync with the backend tactical_math.py) */
 const INERTIA_RADIUS = 6.0;
 
 /** Base animation duration in ms (adjusted by speed multiplier) */
@@ -55,10 +57,10 @@ const C = {
 const DISPLAY_FONT = "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
 
 const LAYER_TOGGLES = [
-  { key: "voronoi", label: "Voronoi" },
-  { key: "xt", label: "Rejilla xT" },
-  { key: "pass", label: "Líneas de pase" },
-  { key: "ghost", label: "Desplazamientos" },
+  { key: "voronoi", label: "layer.voronoi" },
+  { key: "xt", label: "layer.xt" },
+  { key: "pass", label: "layer.pass" },
+  { key: "ghost", label: "layer.ghost" },
 ] as const;
 
 // ======================================================================
@@ -124,10 +126,11 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       onSimulationTrigger,
       onAnimationEnd,
       onDragStart,
-      teamShortNames = { home: "LOC", away: "VIS" },
+      teamShortNames = { home: "HOM", away: "AWY" },
     },
     ref
   ) {
+    const { t } = useI18n();
     // Toggle states
     const [showVoronoi, setShowVoronoi] = useState<boolean>(true);
     const [showXtGrid, setShowXtGrid] = useState<boolean>(true);
@@ -137,12 +140,12 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // Interaction states
     const [draggingId, setDraggingId] = useState<number | null>(null);
     const [dragPos, setDragPos] = useState<{ id: number; x: number; y: number } | null>(null);
-    const [hoveredZone, setHoveredZone] = useState<string | null>(null);
+    const [hoveredZone, setHoveredZone] = useState<TacticalZone | null>(null);
     const [hoveredCellXt, setHoveredCellXt] = useState<number | null>(null);
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     // ============================================================
-    // ENTREGABLE 1: ANIMACIÓN CINEMÁTICA (requestAnimationFrame)
+    // CINEMATIC PLAYBACK (requestAnimationFrame)
     // ============================================================
     const [animProgress, setAnimProgress] = useState<number>(0);
     const animFrameRef = useRef<number>(0);
@@ -252,7 +255,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // ======================================================================
     const handlePointerDown = (id: number, e: React.PointerEvent) => {
       e.stopPropagation();
-      // Pause animation instantly on drag start (Entregable 1 requirement)
+      // Pause the animation as soon as a drag starts
       if (onDragStart) onDragStart();
       setDraggingId(id);
       if (onClickPlayer) onClickPlayer(id);
@@ -335,7 +338,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       <g transform={`translate(${x}, ${y})`}>
         <rect x={over ? -12.5 : -8.5} y="-1.7" width={over ? 25 : 17} height="3.4" fill={over ? C.magenta : C.ink} stroke={over ? "none" : C.white} {...hair(0.5)} />
         <text x="0" y="0.65" fontSize="1.7" fontWeight="700" letterSpacing="0.12" fill={C.white} textAnchor="middle">
-          {over ? "INERCIA > 6 M · PENALIZACIÓN" : "DENTRO DEL RADIO"}
+          {over ? t("pitch.inertiaOver") : t("pitch.inertiaOk")}
         </text>
       </g>
     );
@@ -345,11 +348,11 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         {/* Top Bar - Title + Layer toggles */}
         <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
-            <Kicker className="text-fg">Pizarra táctica</Kicker>
-            <span className="font-mono text-[10px] text-fg-subtle">Datos sintéticos · 120 × 80 m</span>
+            <Kicker className="text-fg">{t("pitch.title")}</Kicker>
+            <span className="font-mono text-[10px] text-fg-subtle">{t("pitch.subtitle")}</span>
           </div>
 
-          <div className="ml-auto flex min-w-0 items-center gap-0.5 overflow-x-auto" role="group" aria-label="Capas">
+          <div className="ml-auto flex min-w-0 items-center gap-0.5 overflow-x-auto" role="group" aria-label={t("pitch.layers")}>
             {LAYER_TOGGLES.map(({ key, label }) => {
               const [active, setActive] = layerState[key];
               return (
@@ -365,7 +368,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   <span
                     className={`h-1.5 w-1.5 rounded-[1px] ${active ? "bg-signal-green" : "border border-fg-subtle"}`}
                   />
-                  {label}
+                  {t(label)}
                 </button>
               );
             })}
@@ -454,10 +457,10 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                         {...hair(isOrigin || isDest ? 1 : 0.5)}
                       />
                       {isOrigin && (
-                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.white} textAnchor="middle" pointerEvents="none">ORIGEN</text>
+                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.white} textAnchor="middle" pointerEvents="none">{t("pitch.origin")}</text>
                       )}
                       {isDest && (
-                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.green} textAnchor="middle" pointerEvents="none">DESTINO</text>
+                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.green} textAnchor="middle" pointerEvents="none">{t("pitch.target")}</text>
                       )}
                     </g>
                   );
@@ -512,7 +515,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                       return (
                         <g transform={`translate(${mx}, ${my - 2.8})`}>
                           <rect x="-9.5" y="-1.8" width="19" height="3.6" fill={C.green} />
-                          <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">OPCIÓN ÓPTIMA</text>
+                          <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">{t("pitch.bestOption")}</text>
                         </g>
                       );
                     })()}
@@ -616,21 +619,21 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         <div className="flex h-8 flex-nowrap items-center justify-between gap-4 border-t border-line px-4 text-[11px] text-fg-subtle">
           <div className="flex min-w-0 items-center gap-2">
             <Move className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Arrastra a cualquier jugador para simular el escenario.</span>
+            <span className="truncate">{t("pitch.hint")}</span>
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />{teamShortNames.home}</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />{teamShortNames.away}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-green" />Con balón</span>
-              <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-green" />Pase óptimo</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-magenta" />Inercia &gt; 6 m</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-green" />{t("pitch.onBall")}</span>
+              <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-green" />{t("pitch.bestPass")}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-magenta" />{t("pitch.inertia")}</span>
             </div>
             {hoveredCellXt != null && (
-              <span className="font-mono text-[10px] text-fg-muted">xT celda <span className="text-signal-green">{hoveredCellXt.toFixed(3)}</span></span>
+              <span className="font-mono text-[10px] text-fg-muted">{t("pitch.cellXt")} <span className="text-signal-green">{hoveredCellXt.toFixed(3)}</span></span>
             )}
             {hoveredZone && (
-              <span className="font-mono text-[10px] text-fg-muted">Zona <span className="text-fg">{hoveredZone}</span></span>
+              <span className="font-mono text-[10px] text-fg-muted">{t("pitch.zone")} <span className="text-fg">{t(`zone.${hoveredZone}`)}</span></span>
             )}
           </div>
         </div>

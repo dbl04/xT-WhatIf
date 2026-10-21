@@ -6,6 +6,7 @@ import { RefreshCw, Zap, Power, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
 import { StressBurstResponse } from "@/types/match";
 import { API_BASE_URL } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 interface CloudTelemetryData {
   service_role: string;
@@ -52,6 +53,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
   onClose,
   apiBaseUrl = API_BASE_URL,
 }) => {
+  const { t } = useI18n();
   const [telemetry, setTelemetry] = useState<CloudTelemetryData>({
     service_role: "aca-gateway",
     compute_mode: "aks-distributed",
@@ -69,9 +71,10 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isBursting, setIsBursting] = useState<boolean>(false);
   const [burstResult, setBurstResult] = useState<StressBurstResult | null>(null);
-  const [chaosMessage, setChaosMessage] = useState<string | null>(null);
+  // Shown in the viewer's language, so it is derived from the state rather than the API message.
+  const [showChaosMessage, setShowChaosMessage] = useState<boolean>(false);
 
-  // Carga periódica o al abrir
+  // Load on open
   const fetchTelemetry = async () => {
     try {
       setIsLoading(true);
@@ -83,7 +86,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
         setTelemetry((prev) => ({ ...prev, ...data }));
       }
     } catch {
-      // Fallback gracioso offline
+      // Graceful offline fallback
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +98,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
     }
   }, [isOpen]);
 
-  // Acción 1: Stress Burst (25x Voronoi / xT)
+  // Action 1: stress burst (25x Voronoi / xT)
   const handleStressBurst = async () => {
     setIsBursting(true);
     setBurstResult(null);
@@ -118,10 +121,10 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
         return;
       }
     } catch {
-      // Fallback local instantáneo para modo 100% Hackathon-Proof
+      // Instant local fallback when the backend is unreachable
     }
 
-    // Benchmark local de alta precisión simulado
+    // Simulated local benchmark
     await new Promise((r) => setTimeout(r, 480));
     const simulatedResult: StressBurstResult = {
       burst_count: 25,
@@ -140,7 +143,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
     setIsBursting(false);
   };
 
-  // Acción 2: Simular Caída de AKS (Chaos Testing Circuit Breaker)
+  // Action 2: simulate an AKS outage (chaos test of the circuit breaker)
   const handleChaosToggle = async () => {
     try {
       const res = await fetch(`${apiBaseUrl}/api/v1/cloud/chaos-toggle`, {
@@ -154,14 +157,14 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
           chaos_force_aks_failure: data.chaos_force_aks_failure,
           circuit_breaker_trips: data.circuit_breaker_trips,
         }));
-        setChaosMessage(data.message);
+        setShowChaosMessage(true);
         return;
       }
     } catch {
-      // Fallback local
+      // Local fallback
     }
 
-    // Toggle local
+    // Local toggle
     const nextChaos = !telemetry.chaos_force_aks_failure;
     setTelemetry((prev) => ({
       ...prev,
@@ -170,11 +173,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
         ? prev.circuit_breaker_trips + 1
         : prev.circuit_breaker_trips,
     }));
-    setChaosMessage(
-      nextChaos
-        ? "Fallo de AKS inyectado -> Circuit Breaker activado en ACA Gateway -> Cómputo local de respaldo operativo (<3.8ms, 0% pérdida de paquetes)"
-        : "Operación normal restablecida: Clúster AKS saludable y sincronizado."
-    );
+    setShowChaosMessage(true);
   };
 
   if (!isOpen) return null;
@@ -185,8 +184,8 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
     {
       platform: "Azure Container Apps",
       name: "xt-whatif-aca-gateway",
-      detail: "Gateway público · WebSocket · Circuit Breaker · KEDA 1–10 réplicas",
-      metricLabel: "Réplicas",
+      detail: t("cloud.acaDetail"),
+      metricLabel: t("cloud.replicas"),
       metricValue: String(telemetry.aca_gateway_replicas ?? 3),
       status: "ok" as const,
     },
@@ -194,44 +193,44 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       platform: "Azure Kubernetes Service",
       name: "xt-whatif-aks-worker",
       detail: isCircuitBroken
-        ? "Fallo inyectado. El tráfico se resuelve en el gateway."
-        : "Cómputo Voronoi + xT · HPA 3–12 pods",
+        ? t("cloud.aksDown")
+        : t("cloud.aksDetail"),
       metricLabel: "Pods",
       metricValue: isCircuitBroken ? "—" : String(telemetry.aks_worker_pods ?? 6),
       status: isCircuitBroken ? ("down" as const) : ("ok" as const),
     },
     {
       platform: "Azure AI Foundry",
-      name: "gpt-4o · 2 agentes",
-      detail: "Debate entre Dr. Voronoi (datos) y Míster Bianchi (táctica)",
-      metricLabel: "Modelo",
+      name: t("cloud.agents"),
+      detail: t("cloud.agentsDetail"),
+      metricLabel: t("cloud.model"),
       metricValue: "gpt-4o",
       status: "ok" as const,
     },
   ];
 
   const stats = [
-    { label: "Latencia", value: Number(telemetry.last_compute_latency_ms ?? 0).toFixed(1), unit: "ms", note: "Último cálculo" },
-    { label: "Cache hits", value: String(telemetry.cache_hits), unit: "", note: "Caché LRU en memoria" },
-    { label: "Simulaciones", value: String(telemetry.total_simulations), unit: "", note: "Escenarios calculados" },
+    { label: t("cloud.latency"), value: Number(telemetry.last_compute_latency_ms ?? 0).toFixed(1), unit: "ms", note: t("cloud.lastCalc") },
+    { label: "Cache hits", value: String(telemetry.cache_hits), unit: "", note: t("cloud.cacheNote") },
+    { label: t("cloud.simulations"), value: String(telemetry.total_simulations), unit: "", note: t("cloud.simulationsNote") },
     {
       label: "Circuit breaker",
       value: String(telemetry.circuit_breaker_trips),
       unit: "",
-      note: "Conmutaciones a local",
+      note: t("cloud.breakerNote"),
       alert: telemetry.circuit_breaker_trips > 0,
     },
   ];
 
   return (
     <ModalShell
-      kicker="Infraestructura"
-      title="Telemetría cloud"
-      description="Arquitectura dual-role: gateway en ACA, workers en AKS y agentes en AI Foundry."
+      kicker={t("cloud.kicker")}
+      title={t("cloud.title")}
+      description={t("cloud.desc")}
       onClose={onClose}
       className="max-w-4xl"
       headerActions={
-        <IconButton onClick={fetchTelemetry} disabled={isLoading} title="Actualizar telemetría" aria-label="Actualizar telemetría">
+        <IconButton onClick={fetchTelemetry} disabled={isLoading} title={t("cloud.refresh")} aria-label={t("cloud.refresh")}>
           <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </IconButton>
       }
@@ -241,7 +240,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
             Container Apps · Kubernetes Service · OpenAI
           </span>
           <Button variant="secondary" onClick={onClose}>
-            Cerrar
+            {t("common.close")}
           </Button>
         </>
       }
@@ -249,11 +248,11 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       {/* Services */}
       <section className="px-5 pt-4">
         <div className="mb-2 flex items-center justify-between">
-          <Kicker>Servicios</Kicker>
+          <Kicker>{t("cloud.services")}</Kicker>
           {isCircuitBroken ? (
-            <Tag tone="magenta">Circuit breaker abierto</Tag>
+            <Tag tone="magenta">{t("cloud.breakerOpen")}</Tag>
           ) : (
-            <Tag tone="green">Operativo</Tag>
+            <Tag tone="green">{t("cloud.operational")}</Tag>
           )}
         </div>
         <div className="divide-y divide-line rounded-md border border-line">
@@ -261,7 +260,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
             <div key={svc.name} className="flex items-center gap-4 px-4 py-3">
               <span
                 className={`h-2 w-2 shrink-0 rounded-full ${svc.status === "ok" ? "bg-signal-green" : "bg-signal-magenta"}`}
-                aria-label={svc.status === "ok" ? "Operativo" : "Caído"}
+                aria-label={svc.status === "ok" ? t("cloud.operational") : t("cloud.down")}
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2">
@@ -279,11 +278,12 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
             </div>
           ))}
         </div>
+        <p className="mt-2 text-[11px] text-fg-subtle">{t("cloud.simulatedNote")}</p>
       </section>
 
       {/* Stats */}
       <section className="px-5 pt-5">
-        <Kicker>Rendimiento</Kicker>
+        <Kicker>{t("cloud.performance")}</Kicker>
         <div className="mt-2 grid grid-cols-2 divide-line rounded-md border border-line sm:grid-cols-4 sm:divide-x">
           {stats.map((st) => (
             <div key={st.label} className="px-4 py-3">
@@ -306,45 +306,46 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
 
       {/* Live test bench */}
       <section className="px-5 py-5">
-        <Kicker>Pruebas en directo</Kicker>
-        <p className="mt-1 text-[13px] text-fg-muted">
-          Mide el rendimiento del motor geométrico y comprueba cómo responde el circuit breaker ante un fallo inyectado.
-        </p>
+        <Kicker>{t("cloud.live")}</Kicker>
+        <p className="mt-1 text-[13px] text-fg-muted">{t("cloud.liveDesc")}</p>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant="primary" onClick={handleStressBurst} disabled={isBursting}>
             {isBursting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-            {isBursting ? "Calculando 25 simulaciones…" : "Lanzar ráfaga de 25 simulaciones"}
+            {isBursting ? t("cloud.bursting") : t("cloud.burst")}
           </Button>
 
           <Button variant="secondary" onClick={handleChaosToggle} className={isCircuitBroken ? "border-signal-magenta/60 text-signal-magenta" : undefined}>
             <Power className="h-3.5 w-3.5" />
-            {isCircuitBroken ? "Restablecer AKS" : "Simular caída de AKS"}
+            {isCircuitBroken ? t("cloud.restoreAks") : t("cloud.killAks")}
           </Button>
         </div>
 
         {burstResult && (
           <div className="mt-3 rounded-md border border-line px-4 py-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-[13px] text-fg">Ráfaga de {burstResult.burst_count} simulaciones completada</span>
+              <span className="text-[13px] text-fg">{t("cloud.burstDone", { n: burstResult.burst_count })}</span>
               <span className="font-display text-lg font-bold tabular-nums text-signal-green">
                 {burstResult.sims_per_second.toLocaleString()} sims/s
               </span>
             </div>
             <div className="mt-1 font-mono text-[11px] text-fg-muted">
-              Total {burstResult.total_elapsed_ms} ms · media {burstResult.avg_latency_ms} ms/sim ·{" "}
-              {burstResult.kd_tree_lookups.toLocaleString()} consultas espaciales
+              {t("cloud.burstStats", {
+                total: burstResult.total_elapsed_ms,
+                avg: burstResult.avg_latency_ms,
+                lookups: burstResult.kd_tree_lookups.toLocaleString(),
+              })}
             </div>
           </div>
         )}
 
-        {chaosMessage && (
+        {showChaosMessage && (
           <div
             className={`mt-3 border-l-2 py-1 pl-3 text-[12px] ${
               isCircuitBroken ? "border-signal-magenta text-fg" : "border-signal-green text-fg-muted"
             }`}
           >
-            {chaosMessage}
+            {isCircuitBroken ? t("cloud.chaosOn") : t("cloud.chaosOff")}
           </div>
         )}
       </section>

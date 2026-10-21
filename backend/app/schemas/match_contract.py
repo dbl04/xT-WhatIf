@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -79,12 +79,17 @@ class MatchFramePayload(BaseModel):
     players: List[PlayerNode] = Field(..., max_length=30)
     metrics: TacticalMetrics
     agent_debate: List[AgentMessage]
-    # Human-readable name of the moment, e.g. "Pase atrás desde la línea de fondo".
+    # Human-readable name of the moment, e.g. "Cut-back from the byline" (in the requested language).
     moment_label: Optional[str] = None
+    # Stable scenario key of the moment (e.g. "cutback"), used to localise moment_label.
+    moment_key: Optional[str] = None
     match_info: Optional[MatchInfo] = None
 
 
 class CounterfactualRequest(BaseModel):
     match_id: int
     event_uuid: str = Field(..., max_length=64)
-    modified_players: List[PlayerNode] = Field(..., max_length=22)
+    modified_players: List[PlayerNode] = Field(..., min_length=1, max_length=22)
+    # Personalisation of the agents' debate (see app/services/narration.py).
+    language: Literal["en", "es"] = "en"
+    audience: Literal["casual", "analyst", "coach", "audio_description"] = "analyst"

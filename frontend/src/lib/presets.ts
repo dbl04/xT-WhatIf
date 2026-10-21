@@ -1,6 +1,7 @@
 "use strict";
 
 import { MatchFramePayload, PlayerNode } from "@/types/match";
+import { DEFAULT_LANGUAGE, Translate, translate } from "@/lib/i18n";
 
 export interface TacticalPreset {
   id: string;
@@ -23,7 +24,10 @@ const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax -
  * 3. The intended receiver attacks the space behind the line.
  * Every move stays within the 6 m inertia radius.
  */
-export function getPresetsForFrame(frame: MatchFramePayload): TacticalPreset[] {
+export function getPresetsForFrame(
+  frame: MatchFramePayload,
+  t: Translate = (key, vars) => translate(DEFAULT_LANGUAGE, key, vars)
+): TacticalPreset[] {
   if (!frame || !frame.players || frame.players.length === 0) {
     return [];
   }
@@ -49,7 +53,7 @@ export function getPresetsForFrame(frame: MatchFramePayload): TacticalPreset[] {
     const step = Math.min(3.5, Math.max(0, d - 1.2));
     presets.push({
       id: `press_${presser.player_id}`,
-      label: `${surname(presser)} presiona al poseedor`,
+      label: t("preset.press", { name: surname(presser) }),
       playerId: presser.player_id,
       targetX: round1(clampX(presser.x + ((ball_x - presser.x) / d) * step)),
       targetY: round1(clampY(presser.y + ((ball_y - presser.y) / d) * step)),
@@ -67,7 +71,7 @@ export function getPresetsForFrame(frame: MatchFramePayload): TacticalPreset[] {
     const step = Math.min(5.5, d);
     presets.push({
       id: `cut_${cutter.player_id}`,
-      label: `${surname(cutter)} cierra la línea de pase`,
+      label: t("preset.cut", { name: surname(cutter) }),
       playerId: cutter.player_id,
       targetX: round1(clampX(cutter.x + ((midX - cutter.x) / d) * step)),
       targetY: round1(clampY(cutter.y + ((midY - cutter.y) / d) * step)),
@@ -81,7 +85,7 @@ export function getPresetsForFrame(frame: MatchFramePayload): TacticalPreset[] {
   if (receiver) {
     presets.push({
       id: `run_${receiver.player_id}`,
-      label: `${surname(receiver)} ataca la espalda de la defensa`,
+      label: t("preset.run", { name: surname(receiver) }),
       playerId: receiver.player_id,
       targetX: round1(clampX(receiver.x + 5.0)),
       targetY: round1(clampY(receiver.y + (40 - receiver.y) * 0.15)),

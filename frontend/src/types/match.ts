@@ -74,8 +74,10 @@ export interface MatchFramePayload {
   players: PlayerNode[];
   metrics: TacticalMetrics;
   agent_debate: AgentMessage[];
-  /** Human-readable name of the moment, e.g. "Pase atrás desde la línea de fondo". */
+  /** Human-readable name of the moment in the requested language, e.g. "Cut-back from the byline". */
   moment_label?: string | null;
+  /** Stable scenario key of the moment (e.g. "cutback"). */
+  moment_key?: string | null;
   match_info?: MatchInfo | null;
 }
 
@@ -83,6 +85,9 @@ export interface CounterfactualRequest {
   match_id: number;
   event_uuid: string;
   modified_players: PlayerNode[];
+  /** Narration profile of the agents' debate. */
+  language?: "en" | "es";
+  audience?: "casual" | "analyst" | "coach" | "audio_description";
 }
 
 /** POST /api/v1/cloud/stress-burst (backend/app/main.py · execute_stress_burst). */

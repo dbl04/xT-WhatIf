@@ -88,34 +88,45 @@ export function calculateDistanceMeters(
   return Number(Math.hypot(p2.x - p1.x, p2.y - p1.y).toFixed(2));
 }
 
+export type TacticalZone =
+  | "box"
+  | "zone14"
+  | "leftHalfSpace"
+  | "rightHalfSpace"
+  | "leftFlank"
+  | "rightFlank"
+  | "ownHalf"
+  | "centralAttack";
+
 /**
- * Returns tactical zone classification based on standard 18-pitch division.
+ * Returns the tactical zone (standard 18-zone pitch division) as a key; the
+ * interface translates it with the "zone.<key>" messages in lib/i18n.tsx.
  */
-export function getTacticalZoneName(x: number, y: number): string {
-  // Goal areas
+export function getTacticalZoneName(x: number, y: number): TacticalZone {
+  // Penalty box
   if (x >= 102.0 && y >= 18.0 && y <= 62.0) {
-    return "Penalty Box (Área Rival)";
+    return "box";
   }
-  // Zone 14 (Central space in front of penalty box: X 80-102, Y 28-52)
+  // Zone 14 (central space in front of the box: X 80-102, Y 28-52)
   if (x >= 80.0 && x < 102.0 && y >= 28.0 && y <= 52.0) {
-    return "Zona 14 (Boca del Área)";
+    return "zone14";
   }
   // Half-spaces
   if (x >= 60.0 && y >= 18.0 && y < 28.0) {
-    return "Medio Espacio Izquierdo Rival";
+    return "leftHalfSpace";
   }
   if (x >= 60.0 && y > 52.0 && y <= 62.0) {
-    return "Medio Espacio Derecho Rival";
+    return "rightHalfSpace";
   }
   // Flanks
   if (y < 18.0) {
-    return "Carril Exterior Izquierdo";
+    return "leftFlank";
   }
   if (y > 62.0) {
-    return "Carril Exterior Derecho";
+    return "rightFlank";
   }
   if (x < 60.0) {
-    return "Campo Propio";
+    return "ownHalf";
   }
-  return "Zona Ofensiva Central";
+  return "centralAttack";
 }

@@ -6,6 +6,7 @@ import { MatchFramePayload } from "@/types/match";
 import { Play, Pause, RotateCcw, SkipBack, SkipForward, ChevronDown } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/primitives";
 import { formatMomentLabel } from "@/lib/match";
+import { useI18n } from "@/lib/i18n";
 
 const SPEEDS = [0.5, 1, 2] as const;
 const TIMELINE_MAX = 125;
@@ -44,17 +45,18 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   onResetSimulation,
   onSpeedChange,
 }) => {
+  const { t } = useI18n();
   const [internalPlaying, setInternalPlaying] = useState<boolean>(false);
   const [speed, setSpeed] = useState<number>(1);
 
-  // Sincronización continua de timeline con tiempo decimal (minuto + segundo / 60)
+  // Keep the timeline in sync using decimal time (minute + second / 60)
   const currentDecimalTime = minute + (second || 0) / 60;
   const [timelineProgress, setTimelineProgress] = useState<number>(currentDecimalTime);
 
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalPlaying;
   const selectFrame = onSelectFrame || onSelectFrameIndex;
 
-  // Actualiza progreso al cambiar el frame
+  // Update progress when the frame changes
   useEffect(() => {
     setTimelineProgress(minute + (second || 0) / 60);
   }, [minute, second]);
@@ -74,7 +76,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
     }
   };
 
-  // Scrubber interactivo: busca el frame más próximo al minuto arrastrado
+  // Interactive scrubber: jump to the frame closest to the dragged minute
   const handleSliderChange = (newVal: number) => {
     setTimelineProgress(newVal);
     if (!frames || frames.length === 0) return;
@@ -109,8 +111,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             }
           }}
           disabled={currentFrameIndex <= 0}
-          title="Jugada anterior"
-          aria-label="Jugada anterior"
+          title={t("playback.previous")}
+          aria-label={t("playback.previous")}
         >
           <SkipBack className="h-3.5 w-3.5" />
         </IconButton>
@@ -119,8 +121,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
           type="button"
           onClick={handlePlayToggle}
           className="flex h-8 w-8 items-center justify-center rounded-md bg-fg text-ink transition-colors hover:bg-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-green"
-          title={isPlaying ? "Pausar" : "Reproducir"}
-          aria-label={isPlaying ? "Pausar" : "Reproducir"}
+          title={isPlaying ? t("playback.pause") : t("playback.play")}
+          aria-label={isPlaying ? t("playback.pause") : t("playback.play")}
         >
           {isPlaying ? (
             <Pause className="h-3.5 w-3.5 fill-current" />
@@ -136,8 +138,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             }
           }}
           disabled={currentFrameIndex >= frames.length - 1}
-          title="Siguiente jugada"
-          aria-label="Siguiente jugada"
+          title={t("playback.next")}
+          aria-label={t("playback.next")}
         >
           <SkipForward className="h-3.5 w-3.5" />
         </IconButton>
@@ -150,7 +152,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
 
       {/* Match moment selector */}
       <label className="relative flex h-8 min-w-0 max-w-[300px] items-center rounded-md border border-line bg-ink-800 pl-2.5 pr-7 transition-colors hover:border-line-strong">
-        <span className="sr-only">Jugada clave</span>
+        <span className="sr-only">{t("playback.moment")}</span>
         <select
           value={currentFrameIndex}
           onChange={(e) => {
@@ -191,7 +193,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             step="0.1"
             value={timelineProgress}
             onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
-            aria-label="Línea de tiempo del partido"
+            aria-label={t("playback.timeline")}
             className="pl-range relative z-10 block"
             style={{ "--pct": `${progressPct}%` } as React.CSSProperties}
           />
@@ -200,7 +202,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
       </div>
 
       {/* Speed */}
-      <div className="flex h-8 items-center rounded-md border border-line bg-ink-800 p-0.5" role="group" aria-label="Velocidad">
+      <div className="flex h-8 items-center rounded-md border border-line bg-ink-800 p-0.5" role="group" aria-label={t("playback.speed")}>
         {SPEEDS.map((s) => (
           <button
             key={s}
@@ -220,10 +222,10 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
       <Button
         variant={isCounterfactualMode ? "secondary" : "ghost"}
         onClick={onResetSimulation}
-        title="Restablecer las posiciones originales de la jugada"
+        title={t("playback.resetTitle")}
       >
         <RotateCcw className="h-3.5 w-3.5" />
-        <span className="hidden lg:inline">Restablecer jugada</span>
+        <span className="hidden lg:inline">{t("playback.reset")}</span>
       </Button>
     </div>
   );

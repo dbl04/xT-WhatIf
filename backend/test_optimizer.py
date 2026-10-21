@@ -1,6 +1,6 @@
 """
 Automated Test Suite for Auto-Coach AI (Tactical Optimizer).
-Tests optimization on Highlight 2 (Min 35:42 - Di María goal).
+Tests optimization on the second key moment of the synthetic match.
 Validates that displacements stay within the 6.0m physical inertia limit and threat is reduced.
 """
 

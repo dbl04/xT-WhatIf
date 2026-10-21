@@ -13,7 +13,7 @@
 
 ---
 
-## 🎯 Executive Vision / Visión Ejecutiva
+## 🎯 Executive Vision
 
 **xT-WhatIf** transforms traditional post-match football analytics into an interactive, real-time counterfactual simulator. Instead of passively analyzing what happened, analysts and coaching staffs can **pause key match moments, drag and drop defenders or attackers on a canonical 120×80m pitch, and instantly recalculate tactical metrics**:
 - **Expected Threat ($\Delta\text{xT}$)** on a $16 \times 12$ canonical transition matrix.
@@ -21,7 +21,8 @@
 - **Passing Lane Shadows** with dynamic Gaussian interception dispersion cones.
 - **Dialectical AI Debate**: Two contrasting AI personas analyze the repositioned scenario:
   - 🤖 **Dr. Voronoi (`AI-QUANT`)**: Mathematical purist evaluating spatial EV, angular apertures, and threat deltas.
-  - 📋 **Míster Bianchi (`PRO-COACH`)**: Seasoned tactician focusing on marking profiles, rest defense, and interior channel coverages.
+  - 📋 **Coach Bianchi (`PRO-COACH`)**: Seasoned tactician focusing on marking profiles, rest defense, and interior channel coverages.
+- **Personalised storytelling**: the whole interface and both pundits speak **English or Spanish**, and the commentary is rewritten for four audiences (casual fan, analyst, coach, audio description). See *Personalisation: Language & Audience* below.
 
 ---
 
@@ -127,21 +128,51 @@ Moments in the default match:
 
 | # | Clock | Event | Moment | In possession | Base xT |
 |:-:|:-----:|:-----:|:-------|:--------------|:-------:|
-| **1** | **5:03** | Shot | Disparo desde la frontal del área | Saltmarsh Rovers (I. Kowalin) | 0.10 |
-| **2** | **19:10** | Shot | Mano a mano con el portero | Saltmarsh Rovers (Z. Ombrell) | 0.11 |
-| **3** | **37:09** | Pass | Cambio de orientación a la banda contraria | Redmoor Albion (D. Okonne) | 0.09 |
-| **4** | **45:19** | Dribble | Conducción por banda hacia el área | Redmoor Albion (E. Adeyo) | 0.18 |
-| **5** | **55:12** | Pass | Pase filtrado al pasillo interior | Redmoor Albion (M. Ferrant) | 0.25 |
-| **6** | **71:48** | Pass | Contraataque: pase al espacio | Saltmarsh Rovers (I. Kowalin) | 0.22 |
-| **7** | **86:56** | Pass | Pase atrás desde la línea de fondo | Saltmarsh Rovers (Y. Belcourt) | 0.17 |
+| **1** | **5:03** | Shot | Shot from the edge of the box | Saltmarsh Rovers (I. Kowalin) | 0.10 |
+| **2** | **19:10** | Shot | One-on-one with the keeper | Saltmarsh Rovers (Z. Ombrell) | 0.11 |
+| **3** | **37:09** | Pass | Switch of play to the far side | Redmoor Albion (D. Okonne) | 0.09 |
+| **4** | **45:19** | Dribble | Wide carry into the box | Redmoor Albion (E. Adeyo) | 0.18 |
+| **5** | **55:12** | Pass | Through ball into the half-space | Redmoor Albion (M. Ferrant) | 0.25 |
+| **6** | **71:48** | Pass | Counter-attack: ball into space | Saltmarsh Rovers (I. Kowalin) | 0.22 |
+| **7** | **86:56** | Pass | Cut-back from the byline | Saltmarsh Rovers (Y. Belcourt) | 0.17 |
 
-Regenerate the committed fixtures (backend cache and frontend offline mocks) after changing the generator:
+Regenerate the committed fixtures (backend cache, frontend offline mocks and the offline narration for every language and audience) after changing the generator or the narration:
 
 ```bash
 cd backend && python -m app.services.synthetic_generator --write
 ```
 
 `backend/test_synthetic_generator.py` checks determinism, squad and pitch invariants, plausible metrics, and that the committed fixtures are up to date.
+
+---
+
+## 🗣️ Personalisation: Language & Audience
+
+The challenge asks to *personalize* the explanation. xT-WhatIf does it on two axes, chosen at the top right of the dashboard and remembered per browser:
+
+| Axis | Options | What changes |
+|:-----|:--------|:-------------|
+| **Language** | English (default) · Spanish | Every interface string, the moment names, both pundits' debate, the exported PNG report and the commentator voices (`en-GB` / `es-ES`). |
+| **Audience** | Casual fan · Analyst (default) · Coach · Audio description | How the pundits explain the same numbers. |
+
+- **Casual fan:** plain words, no jargon; xT is told as *"a 10% chance of leading to a goal"*.
+- **Analyst:** full metrics — xT on the 16×12 grid, pass probability, Voronoi space control, coordinates.
+- **Coach:** a verdict on the adjustment (*validated* / *rejected*) and one actionable coaching point.
+- **Audio description:** spoken-first, spatial narration for blind and low-vision fans (*"on the right wing, about 25 metres from goal"*), no symbols or coordinates, read about 10% slower.
+
+**Code calculates, AI explains.** All wording lives in [`backend/app/services/narration.py`](backend/app/services/narration.py) and is filled only with numbers computed by the engine. With Azure OpenAI configured, the same profile is turned into style instructions for GPT-4o, which is told to use only the numbers it is given; without it, the deterministic templates answer instantly.
+
+API:
+
+```bash
+# Key moments with labels and pre-move debate in Spanish, for casual fans
+curl "http://localhost:8000/api/v1/match/900001/frames?lang=es&audience=casual"
+
+# Counterfactual with the debate written for coaches
+curl -X POST http://localhost:8000/api/v1/simulate -H "Content-Type: application/json"   -d '{"match_id": 900001, "event_uuid": "...", "modified_players": [...], "language": "en", "audience": "coach"}'
+```
+
+The WebSocket takes the same profile as query parameters: `ws://localhost:8000/ws/match/900001?lang=es&audience=audio_description`. The TTS endpoint (`POST /api/v1/tts/synthesize`) accepts `language` and `audience` too.
 
 ---
 
@@ -171,7 +202,7 @@ The platform exposes dedicated endpoints to demonstrate zero-downtime resilience
 ```bash
 curl http://localhost:8000/api/v1/cloud/telemetry
 ```
-*Returns simulation counters, cache hit ratios, KEDA concurrency targets, and Circuit Breaker status.*
+*Returns simulation counters, cache hit ratios, KEDA concurrency targets, and Circuit Breaker status. Replica, pod and CPU figures are simulated from the request load for the demo; they are not read from Azure Monitor.*
 
 ### 2. Inject AKS Chaos Outage (Live Pitch Demo)
 ```bash
@@ -210,6 +241,13 @@ kubectl apply -f infra/k8s-aks-workers.yaml
 ```bash
 # Synthetic data generator
 python backend/test_synthetic_generator.py
+
+# Personalised narration (language x audience) and TTS
+python backend/test_narration.py
+python backend/test_tts_service.py
+
+# Public demo guardrails (rate limits, input bounds, chaos auto-reset)
+python backend/test_hardening.py
 
 # Run Phase 2: Tactical Math & Agent Swarm
 python backend/test_phase2.py

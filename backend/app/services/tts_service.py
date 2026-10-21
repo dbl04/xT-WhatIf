@@ -3,7 +3,8 @@ Neural Text-To-Speech (TTS) Service for xT-WhatIf Dialectical Debate.
 Supports Azure OpenAI TTS with seamless instant fallback to Browser Web Speech API.
 Provides dual vocal personas:
 - Dr. Voronoi (AI-QUANT): Analytical, high-cadence, precise metric cadence (echo/onyx).
-- Míster Bianchi (PRO-COACH): Deep, gritty pitch-side passion (alloy/fable).
+- Coach Bianchi (PRO-COACH): Deep, gritty pitch-side passion (alloy/fable).
+Speaks English or Spanish (personalisation: `language`); the audio-description audience is read slower.
 """
 
 import os
@@ -24,6 +25,8 @@ class TTSRequest(BaseModel):
     # Paid Azure TTS call: cap the length (a debate turn is ~400 characters).
     text: str = Field(..., min_length=1, max_length=1200)
     agent_role: Literal["data_scientist", "classic_coach"]
+    language: Literal["en", "es"] = "en"
+    audience: Literal["casual", "analyst", "coach", "audio_description"] = "analyst"
 
 
 class TTSResponse(BaseModel):
@@ -33,11 +36,26 @@ class TTSResponse(BaseModel):
     estimated_duration_sec: float
 
 
-def _estimate_duration(text: str, role: str) -> float:
+# Spoken style per language for models that accept instructions (gpt-4o-mini-tts).
+_TTS_INSTRUCTIONS = {
+    "en": "Speak as a British football TV pundit: clear, lively, natural pace.",
+    "es": "Habla como un comentarista de fútbol de la televisión española: claro, vivo, con acento de España.",
+}
+_AUDIO_DESCRIPTION_SPEED = 0.9
+
+
+def _voice_preset(language: str, role: str) -> str:
+    locale = "en-GB" if language == "en" else "es-ES"
+    return f"{locale}-neural-{'fast' if role == 'data_scientist' else 'deep'}"
+
+
+def _estimate_duration(text: str, role: str, audience: str = "analyst") -> float:
     """Estimates speech duration based on word count and cadence."""
     words = len(text.split())
-    # Dr. Voronoi speaks faster (~3.2 words/sec), Míster Bianchi pauses for emphasis (~2.6 words/sec)
+    # Dr. Voronoi speaks faster (~3.2 words/sec), Coach Bianchi pauses for emphasis (~2.6 words/sec)
     cadence = 3.2 if role == "data_scientist" else 2.6
+    if audience == "audio_description":
+        cadence *= _AUDIO_DESCRIPTION_SPEED
     return max(1.0, round(words / cadence, 2))
 
 
@@ -49,8 +67,8 @@ async def synthesize_speech(request: TTSRequest) -> TTSResponse:
     """
     role = request.agent_role
     voice = "echo" if role == "data_scientist" else "alloy"
-    voice_preset = "es-ES-neural-fast" if role == "data_scientist" else "es-ES-neural-deep"
-    estimated_dur = _estimate_duration(request.text, role)
+    voice_preset = _voice_preset(request.language, role)
+    estimated_dur = _estimate_duration(request.text, role, request.audience)
 
     # Check Azure OpenAI configuration
     has_azure = (
@@ -69,14 +87,20 @@ async def synthesize_speech(request: TTSRequest) -> TTSResponse:
                 azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
             )
             deployment = getattr(settings, "AZURE_OPENAI_TTS_DEPLOYMENT", None) or "tts-1"
-            
+            options = {}
+            if "gpt-4o" in deployment:
+                options["instructions"] = _TTS_INSTRUCTIONS[request.language]
+            if request.audience == "audio_description":
+                options["speed"] = _AUDIO_DESCRIPTION_SPEED
+
             # 2.0s strict timeout
             response = await asyncio.wait_for(
                 client.audio.speech.create(
                     model=deployment,
                     voice=voice,
                     input=request.text,
-                    response_format="mp3"
+                    response_format="mp3",
+                    **options
                 ),
                 timeout=2.0
             )
