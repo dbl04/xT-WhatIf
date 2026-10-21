@@ -6,6 +6,7 @@ import { MatchFramePayload, PlayerNode } from "@/types/match";
 import { RotateCcw, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { API_BASE_URL } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 export interface AutoCoachPanelProps {
   currentFrame: MatchFramePayload;
@@ -23,8 +24,9 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
   onApplyOptimalDefense,
   onResetDefense,
 }) => {
+  const { t } = useI18n();
   const [isSolving, setIsSolving] = useState<boolean>(false);
-  const [lastResultBadge, setLastResultBadge] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ count: number; ms: number } | null>(null);
   const [adjustments, setAdjustments] = useState<AdjustmentSummary[]>([]);
 
   // Client-side fallback solver (sub-5ms polar sweep)
@@ -78,7 +80,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
     });
 
     const elapsed = Math.max(1.2, Math.round((performance.now() - t0) * 10) / 10);
-    const badge = `48 configuraciones · ${elapsed} ms`;
+    const badge = { count: 48, ms: elapsed };
 
     return { updatedPlayers, badge, adjustmentsList };
   };
@@ -99,8 +101,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
 
       if (res.ok) {
         const data = await res.json();
-        const badge = `${data.evaluated_configurations} configuraciones · ${data.compute_time_ms} ms`;
-        setLastResultBadge(badge);
+        setLastResult({ count: data.evaluated_configurations, ms: data.compute_time_ms });
         setAdjustments(
           data.adjustments.map((a: { name: string; displacement_m: number }) => ({
             playerName: a.name,
@@ -116,7 +117,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
     }
 
     const { updatedPlayers, badge, adjustmentsList } = solveClientSideFallback(currentFrame);
-    setLastResultBadge(badge);
+    setLastResult(badge);
     setAdjustments(adjustmentsList);
     onApplyOptimalDefense(updatedPlayers);
     setIsSolving(false);
@@ -126,11 +127,11 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
         <Kicker>Auto-Coach</Kicker>
-        <span className="font-mono text-[10px] text-fg-subtle">radio ≤ 6.0 m</span>
+        <span className="font-mono text-[10px] text-fg-subtle">{t("coach.radius")}</span>
       </div>
 
       <p className="text-[12px] leading-snug text-fg-muted">
-        Recoloca a los dos defensores más cercanos para minimizar el xT rival.
+        {t("coach.desc")}
       </p>
 
       <div className="flex items-center gap-1.5">
@@ -142,26 +143,26 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
           className="flex-1"
         >
           {isSolving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          <span>{isSolving ? "Optimizando…" : "Optimizar defensa"}</span>
+          <span>{isSolving ? t("coach.optimising") : t("coach.optimise")}</span>
         </Button>
 
         {onResetDefense && adjustments.length > 0 && (
           <IconButton
             size="sm"
             onClick={() => {
-              setLastResultBadge(null);
+              setLastResult(null);
               setAdjustments([]);
               onResetDefense();
             }}
-            title="Restaurar posiciones originales"
-            aria-label="Restaurar posiciones originales"
+            title={t("coach.restore")}
+            aria-label={t("coach.restore")}
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </IconButton>
         )}
       </div>
 
-      {lastResultBadge && (
+      {lastResult && (
         <div className="flex flex-col rounded-md border border-line">
           {adjustments.map((a) => (
             <div
@@ -172,7 +173,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
               <span className="font-mono text-[11px] tabular-nums text-fg-muted">{a.displacement} m</span>
             </div>
           ))}
-          <div className="px-2.5 py-1.5 font-mono text-[10px] text-fg-subtle">{lastResultBadge}</div>
+          <div className="px-2.5 py-1.5 font-mono text-[10px] text-fg-subtle">{t("coach.badge", lastResult)}</div>
         </div>
       )}
     </div>

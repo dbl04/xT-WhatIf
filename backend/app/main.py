@@ -12,7 +12,7 @@ import logging
 from typing import List, Dict, Any, Optional
 import httpx
 from pydantic import ValidationError
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -24,6 +24,16 @@ from app.services.match_loader import loader
 from app.services.synthetic_generator import DEFAULT_MATCH_ID
 from app.services.tactical_math import simulate_counterfactual
 from app.services.agent_swarm import swarm, _simulation_cache
+from app.services.narration import (
+    AUDIENCES,
+    DEFAULT_AUDIENCE,
+    DEFAULT_LANGUAGE,
+    LANGUAGES,
+    localize_frame,
+    moment_label,
+    normalize_audience,
+    normalize_language,
+)
 from app.services.tts_service import router as tts_router
 from app.services.tactical_optimizer import router as optimizer_router
 
@@ -69,8 +79,22 @@ async def health_check():
     }
 
 
+LanguageQuery = Query(DEFAULT_LANGUAGE, pattern="^(" + "|".join(LANGUAGES) + ")$",
+                      description="Language of labels and agent debate: en | es")
+AudienceQuery = Query(DEFAULT_AUDIENCE, pattern="^(" + "|".join(AUDIENCES) + ")$",
+                      description="Audience profile: casual | analyst | coach | audio_description")
+
+
+def load_frames(match_id: int, lang: str = DEFAULT_LANGUAGE, audience: str = DEFAULT_AUDIENCE) -> List[MatchFramePayload]:
+    """Key moments of a match with labels and the pre-move debate in the requested profile."""
+    return [
+        localize_frame(MatchFramePayload(**f), normalize_language(lang), normalize_audience(audience))
+        for f in loader.fetch_match_360_frames(match_id)
+    ]
+
+
 @app.get("/api/v1/matches", tags=["Matches"])
-async def get_available_matches():
+async def get_available_matches(lang: str = LanguageQuery):
     """Returns the catalogue of synthetic matches and their key moments."""
     catalogue = []
     for match_id in loader.available_match_ids():
@@ -94,7 +118,7 @@ async def get_available_matches():
                     "index": i,
                     "minute": f"{f.minute}:{f.second:02d}",
                     "type": f.event_type,
-                    "headline": f.moment_label,
+                    "headline": moment_label(f.moment_key, normalize_language(lang), f.moment_label),
                 }
                 for i, f in enumerate(frames)
             ],
@@ -103,12 +127,12 @@ async def get_available_matches():
 
 
 @app.get("/api/v1/match/{match_id}/frames", response_model=List[MatchFramePayload], tags=["Matches"])
-async def get_match_frames(match_id: int):
-    """Returns curated Golden Highlights conforming strictly to MatchFramePayload."""
-    raw_frames = loader.fetch_match_360_frames(match_id)
-    if not raw_frames:
+async def get_match_frames(match_id: int, lang: str = LanguageQuery, audience: str = AudienceQuery):
+    """Returns the match's key moments, localised to the requested language and audience profile."""
+    frames = load_frames(match_id, lang, audience)
+    if not frames:
         raise HTTPException(status_code=404, detail="Match frames not found")
-    return [MatchFramePayload(**f) for f in raw_frames]
+    return frames
 
 
 # Cloud Telemetry state & Chaos Engineering store for Microsoft Hackathon Demo
@@ -264,12 +288,14 @@ async def execute_simulation(request: CounterfactualRequest, base_frame: MatchFr
     simulated_frame = simulate_counterfactual(base_frame, request.modified_players)
 
     # Cache hit check in agent swarm
-    cache_key = swarm._build_cache_key(simulated_frame)
+    cache_key = swarm._build_cache_key(simulated_frame, request.language, request.audience)
     if cache_key in _simulation_cache:
         cloud_metrics_store["cache_hits"] += 1
 
 
-    simulated_frame.agent_debate = await swarm.generate_debate(simulated_frame)
+    simulated_frame.agent_debate = await swarm.generate_debate(
+        simulated_frame, request.language, request.audience
+    )
     calc_latency = (time.perf_counter() - start_calc) * 1000
     cloud_metrics_store["last_compute_latency_ms"] = round(calc_latency, 2)
     return simulated_frame
@@ -356,9 +382,9 @@ async def toggle_chaos_mode(force: Optional[bool] = None):
             else "aks-distributed"
         ),
         "message": (
-            "Fallo de AKS inyectado -> Circuit Breaker activado en ACA Gateway -> Cómputo local de respaldo operativo (0% pérdida de paquetes)"
+            "AKS failure injected -> circuit breaker open on the ACA gateway -> local fallback compute serving (0% packet loss)"
             if cloud_metrics_store["chaos_force_aks_failure"]
-            else "Operación normal restablecida: Clúster AKS saludable y sincronizado."
+            else "Normal operation restored: AKS cluster healthy and in sync."
         ),
         "fallback_latency_ms": cloud_metrics_store["last_compute_latency_ms"] or 3.8,
         "chaos_auto_reset_in_s": chaos_seconds_remaining(),
@@ -442,12 +468,14 @@ async def match_websocket_endpoint(websocket: WebSocket, match_id: int):
     """
     Real-time bidirectional WebSocket channel.
     Supports playback control, highlight seek, and instant counterfactual recalculations.
+    Query parameters `lang` (en | es) and `audience` pick the narration profile of the frames it sends.
     """
     await ws_manager.connect(websocket)
     try:
-        raw_frames = loader.fetch_match_360_frames(match_id)
-        frames_list = [MatchFramePayload(**f) for f in raw_frames]
-        current_frame_idx = 1 if len(frames_list) > 1 else 0  # Default to highlight 2 (Min 35:42)
+        lang = normalize_language(websocket.query_params.get("lang"))
+        audience = normalize_audience(websocket.query_params.get("audience"))
+        frames_list = load_frames(match_id, lang, audience)
+        current_frame_idx = 1 if len(frames_list) > 1 else 0  # Default to the second key moment
         base_frame = frames_list[current_frame_idx]
 
         # Send initial frame upon handshake

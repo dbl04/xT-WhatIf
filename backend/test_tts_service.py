@@ -29,7 +29,7 @@ def test_tts_service():
     res1 = client.post(
         "/api/v1/tts/synthesize",
         json={
-            "text": "La proyección espacial muestra un delta de amenaza de +0.14 xT en el carril interior izquierdo.",
+            "text": "The spatial projection shows a threat delta of +0.14 xT in the left half-space.",
             "agent_role": "data_scientist"
         }
     )
@@ -38,17 +38,19 @@ def test_tts_service():
     data1 = res1.json()
     print(f"  Response: provider={data1['provider']}, voice_preset={data1['voice_preset']}, duration={data1['estimated_duration_sec']}s, latency={elapsed1:.2f}ms")
     assert data1["provider"] in ("azure-openai-tts", "browser-web-speech-fallback")
-    assert data1["voice_preset"] == "es-ES-neural-fast"
+    assert data1["voice_preset"] == "en-GB-neural-fast"  # English is the default language
     assert data1["estimated_duration_sec"] > 0
     assert elapsed1 < 2500, f"Expected fast response, took {elapsed1}ms"
 
-    print("\n--- 2. Testing Míster Bianchi Synthesis ---")
+    print("\n--- 2. Testing Coach Bianchi Synthesis (Spanish, audio description) ---")
     start = time.perf_counter()
     res2 = client.post(
         "/api/v1/tts/synthesize",
         json={
-            "text": "¡Ojo con la basculación! Si Koundé no cierra el intervalo, dejamos desprotegida la espalda de Upamecano.",
-            "agent_role": "classic_coach"
+            "text": "¡Ojo con la basculación! Si el central no cierra el intervalo, dejamos desprotegida la espalda del lateral.",
+            "agent_role": "classic_coach",
+            "language": "es",
+            "audience": "audio_description"
         }
     )
     elapsed2 = (time.perf_counter() - start) * 1000
@@ -57,6 +59,13 @@ def test_tts_service():
     print(f"  Response: provider={data2['provider']}, voice_preset={data2['voice_preset']}, duration={data2['estimated_duration_sec']}s, latency={elapsed2:.2f}ms")
     assert data2["voice_preset"] == "es-ES-neural-deep"
     assert data2["estimated_duration_sec"] > 0
+
+    print("\n--- 3. Unsupported language is rejected ---")
+    res3 = client.post(
+        "/api/v1/tts/synthesize",
+        json={"text": "Bonjour", "agent_role": "classic_coach", "language": "fr"}
+    )
+    assert res3.status_code == 422
 
     print("\n✅ All TTS Service tests passed successfully!")
 

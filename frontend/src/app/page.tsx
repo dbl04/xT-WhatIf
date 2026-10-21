@@ -11,11 +11,13 @@ import { DemoGuideModal } from "@/components/controls/DemoGuideModal";
 import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
+import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
+import { useI18n } from "@/lib/i18n";
 import { PlayerNode } from "@/types/match";
 import {
   Download,
@@ -29,6 +31,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function DashboardPage() {
+  const { language, audience, t } = useI18n();
   const {
     frames,
     currentFrameIndex,
@@ -44,7 +47,7 @@ export default function DashboardPage() {
     onPlayerDrop,
     triggerSimulation,
     resetSimulation,
-  } = useMatchEngine();
+  } = useMatchEngine({ language, audience });
 
   // Audio broadcast hook
   const handleActiveSpeakerChange = useCallback(
@@ -57,9 +60,11 @@ export default function DashboardPage() {
   const tts = useBroadcastTTS({
     messages: currentFrame.agent_debate,
     onActiveSpeakerChange: handleActiveSpeakerChange,
+    language,
+    audience,
   });
 
-  // Estados de interacción, cinemática y modales
+  // Interaction, playback and modal state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
@@ -70,10 +75,10 @@ export default function DashboardPage() {
 
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
 
-  // Presets tácticos dinámicos contextualizados por jugada
+  // Contextual tactical presets for the current play
   const currentPresets = useMemo(
-    () => getPresetsForFrame(currentFrame),
-    [currentFrame]
+    () => getPresetsForFrame(currentFrame, t),
+    [currentFrame, t]
   );
 
   // Moves players and simulates in one go. triggerSimulation receives the moved players
@@ -154,7 +159,7 @@ export default function DashboardPage() {
           <span className="hidden h-6 w-px bg-line-strong sm:block" />
 
           {/* Scorebug */}
-          <div className="hidden items-stretch overflow-hidden rounded-[3px] border border-line-strong font-display text-sm font-bold uppercase leading-none tracking-wide sm:flex">
+          <div className="hidden shrink-0 items-stretch overflow-hidden rounded-[3px] border border-line-strong font-display text-sm font-bold uppercase leading-none tracking-wide sm:flex">
             <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
               <span className="h-2.5 w-1 bg-team-home" />
               {fixture.home.short_name}
@@ -168,13 +173,13 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="hidden min-w-0 flex-col lg:flex">
-            <Kicker>{fixture.competition} · Datos sintéticos</Kicker>
+          <div className="hidden min-w-0 flex-col xl:flex">
+            <Kicker>{fixture.competition} · {t("header.syntheticData")}</Kicker>
             <span className="truncate text-xs text-fg-muted">
               {fixture.venue ? `${fixture.venue} · ` : ""}
               {fixture.home.name} v {fixture.away.name} ·{" "}
               <span className={currentFrame.is_counterfactual_mode ? "text-signal-green" : "text-fg"}>
-                {currentFrame.is_counterfactual_mode ? "Escenario simulado" : "Jugada original"}
+                {currentFrame.is_counterfactual_mode ? t("header.simulated") : t("header.original")}
               </span>
             </span>
           </div>
@@ -185,7 +190,7 @@ export default function DashboardPage() {
           <Button
             variant="ghost"
             onClick={() => setIsHudDrawerOpen((prev) => !prev)}
-            title="Mostrar / ocultar el panel táctico"
+            title={t("nav.panelTitle")}
             className={isHudDrawerOpen ? "text-fg" : undefined}
           >
             {isHudDrawerOpen ? (
@@ -193,50 +198,54 @@ export default function DashboardPage() {
             ) : (
               <PanelLeftOpen className="h-3.5 w-3.5" />
             )}
-            <span className="hidden md:inline">Panel</span>
+            <span className="hidden xl:inline">{t("nav.panel")}</span>
           </Button>
 
           <Button
             variant="ghost"
             onClick={() => setIsScenarioModalOpen(true)}
-            title="Comparar dos hipótesis contrafácticas"
+            title={t("nav.compareTitle")}
           >
             <Columns2 className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Comparar</span>
+            <span className="hidden xl:inline">{t("nav.compare")}</span>
           </Button>
 
           <Button
             variant="ghost"
             onClick={() => setIsCloudTelemetryOpen(true)}
             className="hidden md:inline-flex"
-            title="Telemetría de Azure Container Apps y AKS"
+            title={t("nav.infraTitle")}
           >
             <Server className="h-3.5 w-3.5" />
-            <span>Infraestructura</span>
+            <span className="hidden xl:inline">{t("nav.infra")}</span>
           </Button>
 
           <IconButton
             onClick={() => setIsDemoGuideOpen(true)}
             className="hidden sm:inline-flex"
-            title="Guía rápida de demostración"
-            aria-label="Guía rápida"
+            title={t("nav.guideTitle")}
+            aria-label={t("nav.guideAria")}
           >
             <HelpCircle className="h-4 w-4" />
           </IconButton>
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
 
+          <ProfileSwitcher />
+
+          <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
+
           <span
             className="mr-2 hidden items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted sm:inline-flex"
-            title={isLive ? "Conectado al motor en vivo" : "Sin backend: datos locales"}
+            title={isLive ? t("nav.liveTitle") : t("nav.offlineTitle")}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-green" : "bg-fg-subtle"}`} />
             {isLive ? "Live" : "Offline"}
           </span>
 
-          <Button variant="primary" onClick={() => setIsExportModalOpen(true)} title="Exportar informe táctico en PNG">
+          <Button variant="primary" onClick={() => setIsExportModalOpen(true)} title={t("nav.exportTitle")}>
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Exportar</span>
+            <span className="hidden sm:inline">{t("nav.export")}</span>
           </Button>
         </nav>
       </header>
@@ -286,10 +295,10 @@ export default function DashboardPage() {
                 transition={{ duration: 0.16, ease: "easeOut" }}
                 className="pointer-events-auto flex max-h-[calc(100vh-15rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
-                {/* Escenarios rápidos */}
+                {/* Quick scenarios */}
                 <section className="border-b border-line p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <Kicker>Escenarios rápidos</Kicker>
+                    <Kicker>{t("dock.quickScenarios")}</Kicker>
                     <span className="font-mono text-[10px] text-fg-subtle">
                       {currentPresets.length}
                     </span>
@@ -318,7 +327,7 @@ export default function DashboardPage() {
                   />
                 </section>
 
-                {/* Métricas xT */}
+                {/* xT metrics */}
                 <section className="p-3">
                   <XtDeltaPanel
                     teamShortNames={teamShortNames}
@@ -376,7 +385,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Modales */}
+      {/* Modals */}
       <ExportReportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}

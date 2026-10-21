@@ -6,6 +6,7 @@ import { MatchFramePayload, PlayerNode } from "@/types/match";
 import { Pin, RotateCcw } from "lucide-react";
 import { Button, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
 import { PALETTE, hair } from "@/lib/palette";
+import { useI18n } from "@/lib/i18n";
 
 export interface SavedScenario {
   id: string;
@@ -78,6 +79,7 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
   currentFrame,
   onRestoreScenario,
 }) => {
+  const { t } = useI18n();
   const [scenarioA, setScenarioA] = useState<SavedScenario | null>(null);
   const [scenarioB, setScenarioB] = useState<SavedScenario | null>(null);
 
@@ -86,7 +88,7 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
   const handlePinScenarioA = () => {
     setScenarioA({
       id: "scenario-a",
-      label: "Escenario A",
+      label: "A",
       timestamp: new Date().toLocaleTimeString(),
       frame: JSON.parse(JSON.stringify(currentFrame)),
     });
@@ -95,7 +97,7 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
   const handlePinScenarioB = () => {
     setScenarioB({
       id: "scenario-b",
-      label: "Escenario B",
+      label: "B",
       timestamp: new Date().toLocaleTimeString(),
       frame: JSON.parse(JSON.stringify(currentFrame)),
     });
@@ -113,17 +115,15 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
   const effA = getEfficiencyRatio(scenarioA);
   const effB = getEfficiencyRatio(scenarioB);
 
-  let verdict = "Fija ambos escenarios para comparar su eficiencia táctica.";
+  let verdict = t("compare.pinBoth");
   let winner: "A" | "B" | null = null;
   if (scenarioA && scenarioB) {
-    if (effA > effB) {
-      winner = "A";
-      verdict = `El escenario A es más eficiente (${effA > 0 ? "+" : ""}${effA} ΔxT/m): reduce más peligro con menos desgaste físico.`;
-    } else if (effB > effA) {
-      winner = "B";
-      verdict = `El escenario B es más eficiente (${effB > 0 ? "+" : ""}${effB} ΔxT/m): mejor cierre del carril interior por metro recorrido.`;
+    if (effA !== effB) {
+      winner = effA > effB ? "A" : "B";
+      const ratio = Math.max(effA, effB);
+      verdict = t("compare.winner", { key: winner, ratio: `${ratio > 0 ? "+" : ""}${ratio}` });
     } else {
-      verdict = "Ambos escenarios tienen el mismo perfil de riesgo/recompensa.";
+      verdict = t("compare.tie");
     }
   }
 
@@ -134,9 +134,9 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
           <span className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-fg font-display text-sm font-extrabold text-ink">
             {key}
           </span>
-          <Kicker className="text-fg">Escenario {key}</Kicker>
+          <Kicker className="text-fg">{t("compare.scenario", { key })}</Kicker>
         </div>
-        {sc && winner === key && <Tag tone="green">Más eficiente</Tag>}
+        {sc && winner === key && <Tag tone="green">{t("compare.moreEfficient")}</Tag>}
         {sc && winner !== key && <span className="font-mono text-[10px] text-fg-subtle">{sc.timestamp}</span>}
       </div>
 
@@ -144,13 +144,13 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
         <>
           <MiniPitchPreview frame={sc.frame} />
           <div>
-            <Row label="Amenaza (xT)">
+            <Row label={t("compare.threat")}>
               {sc.frame.metrics.simulated_xt.toFixed(3)}{" "}
               <span className={deltaClass(sc.frame.metrics.xt_delta)}>({signed(sc.frame.metrics.xt_delta)})</span>
             </Row>
-            <Row label="Control Voronoi">{sc.frame.metrics.space_control_home_pct.toFixed(1)}%</Row>
-            <Row label="Éxito de pase">{sc.frame.metrics.pass_completion_prob.toFixed(1)}%</Row>
-            <Row label="Desplazamiento total">{calculateTotalDisplacement(sc.frame.players)} m</Row>
+            <Row label={t("compare.control")}>{sc.frame.metrics.space_control_home_pct.toFixed(1)}%</Row>
+            <Row label={t("compare.passSuccess")}>{sc.frame.metrics.pass_completion_prob.toFixed(1)}%</Row>
+            <Row label={t("compare.totalDisplacement")}>{calculateTotalDisplacement(sc.frame.players)} m</Row>
           </div>
 
           <Button
@@ -162,13 +162,13 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
             }}
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Restaurar en la pizarra
+            {t("compare.restore")}
           </Button>
         </>
       ) : (
         <div className="flex aspect-[120/80] w-full flex-col items-center justify-center gap-2 rounded-[3px] border border-dashed border-line-strong px-4 text-center text-[12px] text-fg-subtle">
           <Pin className="h-4 w-4" />
-          Mueve jugadores y pulsa «Fijar {key}».
+          {t("compare.empty", { key })}
         </div>
       )}
     </div>
@@ -176,14 +176,14 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
 
   return (
     <ModalShell
-      kicker="Comparador"
-      title="Escenario A vs B"
-      description="Guarda dos hipótesis y compara la reducción de peligro frente al esfuerzo físico."
+      kicker={t("compare.kicker")}
+      title={t("compare.title")}
+      description={t("compare.desc")}
       onClose={onClose}
       className="max-w-5xl"
       footer={
         <div className="flex w-full items-start gap-4">
-          <Kicker className="shrink-0 pt-0.5">Veredicto</Kicker>
+          <Kicker className="shrink-0 pt-0.5">{t("compare.verdict")}</Kicker>
           <p className="text-[13px] text-fg">{verdict}</p>
         </div>
       }
@@ -191,18 +191,16 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-2.5">
         <span className="text-[12px] text-fg-muted">
-          En la pizarra:{" "}
-          <span className="font-mono text-fg">{currentFrame.players.filter((p) => p.is_modified).length}</span> jugadores
-          modificados
+          {t("compare.onBoard", { n: currentFrame.players.filter((p) => p.is_modified).length })}
         </span>
         <div className="flex items-center gap-1.5">
           <Button size="sm" variant="secondary" onClick={handlePinScenarioA}>
             <Pin className="h-3.5 w-3.5" />
-            Fijar A
+            {t("compare.pin", { key: "A" })}
           </Button>
           <Button size="sm" variant="secondary" onClick={handlePinScenarioB}>
             <Pin className="h-3.5 w-3.5" />
-            Fijar B
+            {t("compare.pin", { key: "B" })}
           </Button>
         </div>
       </div>
@@ -211,15 +209,15 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
       <div className="grid grid-cols-1 divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
         <div className="flex flex-col gap-3 p-4">
           <div className="flex items-center justify-between">
-            <Kicker className="text-fg">Original</Kicker>
-            <span className="font-mono text-[10px] text-fg-subtle">Jugada sin cambios</span>
+            <Kicker className="text-fg">{t("compare.original")}</Kicker>
+            <span className="font-mono text-[10px] text-fg-subtle">{t("compare.unchanged")}</span>
           </div>
           <MiniPitchPreview frame={currentFrame} />
           <div>
-            <Row label="Amenaza base (xT)">{currentFrame.metrics.original_xt.toFixed(3)}</Row>
-            <Row label="Control Voronoi">{currentFrame.metrics.space_control_home_pct.toFixed(1)}%</Row>
-            <Row label="Éxito de pase">{currentFrame.metrics.pass_completion_prob.toFixed(1)}%</Row>
-            <Row label="Desplazamiento">0.0 m</Row>
+            <Row label={t("compare.baseThreat")}>{currentFrame.metrics.original_xt.toFixed(3)}</Row>
+            <Row label={t("compare.control")}>{currentFrame.metrics.space_control_home_pct.toFixed(1)}%</Row>
+            <Row label={t("compare.passSuccess")}>{currentFrame.metrics.pass_completion_prob.toFixed(1)}%</Row>
+            <Row label={t("compare.displacement")}>0.0 m</Row>
           </div>
         </div>
         {renderScenario("A", scenarioA)}

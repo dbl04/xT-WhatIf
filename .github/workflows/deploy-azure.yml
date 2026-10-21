@@ -51,6 +51,16 @@ jobs:
         env:
           PYTHONPATH: ./backend
 
+      - name: Run Personalised Narration Tests (language x audience)
+        run: python backend/test_narration.py
+        env:
+          PYTHONPATH: ./backend
+
+      - name: Run TTS Service Tests
+        run: python backend/test_tts_service.py
+        env:
+          PYTHONPATH: ./backend
+
       - name: Run Public Demo Guardrail Tests
         run: python backend/test_hardening.py
         env:

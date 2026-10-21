@@ -4,9 +4,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AgentMessage } from "@/types/match";
 import { API_BASE_URL } from "@/lib/api";
+import { Audience, DEFAULT_AUDIENCE, DEFAULT_LANGUAGE, Language, LOCALES } from "@/lib/i18n";
 
 export interface UseBroadcastTTSOptions {
   messages: AgentMessage[];
+  /** Language the pundits speak; audio description is read a little slower. */
+  language?: Language;
+  audience?: Audience;
   autoPlayOnNewSimulation?: boolean;
   onActiveSpeakerChange?: (
     role: "data_scientist" | "classic_coach" | null,
@@ -14,8 +18,27 @@ export interface UseBroadcastTTSOptions {
   ) => void;
 }
 
+/**
+ * Best browser voice for a language: neural/"Natural"/"Online" voices (Edge, Chrome's Google
+ * voices) sound far less robotic than the first local voice for the locale.
+ */
+function pickVoice(voices: SpeechSynthesisVoice[], language: Language): SpeechSynthesisVoice | null {
+  const locale = LOCALES[language];
+  const forLanguage = voices.filter((v) => v.lang.toLowerCase().startsWith(language));
+  const isNeural = (v: SpeechSynthesisVoice) => /natural|neural|online|google/i.test(v.name);
+  return (
+    forLanguage.find((v) => v.lang === locale && isNeural(v)) ||
+    forLanguage.find(isNeural) ||
+    forLanguage.find((v) => v.lang === locale) ||
+    forLanguage[0] ||
+    null
+  );
+}
+
 export function useBroadcastTTS({
   messages,
+  language = DEFAULT_LANGUAGE,
+  audience = DEFAULT_AUDIENCE,
   autoPlayOnNewSimulation = false,
   onActiveSpeakerChange,
 }: UseBroadcastTTSOptions) {
@@ -31,6 +54,8 @@ export function useBroadcastTTS({
   const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesRef = useRef<AgentMessage[]>(messages);
   const onActiveSpeakerChangeRef = useRef(onActiveSpeakerChange);
+  const profileRef = useRef({ language, audience });
+  profileRef.current = { language, audience };
 
   // Keep refs up-to-date without triggering re-render loops
   useEffect(() => {
@@ -77,21 +102,18 @@ export function useBroadcastTTS({
           return;
         }
 
+        const { language: lang, audience: aud } = profileRef.current;
         const utterance = new SpeechSynthesisUtterance(msg.analysis_body || msg.headline);
-        const voices = window.speechSynthesis.getVoices();
-        const esVoice =
-          voices.find((v) => v.lang.startsWith("es-AR")) ||
-          voices.find((v) => v.lang.startsWith("es-ES")) ||
-          voices.find((v) => v.lang.startsWith("es")) ||
-          null;
-
-        if (esVoice) {
-          utterance.voice = esVoice;
+        utterance.lang = LOCALES[lang];
+        const voice = pickVoice(window.speechSynthesis.getVoices(), lang);
+        if (voice) {
+          utterance.voice = voice;
         }
 
         const isVoronoi = msg.agent_role === "data_scientist";
+        const slowDown = aud === "audio_description" ? 0.9 : 1;
         utterance.pitch = isVoronoi ? 1.08 : 0.88;
-        utterance.rate = isVoronoi ? 1.12 : 1.02;
+        utterance.rate = (isVoronoi ? 1.12 : 1.02) * slowDown;
 
         utterance.onend = () => resolve();
         utterance.onerror = () => resolve();
@@ -128,6 +150,8 @@ export function useBroadcastTTS({
             body: JSON.stringify({
               text: msg.analysis_body || msg.headline,
               agent_role: role,
+              language: profileRef.current.language,
+              audience: profileRef.current.audience,
             }),
             signal: AbortSignal.timeout(1200),
           });
@@ -209,6 +233,11 @@ export function useBroadcastTTS({
       return next;
     });
   }, [stopAll]);
+
+  // A new language or audience means new commentary: silence the old one.
+  useEffect(() => {
+    stopAll();
+  }, [language, audience, stopAll]);
 
   // Clean unmount ONLY (stopAll is completely stable with [] dependencies)
   useEffect(() => {

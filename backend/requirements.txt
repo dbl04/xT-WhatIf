@@ -19,7 +19,7 @@ shapely>=2.0.6
 # Cache
 redis>=5.1.0
 
-# AI Multi-Agent Swarm (Dr. Voronoi & Míster Bianchi)
+# AI Multi-Agent Swarm (Dr. Voronoi & Coach Bianchi)
 openai>=1.50.0
 
 # Testing & Linting (Optional / Dev)

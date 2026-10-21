@@ -308,35 +308,36 @@
   },
   "agent_debate": [
     {
-      "message_id": "msg-12c1eb0d",
+      "message_id": "msg-0199660a",
       "agent_role": "data_scientist",
       "agent_name": "Dr. Voronoi (Data Scientist)",
       "avatar_badge": "AI-QUANT",
-      "timestamp_label": "19:10",
-      "headline": "Mano a mano con el portero: 0.11 xT en juego",
-      "analysis_body": "Z. Ombrell inicia la acción en (106.0, 44.0). El valor de la jugada es 0.11 xT con un 13.2% de probabilidad de completar la acción y un control territorial local del 39.4% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
-      "referenced_metric": "xT: 0.11 | Prob. pase: 13.2%",
+      "timestamp_label": "19:10 [SIMULATION]",
+      "headline": "Expected threat collapses (-9% relative xT)",
+      "analysis_body": "Shifting J. Castellan 4.0 m to (111.5, 46.8) puts the Voronoi cell across the lane to C. Marrow. xT falls from 0.11 to 0.10 and pass completion drops to 11.6%.",
+      "referenced_metric": "ΔxT: -0.01 | Pass prob.: 11.6%",
       "highlighted_player_ids": [
-        209,
-        206
+        106,
+        208
       ]
     },
     {
-      "message_id": "msg-6bffdd29",
+      "message_id": "msg-a034ca9f",
       "agent_role": "classic_coach",
-      "agent_name": "Míster Bianchi (Entrenador Clásico)",
+      "agent_name": "Coach Bianchi (Classic Coach)",
       "avatar_badge": "PRO-COACH",
-      "timestamp_label": "19:10",
-      "headline": "Presión de J. Castellan a 3.2 m",
-      "analysis_body": "J. Castellan es el primero en saltar y llega a 3.2 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
-      "referenced_metric": "Distancia de presión: 3.2 m",
+      "timestamp_label": "19:10 [SIMULATION]",
+      "headline": "You cover the pass to C. Marrow, but give away the inside lane",
+      "analysis_body": "Yes, J. Castellan dropping off kills the ball down the outside, but look at the gap opening between centre-back and full-back. If the passer looks up and threads it inside to N. Haldorsen, we're caught with poor body shape and the holding midfielder out of position.",
+      "referenced_metric": "Defensive gap open towards N. Haldorsen",
       "highlighted_player_ids": [
         106,
-        209
+        206
       ]
     }
   ],
-  "moment_label": "Mano a mano con el portero",
+  "moment_label": "One-on-one with the keeper",
+  "moment_key": "one_v_one",
   "match_info": {
     "competition": "Synthetic League · Matchday 7",
     "venue": "Harbourside Park",

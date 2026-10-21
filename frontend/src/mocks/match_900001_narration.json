@@ -1,0 +1,1892 @@
+{
+  "e774d3ba-f3a7-5fae-843e-8412a0c689a7": {
+    "en": {
+      "casual": {
+        "moment_label": "Shot from the edge of the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-0394878b",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Shot from the edge of the box",
+            "analysis_body": "I. Kowalin has the ball through the middle, about 25 metres from goal. Right now this attack has about a 10% chance of leading to a goal. The most dangerous option is a pass to N. Haldorsen.",
+            "referenced_metric": "Goal threat: 10%",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-b1584455",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "J. Castellan is closing in",
+            "analysis_body": "J. Castellan is 2 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 2 m away",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Shot from the edge of the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-6850b171",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Shot from the edge of the box: 0.10 xT in play",
+            "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.10 xT, with a 11.7% chance of completing the action and 49.9% local space control in the final third. The highest-value option is N. Haldorsen.",
+            "referenced_metric": "xT: 0.10 | Pass prob.: 11.7%",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-5784b960",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "J. Castellan presses from 2.4 m",
+            "analysis_body": "J. Castellan is first to jump and gets within 2.4 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 2.4 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Shot from the edge of the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-5f828684",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Shot from the edge of the box: baseline 0.10 xT",
+            "analysis_body": "Baseline before any adjustment: 0.10 xT, 11.7% pass completion and 49.9% space control. Highest-value receiver: N. Haldorsen.",
+            "referenced_metric": "Baseline xT: 0.10",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-7d0cdf87",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "Pressing trigger: J. Castellan at 2.4 m",
+            "analysis_body": "J. Castellan is the first presser, 2.4 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 2.4 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Shot from the edge of the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-582751de",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Shot from the edge of the box",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 25 metres from goal. The most dangerous pass is to N. Haldorsen, who is through the middle, about 40 metres from goal. The chance of a goal is about 10 percent.",
+            "referenced_metric": "Goal threat 10%",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-260a5a48",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "J. Castellan steps out to press",
+            "analysis_body": "J. Castellan comes out to meet the ball and stops about 2 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 2 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Disparo desde la frontal del área",
+        "agent_debate": [
+          {
+            "message_id": "msg-a6b3e3fc",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Disparo desde la frontal del área",
+            "analysis_body": "I. Kowalin lleva el balón por el centro, a unos 25 metros de la portería. Ahora mismo esta jugada tiene más o menos un 10% de acabar en gol. La opción más peligrosa es un pase a N. Haldorsen.",
+            "referenced_metric": "Peligro de gol: 10%",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-fb9746ae",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "J. Castellan sale a presionar",
+            "analysis_body": "J. Castellan está a 2 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 2 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Disparo desde la frontal del área",
+        "agent_debate": [
+          {
+            "message_id": "msg-79485c3a",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Disparo desde la frontal del área: 0.10 xT en juego",
+            "analysis_body": "I. Kowalin inicia la acción en (97.0, 37.0). El valor de la jugada es 0.10 xT con un 11.7% de probabilidad de completar la acción y un control territorial local del 49.9% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
+            "referenced_metric": "xT: 0.10 | Prob. pase: 11.7%",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-703503dc",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "Presión de J. Castellan a 2.4 m",
+            "analysis_body": "J. Castellan es el primero en saltar y llega a 2.4 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 2.4 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Disparo desde la frontal del área",
+        "agent_debate": [
+          {
+            "message_id": "msg-9f324d7c",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Disparo desde la frontal del área: punto de partida 0.10 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.10 xT, 11.7% de acierto en el pase y 49.9% de control del espacio. Receptor de mayor valor: N. Haldorsen.",
+            "referenced_metric": "xT de partida: 0.10",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-ef2836df",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "Activador de presión: J. Castellan a 2.4 m",
+            "analysis_body": "J. Castellan es el primer presionador, a 2.4 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 2.4 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Disparo desde la frontal del área",
+        "agent_debate": [
+          {
+            "message_id": "msg-4be62703",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "5:03",
+            "headline": "Disparo desde la frontal del área",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 25 metros de la portería. El pase más peligroso es hacia N. Haldorsen, que está por el centro, a unos 40 metros de la portería. La probabilidad de gol ronda el 10 por ciento.",
+            "referenced_metric": "Peligro de gol 10%",
+            "highlighted_player_ids": [
+              210,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-918ba6fc",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "5:03",
+            "headline": "J. Castellan sale a presionar",
+            "analysis_body": "J. Castellan sale al encuentro del balón y se queda a unos 2 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 2 m",
+            "highlighted_player_ids": [
+              106,
+              210
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "2b6d924c-3a53-5105-a1cb-7f863e424554": {
+    "en": {
+      "casual": {
+        "moment_label": "One-on-one with the keeper",
+        "agent_debate": [
+          {
+            "message_id": "msg-2de37d64",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "One-on-one with the keeper",
+            "analysis_body": "Z. Ombrell has the ball inside the penalty area. Right now this attack has about a 11% chance of leading to a goal. The most dangerous option is a pass to N. Haldorsen.",
+            "referenced_metric": "Goal threat: 11%",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-18bfc74d",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "J. Castellan is closing in",
+            "analysis_body": "J. Castellan is 3 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 3 m away",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "One-on-one with the keeper",
+        "agent_debate": [
+          {
+            "message_id": "msg-91636d7f",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "One-on-one with the keeper: 0.11 xT in play",
+            "analysis_body": "Z. Ombrell starts the action at (106.0, 44.0). The move is worth 0.11 xT, with a 13.2% chance of completing the action and 39.4% local space control in the final third. The highest-value option is N. Haldorsen.",
+            "referenced_metric": "xT: 0.11 | Pass prob.: 13.2%",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-c15e5e12",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "J. Castellan presses from 3.2 m",
+            "analysis_body": "J. Castellan is first to jump and gets within 3.2 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 3.2 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "One-on-one with the keeper",
+        "agent_debate": [
+          {
+            "message_id": "msg-6395b153",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "One-on-one with the keeper: baseline 0.11 xT",
+            "analysis_body": "Baseline before any adjustment: 0.11 xT, 13.2% pass completion and 39.4% space control. Highest-value receiver: N. Haldorsen.",
+            "referenced_metric": "Baseline xT: 0.11",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-650f5eaa",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "Pressing trigger: J. Castellan at 3.2 m",
+            "analysis_body": "J. Castellan is the first presser, 3.2 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 3.2 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "One-on-one with the keeper",
+        "agent_debate": [
+          {
+            "message_id": "msg-1417bd79",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "One-on-one with the keeper",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. Z. Ombrell has the ball inside the penalty area. The most dangerous pass is to N. Haldorsen, who is through the middle, about 35 metres from goal. The chance of a goal is about 11 percent.",
+            "referenced_metric": "Goal threat 11%",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-e61c2b40",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "J. Castellan steps out to press",
+            "analysis_body": "J. Castellan comes out to meet the ball and stops about 3 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 3 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Mano a mano con el portero",
+        "agent_debate": [
+          {
+            "message_id": "msg-4a90f17e",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "Mano a mano con el portero",
+            "analysis_body": "Z. Ombrell lleva el balón dentro del área. Ahora mismo esta jugada tiene más o menos un 11% de acabar en gol. La opción más peligrosa es un pase a N. Haldorsen.",
+            "referenced_metric": "Peligro de gol: 11%",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-aff472f7",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "J. Castellan sale a presionar",
+            "analysis_body": "J. Castellan está a 3 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 3 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Mano a mano con el portero",
+        "agent_debate": [
+          {
+            "message_id": "msg-dbbd0c34",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "Mano a mano con el portero: 0.11 xT en juego",
+            "analysis_body": "Z. Ombrell inicia la acción en (106.0, 44.0). El valor de la jugada es 0.11 xT con un 13.2% de probabilidad de completar la acción y un control territorial local del 39.4% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
+            "referenced_metric": "xT: 0.11 | Prob. pase: 13.2%",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-4dcfd610",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "Presión de J. Castellan a 3.2 m",
+            "analysis_body": "J. Castellan es el primero en saltar y llega a 3.2 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 3.2 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Mano a mano con el portero",
+        "agent_debate": [
+          {
+            "message_id": "msg-d3bdccba",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "Mano a mano con el portero: punto de partida 0.11 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.11 xT, 13.2% de acierto en el pase y 39.4% de control del espacio. Receptor de mayor valor: N. Haldorsen.",
+            "referenced_metric": "xT de partida: 0.11",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-65554996",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "Activador de presión: J. Castellan a 3.2 m",
+            "analysis_body": "J. Castellan es el primer presionador, a 3.2 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 3.2 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Mano a mano con el portero",
+        "agent_debate": [
+          {
+            "message_id": "msg-c24ac466",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "19:10",
+            "headline": "Mano a mano con el portero",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. Z. Ombrell lleva el balón dentro del área. El pase más peligroso es hacia N. Haldorsen, que está por el centro, a unos 35 metros de la portería. La probabilidad de gol ronda el 11 por ciento.",
+            "referenced_metric": "Peligro de gol 11%",
+            "highlighted_player_ids": [
+              209,
+              206
+            ]
+          },
+          {
+            "message_id": "msg-629e9f2b",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "19:10",
+            "headline": "J. Castellan sale a presionar",
+            "analysis_body": "J. Castellan sale al encuentro del balón y se queda a unos 3 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 3 m",
+            "highlighted_player_ids": [
+              106,
+              209
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "c9bb87ad-9b50-5284-8ea0-1501545b9dfa": {
+    "en": {
+      "casual": {
+        "moment_label": "Switch of play to the far side",
+        "agent_debate": [
+          {
+            "message_id": "msg-9c894fff",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Switch of play to the far side",
+            "analysis_body": "D. Okonne has the ball on the right wing, about 55 metres from goal. Right now this attack has about a 9% chance of leading to a goal. The most dangerous option is a pass to M. Ferrant.",
+            "referenced_metric": "Goal threat: 9%",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-7921b8c6",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "I. Kowalin is closing in",
+            "analysis_body": "I. Kowalin is 3 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 3 m away",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Switch of play to the far side",
+        "agent_debate": [
+          {
+            "message_id": "msg-fc1f7246",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Switch of play to the far side: 0.09 xT in play",
+            "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.09 xT, with a 33.4% chance of completing the action and 28.1% local space control in the final third. The highest-value option is M. Ferrant.",
+            "referenced_metric": "xT: 0.09 | Pass prob.: 33.4%",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-4b47ec36",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "I. Kowalin presses from 3.0 m",
+            "analysis_body": "I. Kowalin is first to jump and gets within 3.0 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 3.0 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Switch of play to the far side",
+        "agent_debate": [
+          {
+            "message_id": "msg-6d8bad62",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Switch of play to the far side: baseline 0.09 xT",
+            "analysis_body": "Baseline before any adjustment: 0.09 xT, 33.4% pass completion and 28.1% space control. Highest-value receiver: M. Ferrant.",
+            "referenced_metric": "Baseline xT: 0.09",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-a65db22e",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "Pressing trigger: I. Kowalin at 3.0 m",
+            "analysis_body": "I. Kowalin is the first presser, 3.0 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 3.0 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Switch of play to the far side",
+        "agent_debate": [
+          {
+            "message_id": "msg-99a22158",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Switch of play to the far side",
+            "analysis_body": "Redmoor Albion attack towards goal. D. Okonne has the ball on the right wing, about 55 metres from goal. The most dangerous pass is to M. Ferrant, who is on the right wing, about 60 metres from goal. The chance of a goal is about 9 percent.",
+            "referenced_metric": "Goal threat 9%",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-907b9b1c",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "I. Kowalin steps out to press",
+            "analysis_body": "I. Kowalin comes out to meet the ball and stops about 3 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 3 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Cambio de orientación a la banda contraria",
+        "agent_debate": [
+          {
+            "message_id": "msg-03bffdbb",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Cambio de orientación a la banda contraria",
+            "analysis_body": "D. Okonne lleva el balón por la banda derecha, a unos 55 metros de la portería. Ahora mismo esta jugada tiene más o menos un 9% de acabar en gol. La opción más peligrosa es un pase a M. Ferrant.",
+            "referenced_metric": "Peligro de gol: 9%",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-e06ebf52",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "I. Kowalin sale a presionar",
+            "analysis_body": "I. Kowalin está a 3 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 3 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Cambio de orientación a la banda contraria",
+        "agent_debate": [
+          {
+            "message_id": "msg-b7a39944",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Cambio de orientación a la banda contraria: 0.09 xT en juego",
+            "analysis_body": "D. Okonne inicia la acción en (71.0, 11.0). El valor de la jugada es 0.09 xT con un 33.4% de probabilidad de completar la acción y un control territorial local del 28.1% en el último tercio. La opción de mayor valor esperado es M. Ferrant.",
+            "referenced_metric": "xT: 0.09 | Prob. pase: 33.4%",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-3a2c7d50",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "Presión de I. Kowalin a 3.0 m",
+            "analysis_body": "I. Kowalin es el primero en saltar y llega a 3.0 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 3.0 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Cambio de orientación a la banda contraria",
+        "agent_debate": [
+          {
+            "message_id": "msg-8fdab493",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Cambio de orientación a la banda contraria: punto de partida 0.09 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.09 xT, 33.4% de acierto en el pase y 28.1% de control del espacio. Receptor de mayor valor: M. Ferrant.",
+            "referenced_metric": "xT de partida: 0.09",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-17b896a9",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "Activador de presión: I. Kowalin a 3.0 m",
+            "analysis_body": "I. Kowalin es el primer presionador, a 3.0 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 3.0 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Cambio de orientación a la banda contraria",
+        "agent_debate": [
+          {
+            "message_id": "msg-b2a288f5",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "37:09",
+            "headline": "Cambio de orientación a la banda contraria",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. D. Okonne lleva el balón por la banda derecha, a unos 55 metros de la portería. El pase más peligroso es hacia M. Ferrant, que está por la banda derecha, a unos 60 metros de la portería. La probabilidad de gol ronda el 9 por ciento.",
+            "referenced_metric": "Peligro de gol 9%",
+            "highlighted_player_ids": [
+              102,
+              108
+            ]
+          },
+          {
+            "message_id": "msg-e7d1d578",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "37:09",
+            "headline": "I. Kowalin sale a presionar",
+            "analysis_body": "I. Kowalin sale al encuentro del balón y se queda a unos 3 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 3 m",
+            "highlighted_player_ids": [
+              210,
+              102
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "afe2929d-54e1-5b08-8eb3-23332270e841": {
+    "en": {
+      "casual": {
+        "moment_label": "Wide carry into the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-0ee883e5",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Wide carry into the box",
+            "analysis_body": "E. Adeyo has the ball on the right wing, about 35 metres from goal. Right now this attack has about a 18% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
+            "referenced_metric": "Goal threat: 18%",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-60acd58c",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "I. Kowalin is closing in",
+            "analysis_body": "I. Kowalin is 2 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 2 m away",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Wide carry into the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-d5741a1c",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Wide carry into the box: 0.18 xT in play",
+            "analysis_body": "E. Adeyo starts the action at (97.0, 13.0). The move is worth 0.18 xT, with a 36.0% chance of completing the action and 46.9% local space control in the final third. The highest-value option is O. Thornwell.",
+            "referenced_metric": "xT: 0.18 | Pass prob.: 36.0%",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-ed83a45a",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "I. Kowalin presses from 2.2 m",
+            "analysis_body": "I. Kowalin is first to jump and gets within 2.2 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 2.2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Wide carry into the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-9240ead4",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Wide carry into the box: baseline 0.18 xT",
+            "analysis_body": "Baseline before any adjustment: 0.18 xT, 36.0% pass completion and 46.9% space control. Highest-value receiver: O. Thornwell.",
+            "referenced_metric": "Baseline xT: 0.18",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-31527afe",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "Pressing trigger: I. Kowalin at 2.2 m",
+            "analysis_body": "I. Kowalin is the first presser, 2.2 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 2.2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Wide carry into the box",
+        "agent_debate": [
+          {
+            "message_id": "msg-c2d31060",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Wide carry into the box",
+            "analysis_body": "Redmoor Albion attack towards goal. E. Adeyo has the ball on the right wing, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is inside the penalty area. The chance of a goal is about 18 percent.",
+            "referenced_metric": "Goal threat 18%",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-34c99606",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "I. Kowalin steps out to press",
+            "analysis_body": "I. Kowalin comes out to meet the ball and stops about 2 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Conducción por banda hacia el área",
+        "agent_debate": [
+          {
+            "message_id": "msg-0c09d060",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Conducción por banda hacia el área",
+            "analysis_body": "E. Adeyo lleva el balón por la banda derecha, a unos 35 metros de la portería. Ahora mismo esta jugada tiene más o menos un 18% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
+            "referenced_metric": "Peligro de gol: 18%",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-a98ee05a",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "I. Kowalin sale a presionar",
+            "analysis_body": "I. Kowalin está a 2 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Conducción por banda hacia el área",
+        "agent_debate": [
+          {
+            "message_id": "msg-f004d295",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Conducción por banda hacia el área: 0.18 xT en juego",
+            "analysis_body": "E. Adeyo inicia la acción en (97.0, 13.0). El valor de la jugada es 0.18 xT con un 36.0% de probabilidad de completar la acción y un control territorial local del 46.9% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "referenced_metric": "xT: 0.18 | Prob. pase: 36.0%",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-38987416",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "Presión de I. Kowalin a 2.2 m",
+            "analysis_body": "I. Kowalin es el primero en saltar y llega a 2.2 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 2.2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Conducción por banda hacia el área",
+        "agent_debate": [
+          {
+            "message_id": "msg-78fdcd44",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Conducción por banda hacia el área: punto de partida 0.18 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.18 xT, 36.0% de acierto en el pase y 46.9% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "referenced_metric": "xT de partida: 0.18",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-8b715775",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "Activador de presión: I. Kowalin a 2.2 m",
+            "analysis_body": "I. Kowalin es el primer presionador, a 2.2 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 2.2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Conducción por banda hacia el área",
+        "agent_debate": [
+          {
+            "message_id": "msg-ea9af628",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "45:19",
+            "headline": "Conducción por banda hacia el área",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. E. Adeyo lleva el balón por la banda derecha, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está dentro del área. La probabilidad de gol ronda el 18 por ciento.",
+            "referenced_metric": "Peligro de gol 18%",
+            "highlighted_player_ids": [
+              107,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-0e76569f",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "45:19",
+            "headline": "I. Kowalin sale a presionar",
+            "analysis_body": "I. Kowalin sale al encuentro del balón y se queda a unos 2 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 2 m",
+            "highlighted_player_ids": [
+              210,
+              107
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "0065f8d5-fd5f-5ba9-a69c-01238466862f": {
+    "en": {
+      "casual": {
+        "moment_label": "Through ball into the half-space",
+        "agent_debate": [
+          {
+            "message_id": "msg-c4c5a637",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Through ball into the half-space",
+            "analysis_body": "M. Ferrant has the ball in the right half-space, about 35 metres from goal. Right now this attack has about a 25% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
+            "referenced_metric": "Goal threat: 25%",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-36baa027",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "N. Haldorsen is closing in",
+            "analysis_body": "N. Haldorsen is 3 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 3 m away",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Through ball into the half-space",
+        "agent_debate": [
+          {
+            "message_id": "msg-4fca80be",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Through ball into the half-space: 0.25 xT in play",
+            "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.25 xT, with a 49.9% chance of completing the action and 47.2% local space control in the final third. The highest-value option is O. Thornwell.",
+            "referenced_metric": "xT: 0.25 | Pass prob.: 49.9%",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-37f50ea8",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "N. Haldorsen presses from 3.0 m",
+            "analysis_body": "N. Haldorsen is first to jump and gets within 3.0 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 3.0 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Through ball into the half-space",
+        "agent_debate": [
+          {
+            "message_id": "msg-f1152b19",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Through ball into the half-space: baseline 0.25 xT",
+            "analysis_body": "Baseline before any adjustment: 0.25 xT, 49.9% pass completion and 47.2% space control. Highest-value receiver: O. Thornwell.",
+            "referenced_metric": "Baseline xT: 0.25",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-6c995105",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "Pressing trigger: N. Haldorsen at 3.0 m",
+            "analysis_body": "N. Haldorsen is the first presser, 3.0 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 3.0 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Through ball into the half-space",
+        "agent_debate": [
+          {
+            "message_id": "msg-f1f0c192",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Through ball into the half-space",
+            "analysis_body": "Redmoor Albion attack towards goal. M. Ferrant has the ball in the right half-space, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is inside the penalty area. The chance of a goal is about 25 percent.",
+            "referenced_metric": "Goal threat 25%",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-7862d718",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "N. Haldorsen steps out to press",
+            "analysis_body": "N. Haldorsen comes out to meet the ball and stops about 3 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 3 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Pase filtrado al pasillo interior",
+        "agent_debate": [
+          {
+            "message_id": "msg-983023cb",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Pase filtrado al pasillo interior",
+            "analysis_body": "M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. Ahora mismo esta jugada tiene más o menos un 25% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
+            "referenced_metric": "Peligro de gol: 25%",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-77ba7f2a",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "N. Haldorsen sale a presionar",
+            "analysis_body": "N. Haldorsen está a 3 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 3 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Pase filtrado al pasillo interior",
+        "agent_debate": [
+          {
+            "message_id": "msg-6361db09",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Pase filtrado al pasillo interior: 0.25 xT en juego",
+            "analysis_body": "M. Ferrant inicia la acción en (87.0, 28.0). El valor de la jugada es 0.25 xT con un 49.9% de probabilidad de completar la acción y un control territorial local del 47.2% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "referenced_metric": "xT: 0.25 | Prob. pase: 49.9%",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-b8ac46c7",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "Presión de N. Haldorsen a 3.0 m",
+            "analysis_body": "N. Haldorsen es el primero en saltar y llega a 3.0 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 3.0 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Pase filtrado al pasillo interior",
+        "agent_debate": [
+          {
+            "message_id": "msg-c2ebd309",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Pase filtrado al pasillo interior: punto de partida 0.25 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.25 xT, 49.9% de acierto en el pase y 47.2% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "referenced_metric": "xT de partida: 0.25",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-7274edb6",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "Activador de presión: N. Haldorsen a 3.0 m",
+            "analysis_body": "N. Haldorsen es el primer presionador, a 3.0 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 3.0 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Pase filtrado al pasillo interior",
+        "agent_debate": [
+          {
+            "message_id": "msg-6949e702",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "55:12",
+            "headline": "Pase filtrado al pasillo interior",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está dentro del área. La probabilidad de gol ronda el 25 por ciento.",
+            "referenced_metric": "Peligro de gol 25%",
+            "highlighted_player_ids": [
+              108,
+              109
+            ]
+          },
+          {
+            "message_id": "msg-5ed85f2f",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "55:12",
+            "headline": "N. Haldorsen sale a presionar",
+            "analysis_body": "N. Haldorsen sale al encuentro del balón y se queda a unos 3 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 3 m",
+            "highlighted_player_ids": [
+              206,
+              108
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "06d91dd9-bb25-527f-b8ef-a26cfa962500": {
+    "en": {
+      "casual": {
+        "moment_label": "Counter-attack: ball into space",
+        "agent_debate": [
+          {
+            "message_id": "msg-44eb5caa",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Counter-attack: ball into space",
+            "analysis_body": "I. Kowalin has the ball through the middle, about 60 metres from goal. Right now this attack has about a 22% chance of leading to a goal. The most dangerous option is a pass to Z. Ombrell.",
+            "referenced_metric": "Goal threat: 22%",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-272ef040",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "M. Ferrant is closing in",
+            "analysis_body": "M. Ferrant is 3 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 3 m away",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Counter-attack: ball into space",
+        "agent_debate": [
+          {
+            "message_id": "msg-7604a200",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Counter-attack: ball into space: 0.22 xT in play",
+            "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.22 xT, with a 57.1% chance of completing the action and 68.1% local space control in the final third. The highest-value option is Z. Ombrell.",
+            "referenced_metric": "xT: 0.22 | Pass prob.: 57.1%",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-3d143b1a",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "M. Ferrant presses from 3.4 m",
+            "analysis_body": "M. Ferrant is first to jump and gets within 3.4 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 3.4 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Counter-attack: ball into space",
+        "agent_debate": [
+          {
+            "message_id": "msg-ee6cd08d",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Counter-attack: ball into space: baseline 0.22 xT",
+            "analysis_body": "Baseline before any adjustment: 0.22 xT, 57.1% pass completion and 68.1% space control. Highest-value receiver: Z. Ombrell.",
+            "referenced_metric": "Baseline xT: 0.22",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-9dfe5eb6",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "Pressing trigger: M. Ferrant at 3.4 m",
+            "analysis_body": "M. Ferrant is the first presser, 3.4 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 3.4 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Counter-attack: ball into space",
+        "agent_debate": [
+          {
+            "message_id": "msg-b0fcbace",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Counter-attack: ball into space",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 60 metres from goal. The most dangerous pass is to Z. Ombrell, who is through the middle, about 30 metres from goal. The chance of a goal is about 22 percent.",
+            "referenced_metric": "Goal threat 22%",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-fe699935",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "M. Ferrant steps out to press",
+            "analysis_body": "M. Ferrant comes out to meet the ball and stops about 3 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 3 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Contraataque: pase al espacio",
+        "agent_debate": [
+          {
+            "message_id": "msg-e83f45b6",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Contraataque: pase al espacio",
+            "analysis_body": "I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. Ahora mismo esta jugada tiene más o menos un 22% de acabar en gol. La opción más peligrosa es un pase a Z. Ombrell.",
+            "referenced_metric": "Peligro de gol: 22%",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-f8d6d502",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "M. Ferrant sale a presionar",
+            "analysis_body": "M. Ferrant está a 3 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 3 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Contraataque: pase al espacio",
+        "agent_debate": [
+          {
+            "message_id": "msg-22744a1b",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Contraataque: pase al espacio: 0.22 xT en juego",
+            "analysis_body": "I. Kowalin inicia la acción en (60.0, 46.0). El valor de la jugada es 0.22 xT con un 57.1% de probabilidad de completar la acción y un control territorial local del 68.1% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
+            "referenced_metric": "xT: 0.22 | Prob. pase: 57.1%",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-329fa12c",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "Presión de M. Ferrant a 3.4 m",
+            "analysis_body": "M. Ferrant es el primero en saltar y llega a 3.4 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 3.4 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Contraataque: pase al espacio",
+        "agent_debate": [
+          {
+            "message_id": "msg-07c36c38",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Contraataque: pase al espacio: punto de partida 0.22 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.22 xT, 57.1% de acierto en el pase y 68.1% de control del espacio. Receptor de mayor valor: Z. Ombrell.",
+            "referenced_metric": "xT de partida: 0.22",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-cde7f8b4",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "Activador de presión: M. Ferrant a 3.4 m",
+            "analysis_body": "M. Ferrant es el primer presionador, a 3.4 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 3.4 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Contraataque: pase al espacio",
+        "agent_debate": [
+          {
+            "message_id": "msg-d298a483",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "71:48",
+            "headline": "Contraataque: pase al espacio",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. El pase más peligroso es hacia Z. Ombrell, que está por el centro, a unos 30 metros de la portería. La probabilidad de gol ronda el 22 por ciento.",
+            "referenced_metric": "Peligro de gol 22%",
+            "highlighted_player_ids": [
+              210,
+              209
+            ]
+          },
+          {
+            "message_id": "msg-83d972df",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "71:48",
+            "headline": "M. Ferrant sale a presionar",
+            "analysis_body": "M. Ferrant sale al encuentro del balón y se queda a unos 3 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 3 m",
+            "highlighted_player_ids": [
+              108,
+              210
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "3da636c1-64d9-554c-b767-1f314e1b143c": {
+    "en": {
+      "casual": {
+        "moment_label": "Cut-back from the byline",
+        "agent_debate": [
+          {
+            "message_id": "msg-0bad922c",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Cut-back from the byline",
+            "analysis_body": "Y. Belcourt has the ball on the left wing, about 30 metres from goal. Right now this attack has about a 17% chance of leading to a goal. The most dangerous option is a pass to I. Kowalin.",
+            "referenced_metric": "Goal threat: 17%",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-70caf0a1",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "D. Okonne is closing in",
+            "analysis_body": "D. Okonne is 2 metres from the ball. Drag a defender and see if you can stop the attack.",
+            "referenced_metric": "Pressure: 2 m away",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Cut-back from the byline",
+        "agent_debate": [
+          {
+            "message_id": "msg-b5a80b18",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Cut-back from the byline: 0.17 xT in play",
+            "analysis_body": "Y. Belcourt starts the action at (113.0, 71.0). The move is worth 0.17 xT, with a 30.9% chance of completing the action and 47.3% local space control in the final third. The highest-value option is I. Kowalin.",
+            "referenced_metric": "xT: 0.17 | Pass prob.: 30.9%",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-d866929a",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "D. Okonne presses from 2.0 m",
+            "analysis_body": "D. Okonne is first to jump and gets within 2.0 m of the ball. Move a defender and check whether you close the lane without opening another.",
+            "referenced_metric": "Pressing distance: 2.0 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Cut-back from the byline",
+        "agent_debate": [
+          {
+            "message_id": "msg-5b65338d",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Cut-back from the byline: baseline 0.17 xT",
+            "analysis_body": "Baseline before any adjustment: 0.17 xT, 30.9% pass completion and 47.3% space control. Highest-value receiver: I. Kowalin.",
+            "referenced_metric": "Baseline xT: 0.17",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-27c7d530",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "Pressing trigger: D. Okonne at 2.0 m",
+            "analysis_body": "D. Okonne is the first presser, 2.0 m from the ball. Task: pick one defender and close the lane to the best receiver without breaking the line.",
+            "referenced_metric": "First presser: 2.0 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Cut-back from the byline",
+        "agent_debate": [
+          {
+            "message_id": "msg-29e93fb6",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Data Scientist)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Cut-back from the byline",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. Y. Belcourt has the ball on the left wing, about 30 metres from goal. The most dangerous pass is to I. Kowalin, who is on the left wing, about 30 metres from goal. The chance of a goal is about 17 percent.",
+            "referenced_metric": "Goal threat 17%",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-a71d422a",
+            "agent_role": "classic_coach",
+            "agent_name": "Coach Bianchi (Classic Coach)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "D. Okonne steps out to press",
+            "analysis_body": "D. Okonne comes out to meet the ball and stops about 2 metres away. Behind, the rest of the defence holds its shape.",
+            "referenced_metric": "Nearest defender: 2 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      }
+    },
+    "es": {
+      "casual": {
+        "moment_label": "Pase atrás desde la línea de fondo",
+        "agent_debate": [
+          {
+            "message_id": "msg-a7e9b2c1",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Pase atrás desde la línea de fondo",
+            "analysis_body": "Y. Belcourt lleva el balón por la banda izquierda, a unos 30 metros de la portería. Ahora mismo esta jugada tiene más o menos un 17% de acabar en gol. La opción más peligrosa es un pase a I. Kowalin.",
+            "referenced_metric": "Peligro de gol: 17%",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-44e1fc19",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "D. Okonne sale a presionar",
+            "analysis_body": "D. Okonne está a 2 metros del balón. Arrastra a un defensa y mira si consigues frenar el ataque.",
+            "referenced_metric": "Presión: a 2 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      },
+      "analyst": {
+        "moment_label": "Pase atrás desde la línea de fondo",
+        "agent_debate": [
+          {
+            "message_id": "msg-c4a9b92b",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Pase atrás desde la línea de fondo: 0.17 xT en juego",
+            "analysis_body": "Y. Belcourt inicia la acción en (113.0, 71.0). El valor de la jugada es 0.17 xT con un 30.9% de probabilidad de completar la acción y un control territorial local del 47.3% en el último tercio. La opción de mayor valor esperado es I. Kowalin.",
+            "referenced_metric": "xT: 0.17 | Prob. pase: 30.9%",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-722aaa6e",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "Presión de D. Okonne a 2.0 m",
+            "analysis_body": "D. Okonne es el primero en saltar y llega a 2.0 m del balón. Mueve a un defensor y comprueba si cierras el carril sin abrir otro.",
+            "referenced_metric": "Distancia de presión: 2.0 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      },
+      "coach": {
+        "moment_label": "Pase atrás desde la línea de fondo",
+        "agent_debate": [
+          {
+            "message_id": "msg-680682a2",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Pase atrás desde la línea de fondo: punto de partida 0.17 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.17 xT, 30.9% de acierto en el pase y 47.3% de control del espacio. Receptor de mayor valor: I. Kowalin.",
+            "referenced_metric": "xT de partida: 0.17",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-531131e6",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "Activador de presión: D. Okonne a 2.0 m",
+            "analysis_body": "D. Okonne es el primer presionador, a 2.0 m del balón. Tarea: elige un defensor y cierra la línea hacia el mejor receptor sin romper la línea defensiva.",
+            "referenced_metric": "Primer presionador: 2.0 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      },
+      "audio_description": {
+        "moment_label": "Pase atrás desde la línea de fondo",
+        "agent_debate": [
+          {
+            "message_id": "msg-0e302aeb",
+            "agent_role": "data_scientist",
+            "agent_name": "Dr. Voronoi (Científico de datos)",
+            "avatar_badge": "AI-QUANT",
+            "timestamp_label": "86:56",
+            "headline": "Pase atrás desde la línea de fondo",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. Y. Belcourt lleva el balón por la banda izquierda, a unos 30 metros de la portería. El pase más peligroso es hacia I. Kowalin, que está por la banda izquierda, a unos 30 metros de la portería. La probabilidad de gol ronda el 17 por ciento.",
+            "referenced_metric": "Peligro de gol 17%",
+            "highlighted_player_ids": [
+              211,
+              210
+            ]
+          },
+          {
+            "message_id": "msg-bac6d60d",
+            "agent_role": "classic_coach",
+            "agent_name": "Míster Bianchi (Entrenador clásico)",
+            "avatar_badge": "PRO-COACH",
+            "timestamp_label": "86:56",
+            "headline": "D. Okonne sale a presionar",
+            "analysis_body": "D. Okonne sale al encuentro del balón y se queda a unos 2 metros. Detrás, el resto de la defensa mantiene su posición.",
+            "referenced_metric": "Defensor más cercano: 2 m",
+            "highlighted_player_ids": [
+              102,
+              211
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
