@@ -32,8 +32,10 @@ export const ProfileSwitcher: React.FC = () => {
         ))}
       </div>
 
+      {/* Hidden on phones to keep the header within 375 px; the audience stays editable from
+          the fan badge → Edit profile screen. */}
       <label
-        className="relative flex h-8 items-center gap-1.5 rounded-md border border-line bg-ink-800 pl-2 pr-7 transition-colors hover:border-line-strong"
+        className="relative hidden h-8 items-center sm:flex gap-1.5 rounded-md border border-line bg-ink-800 pl-2 pr-7 transition-colors hover:border-line-strong"
         title={`${t("profile.audienceTitle")}: ${t(`audience.${audience}.desc`)}`}
       >
         <Users className="h-3.5 w-3.5 shrink-0 text-fg-subtle" aria-hidden />

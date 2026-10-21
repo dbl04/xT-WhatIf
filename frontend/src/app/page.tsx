@@ -12,6 +12,8 @@ import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
 import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
+import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
+import { FanBadge } from "@/components/onboarding/FanBadge";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
@@ -30,7 +32,16 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function DashboardPage() {
+/** Pre-match onboarding (profile → team) and then the live dashboard. */
+export default function HomePage() {
+  return (
+    <OnboardingGate>
+      <DashboardPage />
+    </OnboardingGate>
+  );
+}
+
+function DashboardPage() {
   const { language, audience, t } = useI18n();
   const {
     frames,
@@ -230,6 +241,10 @@ export default function DashboardPage() {
           </IconButton>
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
+
+          <FanBadge />
+
+          <span className="mx-1 hidden h-5 w-px bg-line-strong sm:block" />
 
           <ProfileSwitcher />
 
