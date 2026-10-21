@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
 import { RotateCcw, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
+import { API_BASE_URL } from "@/lib/api";
 
 export interface AutoCoachPanelProps {
   currentFrame: MatchFramePayload;
@@ -85,7 +86,7 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
   const handleRunOptimizer = async () => {
     setIsSolving(true);
     try {
-      const res = await fetch("/api/v1/optimizer/solve", {
+      const res = await fetch(`${API_BASE_URL}/api/v1/optimizer/solve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

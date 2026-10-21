@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Broadcast editorial palette (Premier League / MNF inspired)
+        // Broadcast editorial palette
         ink: {
           DEFAULT: PALETTE.ink,
           900: PALETTE.ink900,

@@ -16,8 +16,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code and pre-load curated 360 frames cache
 COPY app ./app
 
-# Ensure cache directory exists and permissions are set
-RUN mkdir -p /app/app/data/cache && ls -la /app/app/data/cache
+# Run as an unprivileged user; it only needs to write the synthetic match cache
+RUN mkdir -p /app/app/data/cache \
+    && useradd --system --uid 10001 --no-create-home appuser \
+    && chown -R appuser /app/app/data/cache
+USER appuser
 
 EXPOSE 8000
 

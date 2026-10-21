@@ -76,7 +76,7 @@ class MatchFramePayload(BaseModel):
     ball_y: float
     ball_end_x: Optional[float] = None
     ball_end_y: Optional[float] = None
-    players: List[PlayerNode]
+    players: List[PlayerNode] = Field(..., max_length=30)
     metrics: TacticalMetrics
     agent_debate: List[AgentMessage]
     # Human-readable name of the moment, e.g. "Pase atrás desde la línea de fondo".
@@ -86,5 +86,5 @@ class MatchFramePayload(BaseModel):
 
 class CounterfactualRequest(BaseModel):
     match_id: int
-    event_uuid: str
-    modified_players: List[PlayerNode]
+    event_uuid: str = Field(..., max_length=64)
+    modified_players: List[PlayerNode] = Field(..., max_length=22)
