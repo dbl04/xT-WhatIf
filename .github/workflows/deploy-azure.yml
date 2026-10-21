@@ -56,6 +56,11 @@ jobs:
         env:
           PYTHONPATH: ./backend
 
+      - name: Run Game Engine Tests (action value, rules, optimiser, score)
+        run: python backend/test_game_engine.py
+        env:
+          PYTHONPATH: ./backend
+
       - name: Run TTS Service Tests
         run: python backend/test_tts_service.py
         env:
