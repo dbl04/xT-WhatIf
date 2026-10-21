@@ -18,7 +18,9 @@ import {
   calculateDistanceMeters,
   getTacticalZoneName,
 } from "@/lib/coordinates";
-import { Move, Grid, Ghost, Eye } from "lucide-react";
+import { Move } from "lucide-react";
+import { Kicker } from "@/components/ui/primitives";
+import { PALETTE, hair } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
 
 // ======================================================================
@@ -34,6 +36,30 @@ const INERTIA_RADIUS = 6.0;
 
 /** Base animation duration in ms (adjusted by speed multiplier) */
 const BASE_ANIM_DURATION_MS = 2000;
+
+// ======================================================================
+// BROADCAST PALETTE (inline so the PNG export keeps it)
+// ======================================================================
+const C = {
+  ink: PALETTE.ink,
+  turf: PALETTE.turf,
+  turfStripe: PALETTE.turfStripe,
+  line: PALETTE.pitchLine,
+  white: PALETTE.fg,
+  green: PALETTE.green,
+  magenta: PALETTE.magenta,
+  home: PALETTE.home,
+  away: PALETTE.away,
+} as const;
+
+const DISPLAY_FONT = "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+
+const LAYER_TOGGLES = [
+  { key: "voronoi", label: "Voronoi" },
+  { key: "xt", label: "Rejilla xT" },
+  { key: "pass", label: "Líneas de pase" },
+  { key: "ghost", label: "Desplazamientos" },
+] as const;
 
 // ======================================================================
 // INTERFACES
@@ -296,222 +322,140 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       return computeVoronoiCells(renderPlayers, STATSBOMB_PITCH_LENGTH, STATSBOMB_PITCH_WIDTH);
     }, [showVoronoi, renderPlayers]);
 
+    const layerState: Record<(typeof LAYER_TOGGLES)[number]["key"], [boolean, (v: boolean) => void]> = {
+      voronoi: [showVoronoi, setShowVoronoi],
+      xt: [showXtGrid, setShowXtGrid],
+      pass: [showPassCorridor, setShowPassCorridor],
+      ghost: [showGhostMode, setShowGhostMode],
+    };
+
+    const renderInertiaPlate = (x: number, y: number, over: boolean) => (
+      <g transform={`translate(${x}, ${y})`}>
+        <rect x={over ? -12.5 : -8.5} y="-1.7" width={over ? 25 : 17} height="3.4" fill={over ? C.magenta : C.ink} stroke={over ? "none" : C.white} {...hair(0.5)} />
+        <text x="0" y="0.65" fontSize="1.7" fontWeight="700" letterSpacing="0.12" fill={C.white} textAnchor="middle">
+          {over ? "INERCIA > 6 M · PENALIZACIÓN" : "DENTRO DEL RADIO"}
+        </text>
+      </g>
+    );
+
     return (
-      <div className="relative w-full flex flex-col bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden select-none">
-        {/* Top Bar - Header + Toggles */}
-        <div className="flex flex-wrap items-center justify-between px-5 py-3 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50" />
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-wider font-bold text-slate-100">
-                Pizarra Táctica StatsBomb 360
-              </span>
-              <span className="font-mono text-[10px] text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800/50">
-                120.0m × 80.0m
-              </span>
-            </div>
+      <div className="relative flex w-full select-none flex-col overflow-hidden rounded-lg border border-line-strong bg-ink-900">
+        {/* Top Bar - Title + Layer toggles */}
+        <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
+          <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
+            <Kicker className="text-fg">Pizarra táctica</Kicker>
+            <span className="font-mono text-[10px] text-fg-subtle">StatsBomb 360 · 120 × 80 m</span>
           </div>
 
-          {/* Toggle Bar */}
-          <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setShowVoronoi(!showVoronoi)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
-                showVoronoi
-                  ? "bg-sky-950 text-sky-300 border border-sky-500/70 shadow-sm shadow-sky-950/60"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-              }`}
-              title="Dominio Territorial Voronoi (Dr. Voronoi)"
-            >
-              <span className="text-xs">🔷</span>
-              <span>Dominio Voronoi</span>
-            </button>
-
-            <button
-              onClick={() => setShowXtGrid(!showXtGrid)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
-                showXtGrid
-                  ? "bg-emerald-950 text-emerald-300 border border-emerald-600/70 shadow-sm shadow-emerald-950/60"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-              }`}
-              title="Grilla xT (16x12)"
-            >
-              <Grid className={`w-3.5 h-3.5 ${showXtGrid ? "text-emerald-400" : "text-slate-500"}`} />
-              <span>Grilla xT (16x12)</span>
-            </button>
-
-            <button
-              onClick={() => setShowPassCorridor(!showPassCorridor)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
-                showPassCorridor
-                  ? "bg-cyan-950 text-cyan-300 border border-cyan-600/70 shadow-sm shadow-cyan-950/60"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-              }`}
-              title="Sombra de Pase"
-            >
-              <Eye className={`w-3.5 h-3.5 ${showPassCorridor ? "text-cyan-400" : "text-slate-500"}`} />
-              <span>Sombra & Pase Óptimo</span>
-            </button>
-
-            <button
-              onClick={() => setShowGhostMode(!showGhostMode)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
-                showGhostMode
-                  ? "bg-pink-950 text-pink-300 border border-pink-600/70 shadow-sm shadow-pink-950/60"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-              }`}
-              title="Vectores Fantasma"
-            >
-              <Ghost className={`w-3.5 h-3.5 ${showGhostMode ? "text-pink-400" : "text-slate-500"}`} />
-              <span>Vectores Fantasma</span>
-            </button>
+          <div className="ml-auto flex min-w-0 items-center gap-0.5 overflow-x-auto" role="group" aria-label="Capas">
+            {LAYER_TOGGLES.map(({ key, label }) => {
+              const [active, setActive] = layerState[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActive(!active)}
+                  aria-pressed={active}
+                  className={`flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs transition-colors ${
+                    active ? "bg-white/[0.07] text-fg" : "text-fg-subtle hover:bg-white/[0.04] hover:text-fg-muted"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-[1px] ${active ? "bg-signal-green" : "border border-fg-subtle"}`}
+                  />
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* SVG Canvas */}
-        <div className="relative w-full aspect-[120/80] bg-[#07130c] p-2 flex items-center justify-center">
+        <div className="relative flex aspect-[120/80] w-full items-center justify-center bg-turf p-2">
           <svg
             ref={svgRef}
             viewBox={`0 0 ${STATSBOMB_PITCH_LENGTH} ${STATSBOMB_PITCH_WIDTH}`}
-            className="w-full h-full rounded-xl shadow-inner border border-emerald-950/80"
+            className="pitch-svg h-full w-full overflow-visible"
+            fontFamily={DISPLAY_FONT}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             style={{ touchAction: "none" }}
           >
             <defs>
               <pattern id="pitchGrassStripes" width="15" height="80" patternUnits="userSpaceOnUse">
-                <rect width="7.5" height="80" fill="#08170e" />
-                <rect x="7.5" width="7.5" height="80" fill="#06120b" />
+                <rect width="7.5" height="80" fill={C.turf} />
+                <rect x="7.5" width="7.5" height="80" fill={C.turfStripe} />
               </pattern>
-              <linearGradient id="passVisionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.28" />
-                <stop offset="50%" stopColor="#fbbf24" stopOpacity="0.14" />
-                <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.32" />
-              </linearGradient>
-              <radialGradient id="xtOriginGlow">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.55" />
-                <stop offset="100%" stopColor="#10b981" stopOpacity="0.05" />
-              </radialGradient>
-              <radialGradient id="xtDestGlow">
-                <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.55" />
-                <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.05" />
-              </radialGradient>
-              <marker id="ghostArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill="#f43f5e" />
+              <marker id="ghostArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2" markerHeight="2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.white} />
               </marker>
-              <marker id="ballArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24" />
+              <marker id="ghostArrowHeadOver" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2" markerHeight="2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.magenta} />
               </marker>
-              <marker id="optimalArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill="#22d3ee" />
+              <marker id="ballArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2" markerHeight="2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.white} />
               </marker>
-              <filter id="haloMoved" x="-40%" y="-40%" width="180%" height="180%">
-                <feDropShadow dx="0" dy="0" stdDeviation="1.5" floodColor="#f43f5e" floodOpacity="0.9" />
-              </filter>
-              <filter id="haloActor" x="-40%" y="-40%" width="180%" height="180%">
-                <feDropShadow dx="0" dy="0" stdDeviation="1.3" floodColor="#fbbf24" floodOpacity="0.9" />
-              </filter>
-              <filter id="haloHighlight" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="2.2" floodColor="#38bdf8" floodOpacity="1" />
-              </filter>
-              <filter id="haloOptimal" x="-40%" y="-40%" width="180%" height="180%">
-                <feDropShadow dx="0" dy="0" stdDeviation="1.6" floodColor="#22d3ee" floodOpacity="0.95" />
-              </filter>
+              <marker id="optimalArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2.2" markerHeight="2.2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.green} />
+              </marker>
             </defs>
 
             {/* Grass */}
             <rect width="120" height="80" fill="url(#pitchGrassStripes)" />
 
-            {/* ============================================================== */}
-            {/* VORONOI TERRITORIAL DOMAIN LAYER (Dominio Voronoi - Dr. Voronoi) */}
-            {/* ============================================================== */}
+            {/* VORONOI TERRITORIAL LAYER */}
             {showVoronoi && (
               <g id="voronoiDominioLayer" pointerEvents="none">
-                {/* Voronoi Polygons per player */}
                 {voronoiData.cells.map((cell) => {
                   const isHome = cell.team === "home";
                   return (
                     <polygon
                       key={`voronoi-${cell.playerId}`}
                       points={cell.svgPoints}
-                      fill={isHome ? "rgba(56, 189, 248, 0.16)" : "rgba(244, 63, 94, 0.14)"}
-                      stroke={isHome ? "rgba(56, 189, 248, 0.35)" : "rgba(244, 63, 94, 0.3)"}
-                      strokeWidth="0.4"
+                      fill={isHome ? "rgba(117,170,219,0.13)" : "rgba(244,240,248,0.05)"}
+                      stroke={isHome ? "rgba(117,170,219,0.38)" : "rgba(244,240,248,0.2)"}
+                      {...hair(0.5)}
                     />
                   );
                 })}
 
-                {/* Dispute Frontiers between Teams (Demarcating with Bright Line in Offensive Third) */}
-                {voronoiData.frontiers.map((f, idx) => {
-                  if (f.isOffensiveThird) {
-                    return (
-                      <g key={`frontier-${idx}`}>
-                        {/* Glowing halo */}
-                        <line
-                          x1={f.p1.x}
-                          y1={f.p1.y}
-                          x2={f.p2.x}
-                          y2={f.p2.y}
-                          stroke="#38bdf8"
-                          strokeWidth="1.4"
-                          filter="url(#haloHighlight)"
-                          strokeLinecap="round"
-                        />
-                        {/* Bright neon core line */}
-                        <line
-                          x1={f.p1.x}
-                          y1={f.p1.y}
-                          x2={f.p2.x}
-                          y2={f.p2.y}
-                          stroke="#ffffff"
-                          strokeWidth="0.6"
-                          strokeLinecap="round"
-                          opacity="0.95"
-                        />
-                      </g>
-                    );
-                  }
-                  return (
-                    <line
-                      key={`frontier-${idx}`}
-                      x1={f.p1.x}
-                      y1={f.p1.y}
-                      x2={f.p2.x}
-                      y2={f.p2.y}
-                      stroke="rgba(255, 255, 255, 0.25)"
-                      strokeWidth="0.4"
-                      strokeDasharray="1.5 1"
-                      strokeLinecap="round"
-                    />
-                  );
-                })}
+                {/* Dispute frontiers: solid in the offensive third, dashed elsewhere */}
+                {voronoiData.frontiers.map((f, idx) => (
+                  <line
+                    key={`frontier-${idx}`}
+                    x1={f.p1.x}
+                    y1={f.p1.y}
+                    x2={f.p2.x}
+                    y2={f.p2.y}
+                    stroke={f.isOffensiveThird ? C.white : "rgba(255,255,255,0.28)"}
+                    strokeDasharray={f.isOffensiveThird ? undefined : "3 3"}
+                    opacity={f.isOffensiveThird ? 0.9 : 1}
+                    {...hair(f.isOffensiveThird ? 1 : 0.5)}
+                  />
+                ))}
               </g>
             )}
 
-            {/* xT GRID (Toggle 1) */}
+            {/* xT GRID */}
             {showXtGrid && (
               <g id="xtGridLayer" pointerEvents="all">
                 {xtGridCells.map((cell) => {
                   const isOrigin = cell.col === originCell.col && cell.row === originCell.row;
                   const isDest = destCell && cell.col === destCell.col && cell.row === destCell.row;
-                  let cellFill = "rgba(16, 185, 129, 0.04)";
-                  if (cell.xtVal > 0.32) cellFill = `rgba(244, 63, 94, ${Math.min(0.32, cell.xtVal * 0.55)})`;
-                  else if (cell.xtVal > 0.18) cellFill = `rgba(245, 158, 11, ${Math.min(0.24, cell.xtVal * 0.5)})`;
-                  else if (cell.xtVal > 0.08) cellFill = `rgba(6, 182, 212, ${Math.min(0.18, cell.xtVal * 0.5)})`;
+                  const cellFill = `rgba(0,255,133,${Math.min(0.24, cell.xtVal * 0.42).toFixed(3)})`;
 
                   return (
                     <g key={`xt-${cell.col}-${cell.row}`} onMouseEnter={() => setHoveredCellXt(cell.xtVal)} onMouseLeave={() => setHoveredCellXt(null)} className="cursor-crosshair">
                       <rect x={cell.x} y={cell.y} width={CELL_W} height={CELL_H}
-                        fill={isOrigin ? "url(#xtOriginGlow)" : isDest ? "url(#xtDestGlow)" : cellFill}
-                        stroke={isOrigin ? "#10b981" : isDest ? "#22d3ee" : "rgba(255,255,255,0.05)"}
-                        strokeWidth={isOrigin || isDest ? "0.75" : "0.15"}
-                        strokeDasharray={isOrigin || isDest ? "1.5 0.8" : "none"}
+                        fill={cellFill}
+                        stroke={isOrigin ? C.white : isDest ? C.green : "rgba(255,255,255,0.05)"}
+                        {...hair(isOrigin || isDest ? 1 : 0.5)}
                       />
                       {isOrigin && (
-                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.7} fontSize="1.7" fontWeight="bold" fontFamily="monospace" fill="#34d399" textAnchor="middle" pointerEvents="none">ORIGEN</text>
+                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.white} textAnchor="middle" pointerEvents="none">ORIGEN</text>
                       )}
                       {isDest && (
-                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.7} fontSize="1.7" fontWeight="bold" fontFamily="monospace" fill="#38bdf8" textAnchor="middle" pointerEvents="none">DESTINO</text>
+                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.green} textAnchor="middle" pointerEvents="none">DESTINO</text>
                       )}
                     </g>
                   );
@@ -519,36 +463,36 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
               </g>
             )}
 
-            {/* Pitch Markings */}
-            <g stroke="rgba(255,255,255,0.22)" strokeWidth="0.38" fill="none" pointerEvents="none">
-              <rect x="0" y="0" width="120" height="80" />
-              <line x1="60" y1="0" x2="60" y2="80" />
-              <circle cx="60" cy="40" r="9.15" />
-              <circle cx="60" cy="40" r="0.6" fill="rgba(255,255,255,0.45)" stroke="none" />
-              <rect x="0" y="19.85" width="16.5" height="40.3" />
-              <rect x="0" y="30.85" width="5.5" height="18.3" />
-              <circle cx="11" cy="40" r="0.6" fill="rgba(255,255,255,0.45)" stroke="none" />
-              <path d="M 16.5 32.7 A 9.15 9.15 0 0 1 16.5 47.3" />
-              <rect x="103.5" y="19.85" width="16.5" height="40.3" />
-              <rect x="114.5" y="30.85" width="5.5" height="18.3" />
-              <circle cx="109" cy="40" r="0.6" fill="rgba(255,255,255,0.45)" stroke="none" />
-              <path d="M 103.5 32.7 A 9.15 9.15 0 0 0 103.5 47.3" />
-              <path d="M 0 1 A 1 1 0 0 0 1 0" />
-              <path d="M 0 79 A 1 1 0 0 1 1 80" />
-              <path d="M 120 1 A 1 1 0 0 1 119 0" />
-              <path d="M 120 79 A 1 1 0 0 0 119 80" />
+            {/* Pitch Markings — 0.5px hairlines */}
+            <g stroke={C.line} fill="none" pointerEvents="none">
+              <rect x="0" y="0" width="120" height="80" {...hair(1)} />
+              <line x1="60" y1="0" x2="60" y2="80" {...hair()} />
+              <circle cx="60" cy="40" r="9.15" {...hair()} />
+              <circle cx="60" cy="40" r="0.45" fill={C.line} stroke="none" />
+              <rect x="0" y="19.85" width="16.5" height="40.3" {...hair()} />
+              <rect x="0" y="30.85" width="5.5" height="18.3" {...hair()} />
+              <circle cx="11" cy="40" r="0.35" fill={C.line} stroke="none" />
+              <path d="M 16.5 32.7 A 9.15 9.15 0 0 1 16.5 47.3" {...hair()} />
+              <rect x="103.5" y="19.85" width="16.5" height="40.3" {...hair()} />
+              <rect x="114.5" y="30.85" width="5.5" height="18.3" {...hair()} />
+              <circle cx="109" cy="40" r="0.35" fill={C.line} stroke="none" />
+              <path d="M 103.5 32.7 A 9.15 9.15 0 0 0 103.5 47.3" {...hair()} />
+              <path d="M 0 1 A 1 1 0 0 0 1 0" {...hair()} />
+              <path d="M 0 79 A 1 1 0 0 1 1 80" {...hair()} />
+              <path d="M 120 1 A 1 1 0 0 1 119 0" {...hair()} />
+              <path d="M 120 79 A 1 1 0 0 0 119 80" {...hair()} />
             </g>
 
-            {/* PASS CORRIDOR (Toggle 2) */}
+            {/* PASS CORRIDOR */}
             {showPassCorridor && (
               <g id="passCorridorLayer" pointerEvents="none">
                 {passCorridorPolygon && (
-                  <polygon points={passCorridorPolygon} fill="url(#passVisionGradient)" stroke="rgba(251,191,36,0.4)" strokeWidth="0.35" strokeDasharray="1.2 1" />
+                  <polygon points={passCorridorPolygon} fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.35)" strokeDasharray="3 3" {...hair(0.5)} />
                 )}
                 {ballEndX != null && ballEndY != null && (
                   <g>
-                    <line x1={ballX} y1={ballY} x2={ballEndX} y2={ballEndY} stroke="#fbbf24" strokeWidth="0.8" strokeDasharray="2 1.2" markerEnd="url(#ballArrowHead)" />
-                    <circle cx={ballEndX} cy={ballEndY} r="1.2" fill="none" stroke="#fbbf24" strokeWidth="0.4" strokeDasharray="0.8 0.8" />
+                    <line x1={ballX} y1={ballY} x2={ballEndX} y2={ballEndY} stroke={C.white} strokeDasharray="5 4" markerEnd="url(#ballArrowHead)" {...hair(1)} />
+                    <circle cx={ballEndX} cy={ballEndY} r="1.2" fill="none" stroke={C.white} {...hair(0.5)} />
                   </g>
                 )}
                 {isCounterfactualMode && optimalTargetPlayer && (
@@ -556,7 +500,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                     <line
                       x1={actorPlayer ? actorPlayer.x : ballX} y1={actorPlayer ? actorPlayer.y : ballY}
                       x2={optimalTargetPlayer.x} y2={optimalTargetPlayer.y}
-                      stroke="#22d3ee" strokeWidth="0.9" strokeDasharray="2 1.2" markerEnd="url(#optimalArrowHead)" filter="url(#haloOptimal)"
+                      stroke={C.green} markerEnd="url(#optimalArrowHead)" {...hair(1.5)}
                     />
                     {(() => {
                       const sx = actorPlayer ? actorPlayer.x : ballX;
@@ -565,8 +509,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                       const my = (sy + optimalTargetPlayer.y) / 2;
                       return (
                         <g transform={`translate(${mx}, ${my - 2.8})`}>
-                          <rect x="-14" y="-2.2" width="28" height="4.4" rx="1.2" fill="#082f49" stroke="#22d3ee" strokeWidth="0.45" opacity="0.96" />
-                          <text x="0" y="0.8" fontSize="2.0" fontWeight="bold" fontFamily="monospace" fill="#38bdf8" textAnchor="middle">OPCIÓN B ÓPTIMA (IA)</text>
+                          <rect x="-9.5" y="-1.8" width="19" height="3.6" fill={C.green} />
+                          <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">OPCIÓN ÓPTIMA</text>
                         </g>
                       );
                     })()}
@@ -575,7 +519,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
               </g>
             )}
 
-            {/* GHOST VECTORS (Toggle 3) + INERTIA RING (Entregable 2) */}
+            {/* GHOST VECTORS + INERTIA RING */}
             {showGhostMode &&
               renderPlayers
                 .filter((p) => p.is_modified && p.original_x != null && p.original_y != null)
@@ -586,61 +530,38 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   const midX = (origX + p.x) / 2;
                   const midY = (origY + p.y) / 2;
                   const isOverInertia = distanceMeters > INERTIA_RADIUS;
-                  const ringColor = isOverInertia ? "#f43f5e" : "#34d399";
-                  const chipColor = isOverInertia ? "#fda4af" : "#6ee7b7";
-                  const chipBorder = isOverInertia ? "#f43f5e" : "#10b981";
+                  const accent = isOverInertia ? C.magenta : C.white;
 
                   return (
                     <g key={`ghost-${p.player_id}`} pointerEvents="none">
-                      {/* ============================================= */}
-                      {/* ENTREGABLE 2: ANILLO DE INERCIA FÍSICA (6.0m) */}
-                      {/* ============================================= */}
-                      <circle
-                        cx={origX} cy={origY} r={INERTIA_RADIUS}
-                        fill="none" stroke={ringColor} strokeWidth="0.45"
-                        strokeDasharray="1.6 1.0" opacity={0.75}
-                      />
-                      {/* Warning badge for >6.0m */}
-                      {isOverInertia && (
-                        <g transform={`translate(${origX}, ${origY - INERTIA_RADIUS - 1.8})`}>
-                          <rect x="-17" y="-2.2" width="34" height="4.4" rx="1" fill="#1c0611" stroke="#f43f5e" strokeWidth="0.35" opacity="0.95" />
-                          <text x="0" y="0.7" fontSize="1.7" fontWeight="bold" fontFamily="monospace" fill="#fb7185" textAnchor="middle">
-                            ⚠️ &gt;6.0m Penalización Inercia
-                          </text>
-                        </g>
-                      )}
-                      {!isOverInertia && distanceMeters > 0.4 && (
-                        <g transform={`translate(${origX}, ${origY - INERTIA_RADIUS - 1.2})`}>
-                          <rect x="-13" y="-1.8" width="26" height="3.6" rx="1" fill="#022c22" stroke="#10b981" strokeWidth="0.3" opacity="0.9" />
-                          <text x="0" y="0.6" fontSize="1.5" fontWeight="bold" fontFamily="monospace" fill="#6ee7b7" textAnchor="middle">
-                            Radio Basculación Óptimo
-                          </text>
-                        </g>
-                      )}
+                      {/* Physical inertia ring (6.0 m) */}
+                      <circle cx={origX} cy={origY} r={INERTIA_RADIUS} fill="none" stroke={accent} strokeDasharray="4 3" opacity={0.8} {...hair(isOverInertia ? 1 : 0.5)} />
+                      {distanceMeters > 0.4 &&
+                        renderInertiaPlate(origX, origY - INERTIA_RADIUS - 1.6, isOverInertia)}
 
                       {/* Ghost arrow */}
-                      <line x1={origX} y1={origY} x2={p.x} y2={p.y} stroke={chipBorder} strokeWidth="0.75" strokeDasharray="1.2 1" markerEnd="url(#ghostArrowHead)" opacity="0.95" />
+                      <line x1={origX} y1={origY} x2={p.x} y2={p.y} stroke={accent} strokeDasharray="3 2" markerEnd={isOverInertia ? "url(#ghostArrowHeadOver)" : "url(#ghostArrowHead)"} {...hair(1)} />
 
                       {/* Distance chip */}
                       {distanceMeters > 0.4 && (
                         <g transform={`translate(${midX}, ${midY})`}>
-                          <rect x="-4.5" y="-2.0" width="9" height="4" rx="1" fill="#020617" stroke={chipBorder} strokeWidth="0.35" opacity="0.95" />
-                          <text x="0" y="0.8" fontSize="2.1" fontWeight="bold" fontFamily="monospace" fill={chipColor} textAnchor="middle">
+                          <rect x="-4" y="-1.7" width="8" height="3.4" fill={C.ink} stroke={accent} {...hair(0.5)} />
+                          <text x="0" y="0.75" fontSize="2" fontWeight="700" fill={accent} textAnchor="middle">
                             +{distanceMeters}m
                           </text>
                         </g>
                       )}
 
-                      {/* Ghost node at 35% opacity */}
-                      <g opacity="0.35">
-                        <circle cx={origX} cy={origY} r="2.6" fill={p.team === "home" ? "#2563eb" : "#dc2626"} stroke="#ffffff" strokeWidth="0.6" strokeDasharray="0.8 0.8" />
-                        <text x={origX} y={origY + 0.9} fontSize="2.3" fontWeight="bold" fill="#ffffff" textAnchor="middle">{p.jersey_number}</text>
+                      {/* Ghost node */}
+                      <g opacity="0.45">
+                        <circle cx={origX} cy={origY} r="2.4" fill="none" stroke={p.team === "home" ? C.home : C.away} strokeDasharray="2 2" {...hair(1)} />
+                        <text x={origX} y={origY + 0.85} fontSize="2.3" fontWeight="700" fill={C.white} textAnchor="middle">{p.jersey_number}</text>
                       </g>
                     </g>
                   );
                 })}
 
-            {/* Also render inertia ring during active drag even before drop */}
+            {/* Inertia ring during active drag, before drop */}
             {draggingId !== null && renderPlayers
               .filter((p) => p.player_id === draggingId && p.original_x != null && p.original_y != null)
               .map((p) => {
@@ -650,13 +571,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 const isOver = dist > INERTIA_RADIUS;
                 return (
                   <g key={`drag-ring-${p.player_id}`} pointerEvents="none">
-                    <circle cx={origX} cy={origY} r={INERTIA_RADIUS} fill="none" stroke={isOver ? "#f43f5e" : "#34d399"} strokeWidth="0.5" strokeDasharray="1.6 1.0" opacity={0.8} />
-                    {isOver && (
-                      <g transform={`translate(${origX}, ${origY - INERTIA_RADIUS - 1.8})`}>
-                        <rect x="-17" y="-2.2" width="34" height="4.4" rx="1" fill="#1c0611" stroke="#f43f5e" strokeWidth="0.35" opacity="0.95" />
-                        <text x="0" y="0.7" fontSize="1.7" fontWeight="bold" fontFamily="monospace" fill="#fb7185" textAnchor="middle">⚠️ &gt;6.0m Penalización Inercia</text>
-                      </g>
-                    )}
+                    <circle cx={origX} cy={origY} r={INERTIA_RADIUS} fill="none" stroke={isOver ? C.magenta : C.white} strokeDasharray="4 3" opacity={0.85} {...hair(isOver ? 1 : 0.5)} />
+                    {isOver && renderInertiaPlate(origX, origY - INERTIA_RADIUS - 1.6, true)}
                   </g>
                 );
               })}
@@ -676,40 +592,43 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   onMouseLeave={() => onHoverPlayer && onHoverPlayer(null)}
                   className="cursor-grab active:cursor-grabbing"
                 >
-                  {p.is_modified && <circle r="4.4" fill="none" stroke="#f43f5e" strokeWidth="0.8" className="animate-pulse" filter="url(#haloMoved)" />}
-                  {isHighlighted && <circle r="4.8" fill="none" stroke="#38bdf8" strokeWidth="0.9" className="animate-ping" filter="url(#haloHighlight)" />}
-                  {isSelected && <circle r="5.2" fill="none" stroke="#22d3ee" strokeWidth="1.1" strokeDasharray="1.5 1" />}
-                  {isActor && <circle r="4.0" fill="none" stroke="#fbbf24" strokeWidth="0.65" className="animate-pulse" filter="url(#haloActor)" />}
-                  <circle r={isDragging ? "3.2" : "2.6"} fill={isHome ? "#1d4ed8" : "#be123c"}
-                    stroke={p.is_modified ? "#fda4af" : isHighlighted || isSelected ? "#38bdf8" : "#ffffff"}
-                    strokeWidth={p.is_modified || isHighlighted ? "0.9" : "0.5"}
-                  />
-                  <text y="0.9" fontSize="2.4" fontWeight="bold" fill="#ffffff" textAnchor="middle" pointerEvents="none">{p.jersey_number}</text>
-                  <text y="5.0" fontSize="2.2" fontWeight="600" fill="#f1f5f9" textAnchor="middle" pointerEvents="none" className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">{p.name.split(" ").pop()}</text>
+                  {isSelected && <circle r="5.1" fill="none" stroke={C.white} strokeDasharray="2 2" {...hair(0.5)} />}
+                  {isHighlighted && <circle r="4.5" fill="none" stroke={C.white} {...hair(1.5)} />}
+                  {isActor && <circle r="3.7" fill="none" stroke={C.green} {...hair(1.5)} />}
+                  {p.is_modified && !isActor && <circle r="3.7" fill="none" stroke={C.white} strokeDasharray="2 1.5" {...hair(1)} />}
+                  <circle r={isDragging ? "3" : "2.5"} fill={isHome ? C.home : C.away} stroke={C.ink} {...hair(0.5)} />
+                  <text y="0.85" fontSize="2.5" fontWeight="700" fill={C.ink} textAnchor="middle" pointerEvents="none">{p.jersey_number}</text>
+                  <text y="5.3" fontSize="2.1" fontWeight="600" letterSpacing="0.08" fill={C.white} stroke={C.ink} strokeWidth="0.5" paintOrder="stroke" textAnchor="middle" pointerEvents="none">{(p.name.split(" ").pop() || "").toUpperCase()}</text>
                 </g>
               );
             })}
 
             {/* Ball (animated during playback) */}
             <g transform={`translate(${animBallX}, ${animBallY})`} pointerEvents="none">
-              <circle r="1.3" fill="#ffffff" stroke="#000000" strokeWidth="0.3" />
-              <circle r="0.5" fill="#f59e0b" />
+              <circle r="1.1" fill={C.white} stroke={C.ink} {...hair(1)} />
             </g>
           </svg>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-2.5 bg-slate-900/60 border-t border-slate-800/80 text-[11px] text-slate-400">
-          <div className="flex items-center gap-2">
-            <Move className="w-3.5 h-3.5 text-amber-400" />
-            <span>Arrastra a cualquier jugador para simular el escenario contrafactual.</span>
+        {/* Footer: hint, legend, readouts */}
+        <div className="flex h-8 flex-nowrap items-center justify-between gap-4 border-t border-line px-4 text-[11px] text-fg-subtle">
+          <div className="flex min-w-0 items-center gap-2">
+            <Move className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Arrastra a cualquier jugador para simular el escenario.</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-4">
+            <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />ARG</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />FRA</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-green" />Con balón</span>
+              <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-green" />Pase óptimo</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-magenta" />Inercia &gt; 6 m</span>
+            </div>
             {hoveredCellXt != null && (
-              <div className="font-mono text-[10px] text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/40">Celda xT: {hoveredCellXt.toFixed(3)}</div>
+              <span className="font-mono text-[10px] text-fg-muted">xT celda <span className="text-signal-green">{hoveredCellXt.toFixed(3)}</span></span>
             )}
             {hoveredZone && (
-              <div className="font-mono text-[10px] text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800/40">Zona: {hoveredZone}</div>
+              <span className="font-mono text-[10px] text-fg-muted">Zona <span className="text-fg">{hoveredZone}</span></span>
             )}
           </div>
         </div>

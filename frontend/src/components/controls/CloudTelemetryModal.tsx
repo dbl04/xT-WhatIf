@@ -2,23 +2,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Cloud,
-  X,
-  Zap,
-  Server,
-  Cpu,
-  ShieldAlert,
-  ShieldCheck,
-  RefreshCw,
-  Activity,
-  Layers,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  ArrowRight,
-  Database,
-} from "lucide-react";
+import { RefreshCw, Zap, Power, Loader2 } from "lucide-react";
+import { Button, IconButton, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
+import { StressBurstResponse } from "@/types/match";
 
 interface CloudTelemetryData {
   service_role: string;
@@ -41,6 +27,17 @@ interface StressBurstResult {
   sims_per_second: number;
   kd_tree_lookups: number;
   engine: string;
+}
+
+function normalizeBurstResult(api: StressBurstResponse): StressBurstResult {
+  return {
+    burst_count: api.simulations_count,
+    total_elapsed_ms: api.total_time_ms,
+    avg_latency_ms: api.average_latency_ms,
+    sims_per_second: api.throughput_simulations_per_sec,
+    kd_tree_lookups: api.kd_tree_lookups,
+    engine: api.engine,
+  };
 }
 
 interface CloudTelemetryModalProps {
@@ -109,13 +106,14 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       });
 
       if (res.ok) {
-        const data: StressBurstResult = await res.json();
+        const data = normalizeBurstResult(await res.json());
         setBurstResult(data);
         setTelemetry((prev) => ({
           ...prev,
           total_simulations: prev.total_simulations + 25,
           last_compute_latency_ms: data.avg_latency_ms,
         }));
+        setIsBursting(false);
         return;
       }
     } catch {
@@ -182,311 +180,174 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
 
   const isCircuitBroken = telemetry.chaos_force_aks_failure;
 
+  const services = [
+    {
+      platform: "Azure Container Apps",
+      name: "xt-whatif-aca-gateway",
+      detail: "Gateway público · WebSocket · Circuit Breaker · KEDA 1–10 réplicas",
+      metricLabel: "Réplicas",
+      metricValue: String(telemetry.aca_gateway_replicas ?? 3),
+      status: "ok" as const,
+    },
+    {
+      platform: "Azure Kubernetes Service",
+      name: "xt-whatif-aks-worker",
+      detail: isCircuitBroken
+        ? "Fallo inyectado. El tráfico se resuelve en el gateway."
+        : "Cómputo Voronoi + xT · HPA 3–12 pods",
+      metricLabel: "Pods",
+      metricValue: isCircuitBroken ? "—" : String(telemetry.aks_worker_pods ?? 6),
+      status: isCircuitBroken ? ("down" as const) : ("ok" as const),
+    },
+    {
+      platform: "Azure AI Foundry",
+      name: "gpt-4o · 2 agentes",
+      detail: "Debate entre Dr. Voronoi (datos) y Míster Bianchi (táctica)",
+      metricLabel: "Modelo",
+      metricValue: "gpt-4o",
+      status: "ok" as const,
+    },
+  ];
+
+  const stats = [
+    { label: "Latencia", value: Number(telemetry.last_compute_latency_ms ?? 0).toFixed(1), unit: "ms", note: "Último cálculo" },
+    { label: "Cache hits", value: String(telemetry.cache_hits), unit: "", note: "Caché LRU en memoria" },
+    { label: "Simulaciones", value: String(telemetry.total_simulations), unit: "", note: "Escenarios calculados" },
+    {
+      label: "Circuit breaker",
+      value: String(telemetry.circuit_breaker_trips),
+      unit: "",
+      note: "Conmutaciones a local",
+      alert: telemetry.circuit_breaker_trips > 0,
+    },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-[#070e1b] border border-blue-900/60 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Accent Bar Superior Azure */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-blue-950/80 bg-blue-950/20">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-blue-600/10 border border-blue-500/30 text-blue-400 shadow-inner">
-              <Cloud className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-100">
-                  Panel de Telemetría Cloud en Vivo
-                </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-800/60">
-                  Microsoft Azure Hackathon
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Arquitectura distribuida Dual-Role (ACA Gateway + AKS Worker + AI Foundry) con Circuit Breaker.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchTelemetry}
-              disabled={isLoading}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
-              title="Actualizar telemetría"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-cyan-400" : ""}`} />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* ============================================================== */}
-          {/* BLOQUE 1: TOPOLOGÍA ACTIVA DUAL-ROLE                           */}
-          {/* ============================================================== */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-cyan-400" /> Topología Cloud Dual-Role
-              </span>
-              <div className="flex items-center gap-2 text-[11px] font-mono">
-                <span className="text-slate-400">Estado Clúster:</span>
-                {isCircuitBroken ? (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-700/60 font-bold flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3 text-amber-400" /> CIRCUIT BREAKER TRIPPED (Fallback Activo)
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> AKS DISTRIBUTED (100% Nominal)
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Diagrama de Arquitectura */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-900/60 border border-blue-950/80">
-              {/* Nodo 1: Azure Container Apps (Gateway) */}
-              <div className="p-3.5 rounded-xl bg-blue-950/30 border border-blue-800/40 relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono text-cyan-400 font-bold">AZURE CONTAINER APPS</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-200">xt-whatif-aca-gateway</h4>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  KEDA Autoscaling (1-10 réplicas). Enrutamiento WebSocket y Circuit Breaker.
-                </p>
-                <div className="mt-3 pt-2 border-t border-blue-900/40 flex justify-between text-[10px] font-mono text-slate-400">
-                  <span>Réplicas KEDA: <strong className="text-slate-200">{telemetry.aca_gateway_replicas ?? 3}</strong></span>
-                  <span>Rol: <strong className="text-cyan-300">Gateway</strong></span>
-                </div>
-              </div>
-
-              {/* Nodo 2: Azure Kubernetes Service (Worker) */}
-              <div className={`p-3.5 rounded-xl border transition-colors ${
-                isCircuitBroken
-                  ? "bg-rose-950/20 border-rose-700/60 shadow-lg shadow-rose-950/30"
-                  : "bg-blue-950/30 border-blue-800/40"
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono text-cyan-400 font-bold">AZURE KUBERNETES SERVICE</span>
-                  <span className={`w-2 h-2 rounded-full ${isCircuitBroken ? "bg-rose-500 animate-ping" : "bg-emerald-400"}`} />
-                </div>
-                <h4 className="text-sm font-bold text-slate-200">xt-whatif-aks-worker</h4>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  {isCircuitBroken
-                    ? "Inyección de Caos activa. El tráfico conmuta automáticamente a ACA."
-                    : "HPA (3-12 pods). Cómputo Voronoi masivo y matrices xT aceleradas."}
-                </p>
-                <div className="mt-3 pt-2 border-t border-blue-900/40 flex justify-between text-[10px] font-mono text-slate-400">
-                  <span>Pods HPA: <strong className={isCircuitBroken ? "text-rose-400" : "text-slate-200"}>{isCircuitBroken ? "Fallo Forzado" : (telemetry.aks_worker_pods ?? 6)}</strong></span>
-                  <span>Estado: <strong className={isCircuitBroken ? "text-rose-400" : "text-emerald-400"}>{isCircuitBroken ? "Caído (Simulado)" : "Saludable"}</strong></span>
-                </div>
-              </div>
-
-              {/* Nodo 3: Azure AI Foundry (Agent Swarm) */}
-              <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/40">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono text-purple-400 font-bold">AZURE AI FOUNDRY</span>
-                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-200">GPT-4o Multi-Agent</h4>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Debate dialéctico en tiempo real: Dr. Voronoi (Quant) vs Míster Bianchi (Táctico).
-                </p>
-                <div className="mt-3 pt-2 border-t border-purple-900/40 flex justify-between text-[10px] font-mono text-slate-400">
-                  <span>Modelo: <strong className="text-purple-300">gpt-4o</strong></span>
-                  <span>Swarm: <strong className="text-slate-200">2 Agentes</strong></span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ============================================================== */}
-          {/* BLOQUE 2: MÉTRICAS EN TIEMPO REAL                              */}
-          {/* ============================================================== */}
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2 mb-3">
-              <Activity className="w-4 h-4 text-emerald-400" /> Métricas de Observabilidad y Rendimiento
-            </span>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {/* Latencia KDTree */}
-              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">
-                  Latencia Voronoi
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-bold font-mono text-cyan-300">
-                    {telemetry.last_compute_latency_ms.toFixed(1)}
-                  </span>
-                  <span className="text-xs text-slate-500 font-mono">ms</span>
-                </div>
-                <span className="text-[10px] text-slate-500 mt-1 block">KDTree sub-espacial</span>
-              </div>
-
-              {/* Cache Hits */}
-              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">
-                  Cache Hits Sub-10ms
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-bold font-mono text-emerald-400">
-                    {telemetry.cache_hits}
-                  </span>
-                  <span className="text-xs text-slate-500 font-mono">hits</span>
-                </div>
-                <span className="text-[10px] text-slate-500 mt-1 block">In-Memory Redis Cache</span>
-              </div>
-
-              {/* Total Simulations */}
-              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">
-                  Simulaciones Totales
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-bold font-mono text-slate-200">
-                    {telemetry.total_simulations}
-                  </span>
-                  <span className="text-xs text-slate-500 font-mono">runs</span>
-                </div>
-                <span className="text-[10px] text-slate-500 mt-1 block">Eventos contrafactuales</span>
-              </div>
-
-              {/* Circuit Breaker Trips */}
-              <div className={`p-3.5 rounded-2xl border ${
-                telemetry.circuit_breaker_trips > 0
-                  ? "bg-amber-950/20 border-amber-800/40"
-                  : "bg-slate-900/60 border-slate-800"
-              }`}>
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">
-                  Saltos Circuit Breaker
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className={`text-2xl font-bold font-mono ${
-                    telemetry.circuit_breaker_trips > 0 ? "text-amber-400" : "text-slate-400"
-                  }`}>
-                    {telemetry.circuit_breaker_trips}
-                  </span>
-                  <span className="text-xs text-slate-500 font-mono">trips</span>
-                </div>
-                <span className="text-[10px] text-slate-500 mt-1 block">Conmutaciones automáticas</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ============================================================== */}
-          {/* BLOQUE 3: BANCO DE PRUEBAS EN VIVO PARA JUECES (MICROSOFT DEMO)*/}
-          {/* ============================================================== */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900/90 to-blue-950/40 border border-blue-900/60">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-amber-400" /> Banco de Pruebas en Vivo para Jueces
-                </h4>
-                <p className="text-xs text-slate-400">
-                  Prueba el throughput geométrico y la resiliencia en vivo del Circuit Breaker ante fallos inyectados.
-                </p>
-              </div>
-            </div>
-
-            {/* Botones Interactivos */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Botón 1: Stress Burst */}
-              <button
-                onClick={handleStressBurst}
-                disabled={isBursting}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 active:scale-95 transition disabled:opacity-50"
-              >
-                <Zap className={`w-4 h-4 ${isBursting ? "animate-spin" : "fill-current"}`} />
-                <span>
-                  {isBursting
-                    ? "Calculando 25x Voronoi..."
-                    : "🔥 Ejecutar Stress Burst (25x Voronoi/xT)"}
-                </span>
-              </button>
-
-              {/* Botón 2: Caída de AKS / Circuit Breaker */}
-              <button
-                onClick={handleChaosToggle}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs border transition shadow-lg active:scale-95 ${
-                  isCircuitBroken
-                    ? "bg-rose-950/80 hover:bg-rose-900 border-rose-600 text-rose-200 shadow-rose-950/40 animate-pulse"
-                    : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200 shadow-slate-950/40"
-                }`}
-              >
-                {isCircuitBroken ? (
-                  <>
-                    <ShieldAlert className="w-4 h-4 text-rose-400" />
-                    <span>⚡ Restablecer AKS (Desactivar Fallo)</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                    <span>⚡ Simular Caída de AKS (Test Circuit Breaker)</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Resultado de Stress Burst */}
-            {burstResult && (
-              <div className="mt-3 p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-800/60 text-xs font-mono text-cyan-200 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-cyan-300">
-                    ✓ Ráfaga de 25 simulaciones espaciales completada:
-                  </span>
-                  <span className="text-[10px] text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
-                    Throughput: ~{burstResult.sims_per_second.toLocaleString()} sims/seg
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-300 space-y-0.5">
-                  <p>• Tiempo total: <strong>{burstResult.total_elapsed_ms}ms</strong> | Latencia media: <strong>{burstResult.avg_latency_ms}ms/sim</strong></p>
-                  <p>• {burstResult.kd_tree_lookups.toLocaleString()} resoluciones espaciales ejecutadas sobre celdas xT (16x12).</p>
-                </div>
-              </div>
-            )}
-
-            {/* Mensaje de Circuit Breaker / Chaos */}
-            {chaosMessage && (
-              <div className={`mt-3 p-3 rounded-xl border text-xs font-mono animate-in fade-in duration-150 flex items-start gap-2 ${
-                isCircuitBroken
-                  ? "bg-amber-950/40 border-amber-700/70 text-amber-200"
-                  : "bg-emerald-950/40 border-emerald-700/70 text-emerald-200"
-              }`}>
-                {isCircuitBroken ? (
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                )}
-                <span>{chaosMessage}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-blue-950/80 bg-blue-950/20 text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-400" />
-            <span>Azure Container Apps • Azure Kubernetes Service • Azure OpenAI Swarm</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition"
-          >
+    <ModalShell
+      kicker="Infraestructura"
+      title="Telemetría cloud"
+      description="Arquitectura dual-role: gateway en ACA, workers en AKS y agentes en AI Foundry."
+      onClose={onClose}
+      className="max-w-4xl"
+      headerActions={
+        <IconButton onClick={fetchTelemetry} disabled={isLoading} title="Actualizar telemetría" aria-label="Actualizar telemetría">
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+        </IconButton>
+      }
+      footer={
+        <>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            Container Apps · Kubernetes Service · OpenAI
+          </span>
+          <Button variant="secondary" onClick={onClose}>
             Cerrar
-          </button>
+          </Button>
+        </>
+      }
+    >
+      {/* Services */}
+      <section className="px-5 pt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <Kicker>Servicios</Kicker>
+          {isCircuitBroken ? (
+            <Tag tone="magenta">Circuit breaker abierto</Tag>
+          ) : (
+            <Tag tone="green">Operativo</Tag>
+          )}
         </div>
-      </div>
-    </div>
+        <div className="divide-y divide-line rounded-md border border-line">
+          {services.map((svc) => (
+            <div key={svc.name} className="flex items-center gap-4 px-4 py-3">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${svc.status === "ok" ? "bg-signal-green" : "bg-signal-magenta"}`}
+                aria-label={svc.status === "ok" ? "Operativo" : "Caído"}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-mono text-[13px] text-fg">{svc.name}</span>
+                  <span className="text-[11px] text-fg-subtle">{svc.platform}</span>
+                </div>
+                <p className={`mt-0.5 text-[12px] ${svc.status === "ok" ? "text-fg-muted" : "text-signal-magenta"}`}>
+                  {svc.detail}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">{svc.metricLabel}</div>
+                <div className="font-display text-xl font-bold leading-none tabular-nums text-fg">{svc.metricValue}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Stats */}
+      <section className="px-5 pt-5">
+        <Kicker>Rendimiento</Kicker>
+        <div className="mt-2 grid grid-cols-2 divide-line rounded-md border border-line sm:grid-cols-4 sm:divide-x">
+          {stats.map((st) => (
+            <div key={st.label} className="px-4 py-3">
+              <div className="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">{st.label}</div>
+              <div className="mt-1 flex items-baseline gap-1">
+                <span
+                  className={`font-display text-[32px] font-bold leading-none tabular-nums ${
+                    st.alert ? "text-signal-magenta" : "text-fg"
+                  }`}
+                >
+                  {st.value}
+                </span>
+                {st.unit && <span className="font-mono text-[11px] text-fg-subtle">{st.unit}</span>}
+              </div>
+              <div className="mt-1 text-[11px] text-fg-subtle">{st.note}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Live test bench */}
+      <section className="px-5 py-5">
+        <Kicker>Pruebas en directo</Kicker>
+        <p className="mt-1 text-[13px] text-fg-muted">
+          Mide el rendimiento del motor geométrico y comprueba cómo responde el circuit breaker ante un fallo inyectado.
+        </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button variant="primary" onClick={handleStressBurst} disabled={isBursting}>
+            {isBursting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+            {isBursting ? "Calculando 25 simulaciones…" : "Lanzar ráfaga de 25 simulaciones"}
+          </Button>
+
+          <Button variant="secondary" onClick={handleChaosToggle} className={isCircuitBroken ? "border-signal-magenta/60 text-signal-magenta" : undefined}>
+            <Power className="h-3.5 w-3.5" />
+            {isCircuitBroken ? "Restablecer AKS" : "Simular caída de AKS"}
+          </Button>
+        </div>
+
+        {burstResult && (
+          <div className="mt-3 rounded-md border border-line px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-[13px] text-fg">Ráfaga de {burstResult.burst_count} simulaciones completada</span>
+              <span className="font-display text-lg font-bold tabular-nums text-signal-green">
+                {burstResult.sims_per_second.toLocaleString()} sims/s
+              </span>
+            </div>
+            <div className="mt-1 font-mono text-[11px] text-fg-muted">
+              Total {burstResult.total_elapsed_ms} ms · media {burstResult.avg_latency_ms} ms/sim ·{" "}
+              {burstResult.kd_tree_lookups.toLocaleString()} consultas espaciales
+            </div>
+          </div>
+        )}
+
+        {chaosMessage && (
+          <div
+            className={`mt-3 border-l-2 py-1 pl-3 text-[12px] ${
+              isCircuitBroken ? "border-signal-magenta text-fg" : "border-signal-green text-fg-muted"
+            }`}
+          >
+            {chaosMessage}
+          </div>
+        )}
+      </section>
+    </ModalShell>
   );
 };
 

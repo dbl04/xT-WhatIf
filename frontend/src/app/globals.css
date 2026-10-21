@@ -3,20 +3,81 @@
 @tailwind utilities;
 
 :root {
-  --background: #090d10;
-  --foreground: #ededed;
+  --background: #0b0214;
+  --foreground: #f4f0f8;
+  color-scheme: dark;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
   overflow-x: hidden;
 }
 
-/* Custom Tactical Glassmorphism */
-.tactical-glass {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+::selection {
+  background: #00ff85;
+  color: #0b0214;
+}
+
+/* Pitch SVG: page fonts in-app, attribute fallbacks survive the PNG export */
+.pitch-svg text {
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+}
+
+/* Hairline scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+/* Timeline scrubber: 2px track, solid thumb, no glow */
+.pl-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+.pl-range:focus {
+  outline: none;
+}
+.pl-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    #f4f0f8 0%,
+    #f4f0f8 var(--pct, 0%),
+    rgba(255, 255, 255, 0.14) var(--pct, 0%)
+  );
+}
+.pl-range::-moz-range-track {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.pl-range::-moz-range-progress {
+  height: 2px;
+  background: #f4f0f8;
+}
+.pl-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 9999px;
+  background: #f4f0f8;
+  border: 2px solid #0b0214;
+}
+.pl-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #f4f0f8;
+  border: 2px solid #0b0214;
+}
+.pl-range:focus-visible::-webkit-slider-thumb {
+  outline: 1px solid #00ff85;
+  outline-offset: 2px;
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { displayFont, sansFont, monoFont } from "@/lib/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,10 +14,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-slate-950">
-        {children}
-      </body>
+    <html
+      lang="es"
+      className={`dark ${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
+    >
+      <body className="bg-ink text-fg min-h-screen antialiased">{children}</body>
     </html>
   );
 }
