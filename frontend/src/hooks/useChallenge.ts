@@ -45,6 +45,8 @@ export interface ChallengeState {
   durationS: number;
   /** Set once submitted. */
   submission: ChallengeSubmission | null;
+  /** Backend that knows this moment (the live-match service for live moments). */
+  previewBaseUrl?: string;
 }
 
 export interface ChallengeSubmission {
@@ -67,6 +69,8 @@ export interface OpenChallengeInput {
   durationS?: number;
   /** Epoch ms; defaults to now + durationS. */
   deadline?: number;
+  /** Backend for the preview calls; defaults to the gateway (API_BASE_URL). */
+  previewBaseUrl?: string;
 }
 
 export interface UseChallengeOptions {
@@ -143,7 +147,8 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
 
     fetchPreview(
       { match_id: s.matchId, event_uuid: s.eventUuid, team: s.team, moves },
-      controller.signal
+      controller.signal,
+      s.previewBaseUrl
     )
       .then((res) => {
         if (seq !== requestSeq.current) return;
@@ -195,7 +200,7 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
 
   /** Opens the challenge on a moment. Entry point for a future `MOMENT_OPEN` message. */
   const open = useCallback(
-    ({ frame, team, durationS = CHALLENGE_DURATION_S, deadline }: OpenChallengeInput) => {
+    ({ frame, team, durationS = CHALLENGE_DURATION_S, deadline, previewBaseUrl }: OpenChallengeInput) => {
       cancelPreview();
       const mode = modeFor(team, frame);
       const players = basePlayers(frame);
@@ -217,6 +222,7 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
         deadline: deadline ?? Date.now() + durationS * 1000,
         durationS,
         submission: null,
+        previewBaseUrl,
       };
       stateRef.current = next;
       setState(next);

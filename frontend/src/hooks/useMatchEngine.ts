@@ -9,6 +9,7 @@ import {
 } from "@/types/match";
 import syntheticMatchFrames from "@/mocks/match_900001_frames.json";
 import { DEFAULT_MATCH_ID } from "@/lib/match";
+import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
 import { Audience, DEFAULT_AUDIENCE, DEFAULT_LANGUAGE, Language } from "@/lib/i18n";
 import { localizeOfflineFrame, offlineCounterfactualDebate } from "@/lib/offlineNarration";
 
@@ -43,8 +44,8 @@ function mergeBaseFrames(prev: MatchFramePayload[], base: MatchFramePayload[]): 
 
 export function useMatchEngine({
   matchId = DEFAULT_MATCH_ID,
-  apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
-  wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws",
+  apiUrl = API_BASE_URL,
+  wsUrl = `${WS_BASE_URL}/ws`,
   language = DEFAULT_LANGUAGE,
   audience = DEFAULT_AUDIENCE,
 }: UseMatchEngineOptions = {}) {

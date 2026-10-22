@@ -188,9 +188,10 @@ export function clampToRadius(
 /** POST /api/v1/game/preview. Throws on network errors or non-2xx answers. */
 export async function fetchPreview(
   body: { match_id: number; event_uuid: string; team: TeamSide; moves: ChallengeMove[] },
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  baseUrl: string = API_BASE_URL
 ): Promise<PreviewResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/v1/game/preview`, {
+  const res = await fetch(`${baseUrl}/api/v1/game/preview`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),

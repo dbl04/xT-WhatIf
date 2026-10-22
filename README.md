@@ -220,18 +220,16 @@ curl -X POST http://localhost:8000/api/v1/cloud/stress-burst
 
 ## ☁️ Azure Cloud Deployment
 
-### 1. Azure Container Apps (Bicep IaC)
+Three Container Apps (frontend, a KEDA-scaled API gateway and a single-replica live-match service) plus optional AKS workers, all from one Bicep template. The deployment only runs when the CI/CD workflow is started by hand. Setup, delivery-day steps, smoke tests and the load test are in **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
+Rehearse the same layout locally:
 ```bash
-az deployment group create \
-  --resource-group rg-xtwhatif-prod \
-  --template-file infra/main.bicep \
-  --parameters environmentName=xtwhatif-prod
+docker compose up --build
 ```
 
-### 2. Azure Kubernetes Service (AKS Workers)
+Load-test the live match with real WebSocket fans (from `backend/`):
 ```bash
-az aks get-credentials --resource-group rg-xtwhatif-prod --name aks-xtwhatif-prod
-kubectl apply -f infra/k8s-aks-workers.yaml
+python scripts/live_load_test.py --url ws://localhost:8001 --fans 300 --duration 120
 ```
 
 ---
