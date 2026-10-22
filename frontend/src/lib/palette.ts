@@ -14,6 +14,7 @@ export const PALETTE = {
   lineStrong: "rgba(255, 255, 255, 0.16)",
   green: "#00ff85", // danger created / positive xT
   magenta: "#ff005a", // losses / negative xT
+  red: "#ff3b30", // challenge rule broken (player ring)
   turf: "#081f14",
   turfStripe: "#0a2418",
   pitchLine: "rgba(255, 255, 255, 0.72)",

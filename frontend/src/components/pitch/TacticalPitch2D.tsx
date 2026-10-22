@@ -59,6 +59,7 @@ const C = {
   white: PALETTE.fg,
   green: PALETTE.green,
   magenta: PALETTE.magenta,
+  red: PALETTE.red,
   home: PALETTE.home,
   away: PALETTE.away,
 } as const;
@@ -110,6 +111,8 @@ export interface PitchChallenge {
   violationLabels: Record<number, string>;
   /** A locked player or a third player was grabbed. */
   onBlocked?: (playerId: number, reason: "locked" | "limit") => void;
+  /** Reveal: the optimum moves, drawn as green arrows to green target rings. */
+  optimum?: { player_id: number; fromX: number; fromY: number; x: number; y: number }[];
 }
 
 interface ViewBox {
@@ -583,17 +586,11 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const viewBox = useAnimatedViewBox(isZoomed ? focusBox : FULL_VIEW);
     const isFramed = viewBox.w < STATSBOMB_PITCH_LENGTH - 0.01;
 
-    // Violation chips (above the player) reserve their space before the names are placed.
-    // Distance chips of moved players too.
+    // Distance chips of moved players reserve their space before the names are placed.
     const showGhosts = showGhostMode || !!challenge;
     const violationRects = useMemo<Rect[]>(() => {
       const rects: Rect[] = [];
       renderPlayers.forEach((p) => {
-        const label = challenge?.violationLabels[p.player_id];
-        if (label) {
-          const halfW = (label.length * 1.25 * 0.6) / 2 + 0.5;
-          rects.push({ x0: p.x - halfW, x1: p.x + halfW, y0: p.y - PLAYER_R - 3.1, y1: p.y - PLAYER_R - 0.9 });
-        }
         if (showGhosts && p.is_modified && p.original_x != null && p.original_y != null) {
           const mx = (p.original_x + p.x) / 2;
           const my = (p.original_y + p.y) / 2;
@@ -932,6 +929,15 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 );
               })}
 
+            {/* REVEAL: optimum moves (green arrow from the original spot to the best spot) */}
+            {challenge?.optimum?.map((m) => (
+              <g key={`opt-${m.player_id}`} pointerEvents="none" data-optimum-for={m.player_id}>
+                <line x1={m.fromX} y1={m.fromY} x2={m.x} y2={m.y} stroke={C.green} strokeDasharray="1.6 1" {...hair(2)} />
+                <circle cx={m.x} cy={m.y} r={PLAYER_R + 1.1} fill={C.green} fillOpacity={0.18} stroke={C.green} {...hair(2)} />
+                <circle cx={m.x} cy={m.y} r={0.45} fill={C.green} />
+              </g>
+            ))}
+
             {/* PLAYERS */}
             {renderPlayers.map((p) => {
               const isHome = p.team === "home";
@@ -968,25 +974,17 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   {isMovable && !p.is_modified && (
                     <circle r={PLAYER_R + 0.7} fill="none" stroke={C.green} strokeDasharray="1.2 0.9" opacity={0.85} {...hair(1)} />
                   )}
-                  <circle r={isDragging ? PLAYER_R + 0.35 : PLAYER_R} fill={isHome ? C.home : C.away} stroke={C.ink} {...hair(0.5)} />
+                  {/* A broken rule is a red ring; the reason is in the challenge card (and the tooltip). */}
+                  {violation && (
+                    <>
+                      <title>{violation}</title>
+                      <circle r={PLAYER_R + 0.9} fill={C.red} fillOpacity={0.28} stroke={C.red} {...hair(2)} pointerEvents="none" />
+                    </>
+                  )}
+                  <circle r={isDragging ? PLAYER_R + 0.35 : PLAYER_R} fill={isHome ? C.home : C.away} stroke={violation ? C.red : C.ink} {...hair(violation ? 1.5 : 0.5)} />
                   <text y={NUMBER_FONT * 0.35} fontSize={NUMBER_FONT} fontWeight="700" fill={C.ink} textAnchor="middle" pointerEvents="none">{p.jersey_number}</text>
                   {nameDy != null && (
                     <text y={nameDy} fontSize={NAME_FONT} fontWeight="600" letterSpacing="0.06" fill={C.white} stroke={C.ink} strokeWidth="0.4" paintOrder="stroke" textAnchor="middle" pointerEvents="none">{shortName(p.name)}</text>
-                  )}
-                  {violation && (
-                    <g transform={`translate(0, ${-PLAYER_R - 2})`} pointerEvents="none">
-                      <rect
-                        x={-((violation.length * 1.25 * 0.6) / 2 + 0.5)}
-                        y="-1.1"
-                        width={violation.length * 1.25 * 0.6 + 1}
-                        height="2.2"
-                        rx="0.3"
-                        fill={C.magenta}
-                      />
-                      <text y="0.45" fontSize="1.25" fontWeight="800" letterSpacing="0.08" fill={C.white} textAnchor="middle">
-                        {violation}
-                      </text>
-                    </g>
                   )}
                 </g>
               );

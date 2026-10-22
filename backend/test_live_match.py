@@ -117,6 +117,21 @@ class MatchRoomTest(unittest.TestCase):
         self.assertEqual(board["you"], {"rank": 2, "total": 0})
         self.assertEqual(board["teams"]["home"]["fans"], 2)
 
+    def test_server_enforces_the_hard_limits(self):
+        """A client that ignores the board's clamp still cannot score an illegal move."""
+        m = self._open()
+        fan = _fan("hacker", TeamSide.HOME)
+        movable = [p for p in m.event.frame.players if p.player_id in m.open_payload()["movable_player_ids"]["home"]]
+        p = movable[0]
+        far = self.room.submit(fan, SubmitIn(moment_id=m.id, moves=[MoveIn(player_id=p.player_id, x=p.x, y=p.y + 6.5 if p.y < 70 else p.y - 6.5)]), self.at + 1)
+        self.assertFalse(far["accepted"])
+        self.assertIn("too_far", {v["rule"] for v in far["violations"]})
+        three = [MoveIn(player_id=q.player_id, x=q.x, y=q.y + (0.5 if q.y < 70 else -0.5)) for q in movable[:3]]
+        many = self.room.submit(fan, SubmitIn(moment_id=m.id, moves=three), self.at + 2)
+        self.assertFalse(many["accepted"])
+        self.assertIn("too_many", {v["rule"] for v in many["violations"]})
+        self.assertNotIn("hacker", m.submissions)
+
     def test_reveal_is_localised_and_personal(self):
         m = self._open()
         opt = m.optimum(TeamSide.AWAY)

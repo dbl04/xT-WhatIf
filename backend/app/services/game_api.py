@@ -68,6 +68,14 @@ class PreviewResponse(BaseModel):
 
 
 def _moment(match_id: int, event_uuid: str) -> MatchFramePayload:
+    # A moment of the live match first, then the committed key moments.
+    from app.services.live_match import runner  # late import: live_match imports the game engine too
+
+    room = runner.room
+    if room is not None and room.match_id == match_id:
+        event = next((e for e in room.events if e.frame.event_uuid == event_uuid), None)
+        if event is not None:
+            return event.frame
     raw = next((f for f in loader.fetch_match_360_frames(match_id) if f["event_uuid"] == event_uuid), None)
     if raw is None:
         raise HTTPException(status_code=404, detail="Key moment not found")

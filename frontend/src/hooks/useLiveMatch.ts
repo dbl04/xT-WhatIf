@@ -1,0 +1,285 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { MatchFramePayload, MatchInfo, TeamSide } from "@/types/match";
+import type { ChallengeMode, ChallengeMove } from "@/lib/challenge";
+import type { Audience, Language } from "@/lib/i18n";
+
+/**
+ * Client of the live match (backend/app/services/live_match.py, WebSocket /ws/live).
+ * One synthetic match is played for everyone in real time; key moments open as challenges,
+ * submissions are scored on the server and revealed when the window closes.
+ */
+export interface LiveScore {
+  home: number;
+  away: number;
+}
+
+export interface LiveEventSummary {
+  index: number;
+  minute: number;
+  second: number;
+  event_type: string;
+  possession_team: TeamSide;
+  outcome: "completed" | "intercepted" | "goal" | "saved" | "missed" | "blocked";
+  score: LiveScore;
+  moment_key: string | null;
+  labels: Partial<Record<Language, string>>;
+}
+
+export interface MomentOpen {
+  moment_id: string;
+  event: LiveEventSummary;
+  frame: MatchFramePayload;
+  modes: Record<TeamSide, ChallengeMode>;
+  movable_player_ids: Record<TeamSide, number[]>;
+  rules: { max_players: number; max_radius_m: number; min_spacing_m: number; offside_line_x: number };
+  opened_at_ms: number;
+  closes_at_ms: number;
+  window_s: number;
+}
+
+export interface MomentReveal {
+  moment_id: string;
+  mode: ChallengeMode;
+  optimum_moves: ChallengeMove[];
+  optimum_target_id: number | null;
+  your_moves: ChallengeMove[];
+  your_score: number | null;
+  beat_machine: boolean;
+  goal_chance_pct: { before: number; best: number; yours: number | null };
+  explanation: { headline: string; body: string; personal: string; community: string };
+  community: { submissions: number; found_it_pct: number; avg_score: number };
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  nickname: string;
+  team: TeamSide;
+  total: number;
+  is_bot: boolean;
+}
+
+export interface Leaderboard {
+  top: LeaderboardRow[];
+  you: { rank: number; total: number } | null;
+  teams: Record<TeamSide, { fans: number; avg: number }>;
+  players: number;
+}
+
+export interface MatchEnd {
+  score: LiveScore;
+  leaderboard: Leaderboard;
+  badges: string[];
+  next_kickoff_in_s: number;
+}
+
+export interface SubmitAck {
+  accepted: boolean;
+  reason?: "closed" | "late" | "rules" | "invalid";
+  moment_id?: string;
+}
+
+export type LiveStatus = "connecting" | "live" | "ended" | "offline";
+
+export interface LiveState {
+  status: LiveStatus;
+  matchId: number | null;
+  matchInfo: MatchInfo | null;
+  /** Game clock (0-5400 s) at `clockAt` (epoch ms); advanced locally between messages. */
+  clockSeconds: number;
+  clockAt: number;
+  /** Real seconds the 90 minutes last. */
+  durationS: number;
+  score: LiveScore;
+  frame: MatchFramePayload | null;
+  /** Increments on every new event so the pitch can replay the action. */
+  frameSeq: number;
+  recentEvents: LiveEventSummary[];
+  moment: MomentOpen | null;
+  /** Local epoch ms when the moment closes (window measured from when it arrived). */
+  momentDeadline: number | null;
+  reveal: MomentReveal | null;
+  leaderboard: Leaderboard | null;
+  matchEnd: MatchEnd | null;
+  lastAck: SubmitAck | null;
+}
+
+const INITIAL: LiveState = {
+  status: "connecting",
+  matchId: null,
+  matchInfo: null,
+  clockSeconds: 0,
+  clockAt: 0,
+  durationS: 300,
+  score: { home: 0, away: 0 },
+  frame: null,
+  frameSeq: 0,
+  recentEvents: [],
+  moment: null,
+  momentDeadline: null,
+  reveal: null,
+  leaderboard: null,
+  matchEnd: null,
+  lastAck: null,
+};
+
+const MAX_TICKER = 8;
+/** Network allowance taken off the window so the local timer never outlives the server's. */
+const LATENCY_ALLOWANCE_MS = 400;
+
+export interface UseLiveMatchOptions {
+  userId: string;
+  nickname: string;
+  team: TeamSide;
+  language: Language;
+  audience: Audience;
+  /** Off: no connection (e.g. while onboarding). */
+  enabled?: boolean;
+  wsUrl?: string;
+}
+
+export function useLiveMatch({
+  userId,
+  nickname,
+  team,
+  language,
+  audience,
+  enabled = true,
+  wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws",
+}: UseLiveMatchOptions) {
+  const [state, setState] = useState<LiveState>(INITIAL);
+  const socketRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !userId) return;
+    let ws: WebSocket | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    let disposed = false;
+
+    const handle = (message: { type: string; payload: any }) => {
+      const p = message.payload;
+      const now = Date.now();
+      setState((s) => {
+        switch (message.type) {
+          case "MATCH_STATE":
+            if (p.status === "waiting") return { ...s, status: "connecting" };
+            return {
+              ...s,
+              status: p.status === "ended" ? "ended" : "live",
+              matchId: p.match_id,
+              matchInfo: p.match_info,
+              clockSeconds: p.clock_seconds,
+              clockAt: now,
+              durationS: p.duration_s,
+              score: p.score,
+              frame: p.frame ?? s.frame,
+              frameSeq: s.frameSeq + 1,
+              recentEvents: [...(p.recent_events ?? [])].reverse(),
+              moment: p.active_moment,
+              momentDeadline: p.active_moment
+                ? now + Math.max(0, p.active_moment.closes_at_ms - p.active_moment.opened_at_ms) - LATENCY_ALLOWANCE_MS
+                : null,
+              leaderboard: p.leaderboard,
+              matchEnd: p.status === "ended" ? s.matchEnd : null,
+              reveal: p.status === "ended" ? s.reveal : null,
+            };
+          case "MATCH_EVENT": {
+            const e: LiveEventSummary = p.event;
+            return {
+              ...s,
+              status: "live",
+              clockSeconds: e.minute * 60 + e.second,
+              clockAt: now,
+              score: e.score,
+              frame: p.frame,
+              frameSeq: s.frameSeq + 1,
+              recentEvents: [e, ...s.recentEvents].slice(0, MAX_TICKER),
+              matchEnd: null,
+            };
+          }
+          case "MOMENT_OPEN":
+            return {
+              ...s,
+              moment: p,
+              momentDeadline: now + p.window_s * 1000 - LATENCY_ALLOWANCE_MS,
+              reveal: null,
+              lastAck: null,
+            };
+          case "SUBMIT_ACK":
+            return { ...s, lastAck: p };
+          case "MOMENT_CLOSED":
+            return s.moment?.moment_id === p.moment_id ? { ...s, momentDeadline: now } : s;
+          case "MOMENT_REVEAL":
+            return { ...s, reveal: p };
+          case "LEADERBOARD":
+            return { ...s, leaderboard: p };
+          case "MATCH_END":
+            return { ...s, status: "ended", matchEnd: p, leaderboard: p.leaderboard, moment: null, momentDeadline: null };
+          default:
+            return s;
+        }
+      });
+    };
+
+    const connect = () => {
+      const query = new URLSearchParams({ user_id: userId, nickname, team, lang: language, audience });
+      try {
+        ws = new WebSocket(`${wsUrl.replace(/\/$/, "")}/live?${query}`);
+      } catch {
+        setState((s) => ({ ...s, status: "offline" }));
+        return;
+      }
+      socketRef.current = ws;
+      ws.onopen = () => {
+        attempts = 0;
+      };
+      ws.onmessage = (event) => {
+        try {
+          handle(JSON.parse(event.data));
+        } catch (err) {
+          console.error("Live message could not be handled:", err);
+        }
+      };
+      ws.onclose = () => {
+        if (disposed) return;
+        socketRef.current = null;
+        attempts += 1;
+        // After two failed attempts the app falls back to the offline key moments.
+        if (attempts >= 2) setState((s) => ({ ...s, status: "offline" }));
+        retry = setTimeout(connect, Math.min(10000, 1000 * 2 ** Math.min(attempts, 4)));
+      };
+    };
+
+    setState(INITIAL);
+    connect();
+    return () => {
+      disposed = true;
+      if (retry) clearTimeout(retry);
+      ws?.close();
+      socketRef.current = null;
+    };
+  }, [enabled, userId, nickname, team, language, audience, wsUrl]);
+
+  /** Sends the user's moves for the open moment. Returns false when the socket is not open. */
+  const submit = useCallback((momentId: string, moves: ChallengeMove[]): boolean => {
+    const ws = socketRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify({ type: "SUBMIT", payload: { moment_id: momentId, moves } }));
+    return true;
+  }, []);
+
+  const dismissReveal = useCallback(() => setState((s) => ({ ...s, reveal: null, moment: null, momentDeadline: null })), []);
+
+  return { state, submit, dismissReveal };
+}
+
+/** Game clock now, advanced from the last message at the match's pace. */
+export function liveClockSeconds(state: LiveState, now: number): number {
+  if (state.status !== "live") return state.clockSeconds;
+  const rate = (90 * 60) / Math.max(1, state.durationS);
+  return Math.min(90 * 60, state.clockSeconds + ((now - state.clockAt) / 1000) * rate);
+}
+
+export default useLiveMatch;

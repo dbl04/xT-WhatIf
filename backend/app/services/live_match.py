@@ -214,6 +214,10 @@ class MatchRoom:
         self.standings.setdefault(profile.user_id, Standing(profile=profile)).profile = profile
         return {"accepted": True, "moment_id": m.id}
 
+    def join(self, profile: Profile) -> None:
+        """A fan (or bot) is in the match: listed on the leaderboard from kickoff, with 0 points."""
+        self.standings.setdefault(profile.user_id, Standing(profile=profile)).profile = profile
+
     def due_to_close(self, now: float) -> bool:
         return self.moment is not None and now >= self.moment.closes_at
 
@@ -370,6 +374,10 @@ class LiveMatchRunner:
         )
         self.room.kickoff(now)
         self.bots = make_bots(settings.LIVE_BOTS, self.seed)
+        for profile, _ in self.bots:
+            self.room.join(profile)
+        for profile in self.clients.values():
+            self.room.join(profile)
         self._bot_queue.clear()
         self.next_kickoff_at = None
         logger.info("Live match %s kicked off (seed %s, %s bots).", self.room.match_id, self.seed, len(self.bots))
@@ -503,6 +511,8 @@ async def live_socket(websocket: WebSocket):
         return
     await websocket.accept()
     runner.clients[websocket] = profile
+    if runner.room is not None:
+        runner.room.join(profile)
     await runner._send(websocket, {"type": "MATCH_STATE", "payload": runner.state_for(profile)})
     try:
         while True:

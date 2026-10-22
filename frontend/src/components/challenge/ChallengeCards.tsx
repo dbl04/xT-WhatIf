@@ -418,6 +418,7 @@ export const ChallengeCard: React.FC<{
                   <span className="shrink-0 text-signal-magenta">{t(`challenge.rule.${v.rule}`)}</span>
                 </li>
               ))}
+              <li className="mt-1 text-[11px] text-fg-muted">{t("challenge.illegalDropped")}</li>
             </ul>
           )}
 
