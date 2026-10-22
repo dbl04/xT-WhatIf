@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     CHAOS_AUTO_RESET_SECONDS: int = 90
     # Largest WebSocket message accepted, in bytes (a full 22-player frame is ~6 KB).
     WS_MAX_MESSAGE_BYTES: int = 64_000
+    # Live game (app/services/live_match.py). Only ONE instance may run the match: set
+    # LIVE_ENABLED=false on every other replica (and it never runs with SERVICE_ROLE=aks-worker).
+    LIVE_ENABLED: bool = True
+    LIVE_MATCH_DURATION_S: float = 300.0     # 90 game minutes in 5 real minutes
+    LIVE_CHALLENGE_WINDOW_S: float = 30.0
+    LIVE_MOMENT_COOLDOWN_S: float = 15.0     # after a reveal, and before the first moment
+    LIVE_INTERMISSION_S: float = 30.0        # between the final whistle and the next kickoff
+    LIVE_BOTS: int = 200                     # simulated fans on the leaderboard
+    LIVE_FIRST_SEED: int = 11
     BACKEND_HOST: str = "0.0.0.0"
     BACKEND_PORT: int = 8000
     CORS_ORIGINS: List[str] = Field(
