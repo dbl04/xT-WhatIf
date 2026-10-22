@@ -12,10 +12,14 @@ import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
 import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
-import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
+import { OnboardingGate, useFanSession } from "@/components/onboarding/OnboardingGate";
 import { FanBadge } from "@/components/onboarding/FanBadge";
+import { ChallengeCard, ChallengeStrip, PlayMomentCard } from "@/components/challenge/ChallengeCards";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
+import { useChallenge } from "@/hooks/useChallenge";
+import { modeFor } from "@/lib/challenge";
+import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
@@ -152,6 +156,46 @@ function DashboardPage() {
   const fixture = getMatchInfo(currentFrame);
   const teamShortNames = { home: fixture.home.short_name, away: fixture.away.short_name };
 
+  // ====================================================================
+  // xT Live Challenge. Temporary trigger: "Play this moment" on the current key moment.
+  // A future MOMENT_OPEN message will call challenge.open({ frame, team, deadline }) instead.
+  // ====================================================================
+  const fanSession = useFanSession();
+  const supportedSide = fanSession?.team ?? "home";
+  const challenge = useChallenge({
+    // TODO(live): send SUBMIT over the WebSocket with these moves.
+    onSubmit: (submission) => console.info("[challenge] submitted", submission),
+  });
+  const challengeState = challenge.state;
+  const inChallenge = challengeState !== null;
+
+  const startChallenge = () => {
+    setIsPlaying(false);
+    tts.stop();
+    setHighlightedPlayerIds([]);
+    setHoveredPlayerId(null);
+    setIsHudDrawerOpen(true);
+    challenge.open({ frame: currentFrame, team: supportedSide });
+  };
+
+  const { flashNotice } = challenge;
+  const pitchChallenge = useMemo<PitchChallenge | null>(() => {
+    if (!challengeState) return null;
+    const violationLabels: Record<number, string> = {};
+    challengeState.violations.forEach((v) => {
+      violationLabels[v.player_id] ??= t(`challenge.rule.${v.rule}`).toUpperCase();
+    });
+    return {
+      movableIds: challengeState.movableIds,
+      maxRadius: challengeState.rules.max_radius_m,
+      maxPlayers: challengeState.rules.max_players,
+      offsideLineX: challengeState.rules.offside_line_x,
+      locked: challengeState.status !== "open",
+      violationLabels,
+      onBlocked: (_id, reason) => flashNotice(reason),
+    };
+  }, [challengeState, t, flashNotice]);
+
   const clock = `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
   const isLive = connectionMode === "live";
 
@@ -277,14 +321,15 @@ function DashboardPage() {
           <TacticalPitch2D
             ref={pitchRef}
             teamShortNames={teamShortNames}
-            players={currentFrame.players}
+            players={challengeState ? challengeState.players : currentFrame.players}
             ballX={currentFrame.ball_x}
             ballY={currentFrame.ball_y}
             ballEndX={currentFrame.ball_end_x}
             ballEndY={currentFrame.ball_end_y}
             metrics={currentFrame.metrics}
-            isCounterfactualMode={currentFrame.is_counterfactual_mode}
-            isPlaying={isPlaying}
+            isCounterfactualMode={!inChallenge && currentFrame.is_counterfactual_mode}
+            isPlaying={isPlaying && !inChallenge}
+            challenge={pitchChallenge}
             playbackSpeed={playbackSpeed}
             highlightedPlayerIds={highlightedPlayerIds}
             selectedPlayerId={hoveredPlayerId}
@@ -292,8 +337,10 @@ function DashboardPage() {
             onClickPlayer={(id) =>
               setHoveredPlayerId(id === hoveredPlayerId ? null : id)
             }
-            onPlayerMove={updatePlayerPosition}
-            onSimulationTrigger={onPlayerDrop}
+            // In a challenge the board belongs to useChallenge: no counterfactual simulation
+            // or debate on drop (that is the reveal's job), only the preview arrow.
+            onPlayerMove={inChallenge ? challenge.move : updatePlayerPosition}
+            onSimulationTrigger={inChallenge ? challenge.drop : onPlayerDrop}
             onAnimationEnd={() => setIsPlaying(false)}
             onDragStart={handleDragStart}
           />
@@ -301,6 +348,29 @@ function DashboardPage() {
 
         {/* 3. Tactical Dock (Top-Left) */}
         <div className="pointer-events-none absolute left-4 top-4 z-30 flex w-full max-w-[340px] flex-col">
+          {challengeState ? (
+            /* Challenge open: only the challenge card, always visible on large screens (the
+               compact strip replaces the transport dock below lg). Auto-Coach, quick scenarios
+               and the xT readout are hidden: they would give the answer away. */
+            <motion.aside
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              aria-label={t("challenge.kicker")}
+              className="pointer-events-auto hidden max-h-[calc(100vh-7rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex"
+            >
+              <ChallengeCard
+                state={challengeState}
+                secondsLeft={challenge.secondsLeft}
+                notice={challenge.notice}
+                teamInfo={fanSession?.teamInfo}
+                onConfirm={() => challenge.submit(false)}
+                onReset={challenge.reset}
+                onLeave={challenge.close}
+                onHighlightPlayer={setHoveredPlayerId}
+              />
+            </motion.aside>
+          ) : (
           <AnimatePresence>
             {isHudDrawerOpen && (
               <motion.aside
@@ -310,6 +380,16 @@ function DashboardPage() {
                 transition={{ duration: 0.16, ease: "easeOut" }}
                 className="pointer-events-auto flex max-h-[calc(100vh-15rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
+                {/* xT Live Challenge entry */}
+                <section className="border-b border-line p-3">
+                  <PlayMomentCard
+                    mode={modeFor(supportedSide, currentFrame)}
+                    possessionTeam={fixture[currentFrame.possession_team]}
+                    supportedTeam={fixture[supportedSide]}
+                    onPlay={startChallenge}
+                  />
+                </section>
+
                 {/* Quick scenarios */}
                 <section className="border-b border-line p-3">
                   <div className="mb-2 flex items-center justify-between">
@@ -357,10 +437,12 @@ function DashboardPage() {
               </motion.aside>
             )}
           </AnimatePresence>
+          )}
         </div>
 
-        {/* 4. Lower-Third */}
-        <BroadcastCommentatorCard
+        {/* 4. Lower-Third (hidden during a challenge: the pundits discuss the answer and the
+            card would cover the challenge card on short screens) */}
+        {!inChallenge && <BroadcastCommentatorCard
           messages={currentFrame.agent_debate}
           activeSpeakingRole={tts.activeSpeaker}
           isSpeaking={tts.isPlaying}
@@ -372,27 +454,45 @@ function DashboardPage() {
           onStopAudio={tts.stop}
           clockLabel={clock}
           eventType={currentFrame.event_type}
-        />
+        />}
 
         {/* 5. Transport Dock */}
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 mx-auto flex justify-center px-4">
-          <div className="pointer-events-auto w-full max-w-5xl">
+          {challengeState && (
+            <div className="pointer-events-auto w-full max-w-xl lg:hidden">
+              <ChallengeStrip
+                state={challengeState}
+                secondsLeft={challenge.secondsLeft}
+                notice={challenge.notice}
+                teamInfo={fanSession?.teamInfo}
+                onConfirm={() => challenge.submit(false)}
+                onReset={challenge.reset}
+                onLeave={challenge.close}
+              />
+            </div>
+          )}
+          <div className={`pointer-events-auto w-full max-w-5xl ${challengeState ? "hidden lg:block" : ""}`}>
             <PlaybackBar
               frames={frames}
               currentFrameIndex={currentFrameIndex}
               onSelectFrameIndex={(idx) => {
                 setIsPlaying(false);
+                // Moving to another moment leaves the challenge of this one.
+                if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) challenge.close();
                 selectFrameIndex(idx);
               }}
               minute={currentFrame.minute}
               second={currentFrame.second}
               eventType={currentFrame.event_type}
               isCounterfactualMode={currentFrame.is_counterfactual_mode}
-              isPlaying={isPlaying}
-              onTogglePlay={handleTogglePlay}
+              isPlaying={isPlaying && !inChallenge}
+              onTogglePlay={() => {
+                if (!inChallenge) handleTogglePlay();
+              }}
               onResetSimulation={() => {
                 setIsPlaying(false);
-                resetSimulation();
+                if (challengeState?.status === "open") challenge.reset();
+                else if (!inChallenge) resetSimulation();
               }}
               onSpeedChange={(s) => setPlaybackSpeed(s)}
             />
