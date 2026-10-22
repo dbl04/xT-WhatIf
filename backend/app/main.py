@@ -36,6 +36,7 @@ from app.services.narration import (
 )
 from app.services.tts_service import router as tts_router
 from app.services.tactical_optimizer import router as optimizer_router
+from app.services.game_api import router as game_router
 
 
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +63,7 @@ app.add_middleware(
 app.middleware("http")(rate_limit_middleware)
 app.include_router(tts_router)
 app.include_router(optimizer_router)
+app.include_router(game_router)
 
 
 @app.get("/health", tags=["Health"])
