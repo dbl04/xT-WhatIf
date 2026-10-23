@@ -110,19 +110,34 @@ jobs:
       # 5b. Provision / Update Azure Infrastructure and Container Apps via Bicep IaC
       - name: Provision / Update Azure Infrastructure (Bicep IaC)
         id: bicep
-        uses: azure/arm-deploy@v2
-        with:
-          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          resourceGroupName: ${{ env.RESOURCE_GROUP }}
-          template: ./infra/main.bicep
-          parameters: >-
-            environmentName=xtwhatif-prod
-            acrName=${{ env.ACR_NAME }}
-            imageTag=${{ github.sha }}
-            azureOpenAiEndpoint=${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}
-            azureOpenAiKey=${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}
-            azureOpenAiTtsDeployment=${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}
-            azureOpenAiTtsApiVersion=${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}
+        run: |
+          echo "Validating Bicep template..."
+          az deployment group validate \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --template-file ./infra/main.bicep \
+            --parameters \
+              environmentName=xtwhatif-prod \
+              acrName=${{ env.ACR_NAME }} \
+              imageTag=${{ github.sha }} \
+              azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}" \
+              azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
+              azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}"
+
+          echo "Deploying Bicep template..."
+          az deployment group create \
+            --name "deploy-${{ github.sha }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --template-file ./infra/main.bicep \
+            --parameters \
+              environmentName=xtwhatif-prod \
+              acrName=${{ env.ACR_NAME }} \
+              imageTag=${{ github.sha }} \
+              azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}" \
+              azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
+              azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" \
+            --verbose
 
       # 6a. Updates the Azure Container Apps with the new SHA tag
       - name: Update Azure Container Apps (ACA Revisions)
