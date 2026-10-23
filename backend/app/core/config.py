@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     SERVICE_ROLE: str = Field(default="standalone", validation_alias=AliasChoices("SERVICE_ROLE", "APP_ROLE"))
     AKS_WORKER_URL: Optional[str] = Field(default=None, validation_alias=AliasChoices("AKS_WORKER_URL", "WORKER_SERVICE_URL"))
 
-    # Azure OpenAI (Agent Swarm)
+    # Azure OpenAI / Azure AI Foundry (Multi-Agent Swarm & Neural TTS)
     AZURE_OPENAI_API_KEY: str = Field(default="mock-key", validation_alias="AZURE_OPENAI_API_KEY")
     AZURE_OPENAI_ENDPOINT: str = Field(default="https://mock.openai.azure.com/", validation_alias="AZURE_OPENAI_ENDPOINT")
     AZURE_OPENAI_API_VERSION: str = "2024-10-21"
@@ -58,6 +58,30 @@ class Settings(BaseSettings):
     AZURE_OPENAI_DEPLOYMENT_COACH: str = Field(
         default="gpt-4o-mini",
         validation_alias=AliasChoices("AZURE_OPENAI_DEPLOYMENT_MINI", "AZURE_OPENAI_DEPLOYMENT_COACH")
+    )
+    # Neural TTS deployment (gpt-4o-mini-tts requires api-version >= 2025-03-01-preview in eastus2 / swedencentral;
+    # falls back to tts-1 or browser Web Speech API if unavailable).
+    # NOTE for Persona 1 (Bicep / Infra): expose AZURE_OPENAI_TTS_DEPLOYMENT in infra/main.bicep openAiEnv.
+    AZURE_OPENAI_TTS_DEPLOYMENT: str = Field(
+        default="gpt-4o-mini-tts",
+        validation_alias=AliasChoices("AZURE_OPENAI_TTS_DEPLOYMENT", "AZURE_OPENAI_DEPLOYMENT_TTS")
+    )
+    AZURE_OPENAI_TTS_API_VERSION: str = Field(
+        default="2025-03-01-preview",
+        validation_alias="AZURE_OPENAI_TTS_API_VERSION"
+    )
+    AZURE_OPENAI_TTS_TIMEOUT_S: float = Field(
+        default=7.0,
+        validation_alias="AZURE_OPENAI_TTS_TIMEOUT_S"
+    )
+    # Optional Azure AI Foundry Agent Service project endpoint / connection string
+    AZURE_AI_FOUNDRY_PROJECT_ENDPOINT: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT", "AZURE_AI_PROJECT_CONNECTION_STRING")
+    )
+    AGENT_SWARM_TIMEOUT_S: float = Field(
+        default=8.0,
+        validation_alias="AGENT_SWARM_TIMEOUT_S"
     )
 
     # Synthetic match fixtures (see app/services/synthetic_generator.py)
