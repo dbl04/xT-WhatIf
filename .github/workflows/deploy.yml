@@ -112,7 +112,41 @@ jobs:
         id: bicep
         run: |
           set +e
-          echo "Validating Bicep template..."
+          CREATE_ROLE="${{ vars.CREATE_ROLE_ASSIGNMENT || 'auto' }}"
+
+          if [ "$CREATE_ROLE" = "auto" ]; then
+            echo "Testing Bicep validation with createRoleAssignment=true..."
+            az deployment group validate \
+              --resource-group "${{ env.RESOURCE_GROUP }}" \
+              --template-file ./infra/main.bicep \
+              --parameters \
+                environmentName=xtwhatif-prod \
+                acrName="${{ env.ACR_NAME }}" \
+                imageTag="${{ github.sha }}" \
+                createRoleAssignment=true \
+                azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
+                azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || '' }}" \
+                azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
+                azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" > /tmp/validate-test.log 2>&1
+            
+            if [ $? -eq 0 ]; then
+              echo "Full RBAC authorization confirmed. Enabling AcrPull role assignment in Bicep."
+              CREATE_ROLE=true
+            else
+              if grep -q "roleAssignments" /tmp/validate-test.log; then
+                echo "::warning::Service Principal lacks role assignment write permissions. Proceeding with createRoleAssignment=false."
+                echo "### ⚠️ Notice: Role Assignment Skipped" >> "$GITHUB_STEP_SUMMARY"
+                echo "The Service Principal lacks \`Microsoft.Authorization/roleAssignments/write\` permissions in \`${{ env.RESOURCE_GROUP }}\`." >> "$GITHUB_STEP_SUMMARY"
+                echo "To enable automated AcrPull role assignments, assign 'Role Based Access Control Administrator' or 'Owner' to the Service Principal." >> "$GITHUB_STEP_SUMMARY"
+                CREATE_ROLE=false
+              else
+                cat /tmp/validate-test.log
+                CREATE_ROLE=true
+              fi
+            fi
+          fi
+
+          echo "Validating Bicep template (createRoleAssignment=$CREATE_ROLE)..."
           az deployment group validate \
             --resource-group "${{ env.RESOURCE_GROUP }}" \
             --template-file ./infra/main.bicep \
@@ -120,8 +154,9 @@ jobs:
               environmentName=xtwhatif-prod \
               acrName="${{ env.ACR_NAME }}" \
               imageTag="${{ github.sha }}" \
+              createRoleAssignment=$CREATE_ROLE \
               azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
-              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || '' }}" \
               azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
               azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" > /tmp/validate.log 2>&1
           VALIDATE_STATUS=$?
@@ -135,7 +170,7 @@ jobs:
             exit 1
           fi
 
-          echo "Deploying Bicep template to ${{ env.RESOURCE_GROUP }}..."
+          echo "Deploying Bicep template to ${{ env.RESOURCE_GROUP }} (createRoleAssignment=$CREATE_ROLE)..."
           az deployment group create \
             --name "deploy-${{ github.sha }}" \
             --resource-group "${{ env.RESOURCE_GROUP }}" \
@@ -144,8 +179,9 @@ jobs:
               environmentName=xtwhatif-prod \
               acrName="${{ env.ACR_NAME }}" \
               imageTag="${{ github.sha }}" \
+              createRoleAssignment=$CREATE_ROLE \
               azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
-              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || '' }}" \
               azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
               azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" \
             --verbose > /tmp/deploy.log 2>&1

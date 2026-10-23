@@ -33,6 +33,9 @@ param azureOpenAiTtsApiVersion string = '2025-03-01-preview'
 
 @description('Azure Container Registry Name')
 param acrName string = replace(toLower('${environmentName}acr'), '-', '')
+
+@description('Whether to create the AcrPull role assignment in Bicep (requires Role Based Access Control Administrator or Owner permissions on the deployer)')
+param createRoleAssignment bool = true
 var backendImage = '${containerRegistry.properties.loginServer}/xt-whatif-backend:${imageTag}'
 var frontendImage = '${containerRegistry.properties.loginServer}/xt-whatif-frontend:${imageTag}'
 
@@ -70,7 +73,7 @@ resource containerAppIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@
 // Built-in AcrPull role definition ID: 7f951dda-4ed3-4680-a7ca-43fe172d538d
 var acrPullRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
 
-resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createRoleAssignment) {
   name: guid(containerRegistry.id, containerAppIdentity.id, acrPullRoleDefinitionId)
   scope: containerRegistry
   properties: {
