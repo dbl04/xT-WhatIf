@@ -30,8 +30,8 @@ ENV NODE_ENV=production
 # Ensure Node prioritizes IPv4 DNS and uses system CA certificates for next/font/google fetch
 ENV NODE_OPTIONS="--dns-result-order=ipv4first"
 
-# Ensure network access is enabled during build for downloading Google Fonts
-RUN --network=default npm run build
+# Ensure network access is enabled during build for downloading Google Fonts with automatic retries
+RUN --network=default npm run build || (echo "Retrying Next.js build..." && sleep 5 && npm run build) || (echo "Retrying Next.js build (attempt 3)..." && sleep 10 && npm run build)
 
 # Step 3. Production image, copy all the files and run next
 FROM base AS runner
