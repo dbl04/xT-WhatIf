@@ -26,7 +26,10 @@ param azureOpenAiEndpoint string = 'https://xtwhatif-openai.openai.azure.com/'
 param azureOpenAiKey string = 'mock-azure-openai-key'
 
 @description('Azure OpenAI Deployment for Text-To-Speech (TTS)')
-param azureOpenAiTtsDeployment string = 'tts-1'
+param azureOpenAiTtsDeployment string = 'gpt-4o-mini-tts'
+
+@description('Azure OpenAI API Version for Text-To-Speech (TTS)')
+param azureOpenAiTtsApiVersion string = '2025-03-01-preview'
 
 var acrName = replace(toLower('${environmentName}acr'), '-', '')
 var backendImage = '${containerRegistry.properties.loginServer}/xt-whatif-backend:${imageTag}'
@@ -141,6 +144,10 @@ var openAiEnv = [
   {
     name: 'AZURE_OPENAI_TTS_DEPLOYMENT'
     value: azureOpenAiTtsDeployment
+  }
+  {
+    name: 'AZURE_OPENAI_TTS_API_VERSION'
+    value: azureOpenAiTtsApiVersion
   }
 ]
 var healthProbes = [

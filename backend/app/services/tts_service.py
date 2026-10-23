@@ -81,12 +81,21 @@ async def synthesize_speech(request: TTSRequest) -> TTSResponse:
     if has_azure:
         try:
             from openai import AsyncAzureOpenAI
+            tts_api_version = (
+                getattr(settings, "AZURE_OPENAI_TTS_API_VERSION", None)
+                or os.getenv("AZURE_OPENAI_TTS_API_VERSION")
+                or "2025-03-01-preview"
+            )
             client = AsyncAzureOpenAI(
                 api_key=settings.AZURE_OPENAI_API_KEY,
-                api_version=settings.AZURE_OPENAI_API_VERSION,
+                api_version=tts_api_version,
                 azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
             )
-            deployment = getattr(settings, "AZURE_OPENAI_TTS_DEPLOYMENT", None) or "tts-1"
+            deployment = (
+                getattr(settings, "AZURE_OPENAI_TTS_DEPLOYMENT", None)
+                or os.getenv("AZURE_OPENAI_TTS_DEPLOYMENT")
+                or "gpt-4o-mini-tts"
+            )
             options = {}
             if "gpt-4o" in deployment:
                 options["instructions"] = _TTS_INSTRUCTIONS[request.language]

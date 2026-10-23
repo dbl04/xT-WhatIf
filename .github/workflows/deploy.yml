@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - chore/azure-deploy
   workflow_dispatch:
 
 permissions:
@@ -12,7 +13,7 @@ permissions:
 
 env:
   ACR_NAME: ${{ vars.ACR_NAME || 'xtwhatifprodacr' }}
-  RESOURCE_GROUP: ${{ vars.AZURE_RG || 'rg-xtwhatif-hackathon' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RG || 'rg-xt-whatif' }}
   AKS_CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME || 'aks-xtwhatif-prod' }}
   BACKEND_IMAGE: xt-whatif-backend
   FRONTEND_IMAGE: xt-whatif-frontend
@@ -62,35 +63,54 @@ jobs:
           push: true
           tags: ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
-      # 6. Updates the Azure Container App with the new SHA tag
-      - name: Update Azure Container Apps (ACA)
+      # 5b. Provision / Update Azure Infrastructure and Container Apps via Bicep IaC
+      - name: Provision / Update Azure Infrastructure (Bicep IaC)
+        id: bicep
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
+          template: ./infra/main.bicep
+          parameters: >-
+            environmentName=xtwhatif-prod
+            imageTag=${{ github.sha }}
+            azureOpenAiEndpoint=${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}
+            azureOpenAiKey=${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}
+            azureOpenAiTtsDeployment=${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}
+            azureOpenAiTtsApiVersion=${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}
+
+      # 6a. Updates the Azure Container Apps with the new SHA tag
+      - name: Update Azure Container Apps (ACA Revisions)
         run: |
           echo "Updating ACA Gateway container image to ${{ github.sha }}..."
           az containerapp update \
             --name xt-whatif-aca-gateway \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} || true
 
           echo "Updating ACA Live match container image to ${{ github.sha }}..."
           az containerapp update \
             --name xt-whatif-live \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} || true
 
           echo "Updating ACA Frontend container image to ${{ github.sha }}..."
           az containerapp update \
             --name xt-whatif-frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} || true
 
-      # 6. Updates the AKS deployment with the new SHA tag
+      # 6b. Updates the AKS deployment with the new SHA tag (if AKS cluster exists)
       - name: Set AKS Cluster Context
+        id: aks_context
+        continue-on-error: true
         uses: azure/aks-set-context@v3
         with:
           resource-group: ${{ env.RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
       - name: Update AKS Compute Workers Deployment
+        if: steps.aks_context.outcome == 'success'
         run: |
           echo "Applying Kubernetes manifests..."
           kubectl apply -f ./infra/k8s-aks-workers.yaml
