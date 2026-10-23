@@ -38,6 +38,7 @@ from app.services.tts_service import router as tts_router
 from app.services.tactical_optimizer import router as optimizer_router
 from app.services.game_api import router as game_router
 from app.services.live_match import router as live_router, runner as live_runner
+from app.services.cloud_telemetry import get_aca_gateway_replicas
 
 
 logging.basicConfig(level=logging.INFO)
@@ -335,7 +336,13 @@ async def simulate_scenario(request: CounterfactualRequest):
 @app.get("/api/v1/cloud/telemetry", tags=["Cloud Telemetry"])
 async def get_cloud_telemetry():
     """Returns real-time ACA / AKS cluster telemetry, KEDA / HPA targets, and circuit breaker metrics."""
+    replica_info = get_aca_gateway_replicas()
     scaling = compute_dynamic_cluster_scaling()
+
+    actual_replicas = replica_info["replicas"]
+    is_simulated = replica_info["simulated"]
+    display_replicas = actual_replicas if not is_simulated else scaling["aca_gateway_replicas"]
+
     is_chaos = cloud_metrics_store["chaos_force_aks_failure"]
     compute_mode = (
         "local-in-process (circuit breaker tripped)"
@@ -343,6 +350,8 @@ async def get_cloud_telemetry():
         else ("aks-distributed" if settings.AKS_WORKER_URL else "local-in-process")
     )
     return {
+        "replicas": actual_replicas,
+        "simulated": is_simulated,
         "service_role": settings.SERVICE_ROLE,
         "compute_mode": compute_mode,
         "active_instance_id": scaling["active_instance_id"],
@@ -356,7 +365,7 @@ async def get_cloud_telemetry():
         "last_compute_latency_ms": cloud_metrics_store["last_compute_latency_ms"],
         "chaos_force_aks_failure": is_chaos,
         "circuit_breaker_active": is_chaos,
-        "aca_gateway_replicas": scaling["aca_gateway_replicas"],
+        "aca_gateway_replicas": display_replicas,
         "aks_worker_pods": scaling["aks_worker_pods"],
         "estimated_cpu_utilization_pct": scaling["estimated_cpu_utilization_pct"],
         "keda_active": True,

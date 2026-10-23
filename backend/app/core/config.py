@@ -59,6 +59,14 @@ class Settings(BaseSettings):
         default="gpt-4o-mini",
         validation_alias=AliasChoices("AZURE_OPENAI_DEPLOYMENT_MINI", "AZURE_OPENAI_DEPLOYMENT_COACH")
     )
+    AZURE_OPENAI_TTS_DEPLOYMENT: str = Field(
+        default="gpt-4o-mini-tts",
+        validation_alias=AliasChoices("AZURE_OPENAI_TTS_DEPLOYMENT")
+    )
+    AZURE_OPENAI_TTS_API_VERSION: str = Field(
+        default="2025-03-01-preview",
+        validation_alias=AliasChoices("AZURE_OPENAI_TTS_API_VERSION")
+    )
 
     # Synthetic match fixtures (see app/services/synthetic_generator.py)
     CACHE_DIR: str = str(Path(__file__).resolve().parent.parent / "data" / "cache")

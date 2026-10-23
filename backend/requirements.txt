@@ -22,6 +22,10 @@ redis>=5.1.0
 # AI Multi-Agent Swarm (Dr. Voronoi & Coach Bianchi)
 openai>=1.50.0
 
+# Azure Native Cloud Telemetry & Identity
+azure-identity>=1.15.0
+azure-mgmt-monitor>=6.0.0
+
 # Testing & Linting (Optional / Dev)
 pytest>=8.3.0
 pytest-asyncio>=0.24.0

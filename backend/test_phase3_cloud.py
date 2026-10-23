@@ -110,13 +110,17 @@ class TestPhase3CloudArchitecture(unittest.TestCase):
         data = response.json()
         self.assertIn("service_role", data)
         self.assertIn("compute_mode", data)
+        self.assertIn("replicas", data)
+        self.assertIn("simulated", data)
+        self.assertIsInstance(data["replicas"], int)
+        self.assertIsInstance(data["simulated"], bool)
         self.assertEqual(data["keda_target_concurrency"], 20)
         self.assertEqual(data["aks_hpa_target_cpu_pct"], 65)
         self.assertIn("metrics", data)
         self.assertIn("total_simulations", data["metrics"])
         self.assertIn("circuit_breaker_trips", data["metrics"])
         self.assertIn("last_compute_latency_ms", data["metrics"])
-        print(f"  [OK] Cloud telemetry endpoint verified (Total sims: {data['metrics']['total_simulations']}, Trips: {data['metrics']['circuit_breaker_trips']})")
+        print(f"  [OK] Cloud telemetry endpoint verified (Replicas: {data['replicas']}, Simulated: {data['simulated']}, Total sims: {data['metrics']['total_simulations']})")
 
     def test_06_chaos_toggle_and_circuit_breaker(self):
         """

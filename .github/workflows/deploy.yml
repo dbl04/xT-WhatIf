@@ -1,0 +1,239 @@
+name: Deploy to Azure (ACA & AKS)
+
+on:
+  push:
+    branches:
+      - main
+      - chore/azure-deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR_NAME: ${{ vars.ACR_NAME || 'xtwhatifprodacr' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RG || 'rg-xt-whatif' }}
+  AKS_CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME || 'aks-xtwhatif-prod' }}
+  BACKEND_IMAGE: xt-whatif-backend
+  FRONTEND_IMAGE: xt-whatif-frontend
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Update Azure Deployments
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 2. Logs into Azure using a Service Principal (stored in secrets)
+      - name: Log in to Azure using Service Principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Authenticate Docker client against Azure Container Registry (auto-discover or provision if missing)
+      - name: Ensure Azure Container Registry Exists & Log In
+        run: |
+          set -e
+          echo "=== 1. Active Azure Account & Subscription ==="
+          az account show --query "{SubscriptionId:id, TenantId:tenantId, Name:name}" -o table
+
+          echo "=== 2. Checking Resource Group ${{ env.RESOURCE_GROUP }} ==="
+          if ! az group show --name "${{ env.RESOURCE_GROUP }}" -o table 2>/dev/null; then
+            echo "Resource Group ${{ env.RESOURCE_GROUP }} not found in subscription!"
+            echo "Available Resource Groups in subscription:"
+            az group list --query "[].{Name:name, Location:location}" -o table
+            exit 1
+          fi
+
+          RG_LOCATION=$(az group show --name "${{ env.RESOURCE_GROUP }}" --query location -o tsv)
+          echo "Resource Group Location: $RG_LOCATION"
+
+          echo "=== 3. Registering Resource Providers if needed ==="
+          az provider register --namespace Microsoft.ContainerRegistry || true
+          az provider register --namespace Microsoft.App || true
+          az provider register --namespace Microsoft.OperationalInsights || true
+
+          echo "=== 4. Checking for existing Azure Container Registry in ${{ env.RESOURCE_GROUP }} ==="
+          EXISTING_ACR=$(az acr list --resource-group "${{ env.RESOURCE_GROUP }}" --query "[0].name" -o tsv 2>/dev/null || true)
+
+          if [ -n "$EXISTING_ACR" ] && [ "$EXISTING_ACR" != "null" ]; then
+            TARGET_ACR="$EXISTING_ACR"
+            echo "Found existing ACR in ${{ env.RESOURCE_GROUP }}: $TARGET_ACR"
+          else
+            TARGET_ACR="${{ env.ACR_NAME }}"
+            echo "No existing ACR in ${{ env.RESOURCE_GROUP }}. Checking if $TARGET_ACR exists globally..."
+            if ! az acr show --name "$TARGET_ACR" --resource-group "${{ env.RESOURCE_GROUP }}" 2>/dev/null; then
+              echo "Creating ACR $TARGET_ACR in ${{ env.RESOURCE_GROUP }} ($RG_LOCATION)..."
+              az acr create \
+                --name "$TARGET_ACR" \
+                --resource-group "${{ env.RESOURCE_GROUP }}" \
+                --location "$RG_LOCATION" \
+                --sku Basic \
+                --admin-enabled false
+            fi
+          fi
+
+          echo "Target ACR: $TARGET_ACR"
+          echo "ACR_NAME=$TARGET_ACR" >> $GITHUB_ENV
+
+          echo "=== 5. Logging into ACR $TARGET_ACR ==="
+          az acr login --name "$TARGET_ACR"
+
+      # 3. Builds backend Docker image
+      # 4. Tags the image using Git SHA (${{ github.sha }}) instead of latest
+      # 5. Pushes to ACR
+      - name: Build and Push Backend Image (Git SHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      # 3. Builds frontend Docker image
+      # 4. Tags the image using Git SHA (${{ github.sha }}) instead of latest
+      # 5. Pushes to ACR
+      - name: Build and Push Frontend Image (Git SHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+      # 5b. Provision / Update Azure Infrastructure and Container Apps via Bicep IaC
+      - name: Provision / Update Azure Infrastructure (Bicep IaC)
+        id: bicep
+        run: |
+          set +e
+          CREATE_ROLE="${{ vars.CREATE_ROLE_ASSIGNMENT || 'auto' }}"
+
+          if [ "$CREATE_ROLE" = "auto" ]; then
+            echo "Testing Bicep validation with createRoleAssignment=true..."
+            az deployment group validate \
+              --resource-group "${{ env.RESOURCE_GROUP }}" \
+              --template-file ./infra/main.bicep \
+              --parameters \
+                environmentName=xtwhatif-prod \
+                acrName="${{ env.ACR_NAME }}" \
+                imageTag="${{ github.sha }}" \
+                createRoleAssignment=true \
+                azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
+                azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || '' }}" \
+                azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
+                azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" > /tmp/validate-test.log 2>&1
+            
+            if [ $? -eq 0 ]; then
+              echo "Full RBAC authorization confirmed. Enabling AcrPull role assignment in Bicep."
+              CREATE_ROLE=true
+            else
+              if grep -q "roleAssignments" /tmp/validate-test.log; then
+                echo "::warning::Service Principal lacks role assignment write permissions. Proceeding with createRoleAssignment=false."
+                echo "### ⚠️ Notice: Role Assignment Skipped" >> "$GITHUB_STEP_SUMMARY"
+                echo "The Service Principal lacks \`Microsoft.Authorization/roleAssignments/write\` permissions in \`${{ env.RESOURCE_GROUP }}\`." >> "$GITHUB_STEP_SUMMARY"
+                echo "To enable automated AcrPull role assignments, assign 'Role Based Access Control Administrator' or 'Owner' to the Service Principal." >> "$GITHUB_STEP_SUMMARY"
+                CREATE_ROLE=false
+              else
+                cat /tmp/validate-test.log
+                CREATE_ROLE=true
+              fi
+            fi
+          fi
+
+          echo "Validating Bicep template (createRoleAssignment=$CREATE_ROLE)..."
+          az deployment group validate \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --template-file ./infra/main.bicep \
+            --parameters \
+              environmentName=xtwhatif-prod \
+              acrName="${{ env.ACR_NAME }}" \
+              imageTag="${{ github.sha }}" \
+              createRoleAssignment=$CREATE_ROLE \
+              azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || '' }}" \
+              azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
+              azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" > /tmp/validate.log 2>&1
+          VALIDATE_STATUS=$?
+          cat /tmp/validate.log
+
+          if [ $VALIDATE_STATUS -ne 0 ]; then
+            echo "### ❌ Bicep Validation Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/validate.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "Deploying Bicep template to ${{ env.RESOURCE_GROUP }} (createRoleAssignment=$CREATE_ROLE)..."
+          az deployment group create \
+            --name "deploy-${{ github.sha }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --template-file ./infra/main.bicep \
+            --parameters \
+              environmentName=xtwhatif-prod \
+              acrName="${{ env.ACR_NAME }}" \
+              imageTag="${{ github.sha }}" \
+              createRoleAssignment=$CREATE_ROLE \
+              azureOpenAiEndpoint="${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}" \
+              azureOpenAiKey="${{ secrets.AZURE_OPENAI_API_KEY || '' }}" \
+              azureOpenAiTtsDeployment="${{ vars.AZURE_OPENAI_TTS_DEPLOYMENT || 'gpt-4o-mini-tts' }}" \
+              azureOpenAiTtsApiVersion="${{ vars.AZURE_OPENAI_TTS_API_VERSION || '2025-03-01-preview' }}" \
+            --verbose > /tmp/deploy.log 2>&1
+          DEPLOY_STATUS=$?
+          cat /tmp/deploy.log
+
+          if [ $DEPLOY_STATUS -ne 0 ]; then
+            echo "### ❌ Bicep Deployment Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/deploy.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      # 6a. Updates the Azure Container Apps with the new SHA tag
+      - name: Update Azure Container Apps (ACA Revisions)
+        run: |
+          echo "Updating ACA Gateway container image to ${{ github.sha }}..."
+          az containerapp update \
+            --name xt-whatif-aca-gateway \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} || true
+
+          echo "Updating ACA Live match container image to ${{ github.sha }}..."
+          az containerapp update \
+            --name xt-whatif-live \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} || true
+
+          echo "Updating ACA Frontend container image to ${{ github.sha }}..."
+          az containerapp update \
+            --name xt-whatif-frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} || true
+
+      # 6b. Updates the AKS deployment with the new SHA tag (if AKS cluster exists)
+      - name: Set AKS Cluster Context
+        id: aks_context
+        continue-on-error: true
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - name: Update AKS Compute Workers Deployment
+        if: steps.aks_context.outcome == 'success'
+        run: |
+          echo "Applying Kubernetes manifests..."
+          kubectl apply -f ./infra/k8s-aks-workers.yaml
+
+          echo "Updating AKS Worker image to ${{ github.sha }}..."
+          kubectl set image deployment/xt-whatif-aks-worker worker=${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n xt-whatif
+
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment/xt-whatif-aks-worker -n xt-whatif --timeout=180s
