@@ -36,10 +36,31 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Authenticate Docker client against Azure Container Registry
-      - name: Log in to Azure Container Registry
+      # Authenticate Docker client against Azure Container Registry (auto-discover or provision if missing)
+      - name: Ensure Azure Container Registry Exists & Log In
         run: |
-          az acr login --name ${{ env.ACR_NAME }}
+          echo "Looking for existing Azure Container Registry in ${{ env.RESOURCE_GROUP }}..."
+          EXISTING_ACR=$(az acr list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv 2>/dev/null || true)
+          if [ -n "$EXISTING_ACR" ] && [ "$EXISTING_ACR" != "null" ]; then
+            echo "Found existing ACR in ${{ env.RESOURCE_GROUP }}: $EXISTING_ACR"
+            TARGET_ACR="$EXISTING_ACR"
+          else
+            TARGET_ACR="${{ env.ACR_NAME }}"
+            echo "No existing ACR found in ${{ env.RESOURCE_GROUP }}. Checking if $TARGET_ACR exists..."
+            if ! az acr show --name "$TARGET_ACR" &>/dev/null; then
+              LOCATION=$(az group show --name ${{ env.RESOURCE_GROUP }} --query location -o tsv)
+              echo "Provisioning new ACR $TARGET_ACR in location $LOCATION..."
+              az acr create \
+                --name "$TARGET_ACR" \
+                --resource-group ${{ env.RESOURCE_GROUP }} \
+                --location "$LOCATION" \
+                --sku Basic \
+                --admin-enabled false
+            fi
+          fi
+          echo "Using ACR: $TARGET_ACR"
+          echo "ACR_NAME=$TARGET_ACR" >> $GITHUB_ENV
+          az acr login --name "$TARGET_ACR"
 
       # 3. Builds backend Docker image
       # 4. Tags the image using Git SHA (${{ github.sha }}) instead of latest
@@ -73,6 +94,7 @@ jobs:
           template: ./infra/main.bicep
           parameters: >-
             environmentName=xtwhatif-prod
+            acrName=${{ env.ACR_NAME }}
             imageTag=${{ github.sha }}
             azureOpenAiEndpoint=${{ secrets.AZURE_OPENAI_ENDPOINT || vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}
             azureOpenAiKey=${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}

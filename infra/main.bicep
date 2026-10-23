@@ -31,7 +31,8 @@ param azureOpenAiTtsDeployment string = 'gpt-4o-mini-tts'
 @description('Azure OpenAI API Version for Text-To-Speech (TTS)')
 param azureOpenAiTtsApiVersion string = '2025-03-01-preview'
 
-var acrName = replace(toLower('${environmentName}acr'), '-', '')
+@description('Azure Container Registry Name')
+param acrName string = replace(toLower('${environmentName}acr'), '-', '')
 var backendImage = '${containerRegistry.properties.loginServer}/xt-whatif-backend:${imageTag}'
 var frontendImage = '${containerRegistry.properties.loginServer}/xt-whatif-frontend:${imageTag}'
 
