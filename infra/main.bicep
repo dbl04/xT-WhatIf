@@ -25,6 +25,9 @@ param azureOpenAiEndpoint string = 'https://xtwhatif-openai.openai.azure.com/'
 @secure()
 param azureOpenAiKey string = 'mock-azure-openai-key'
 
+@description('Azure OpenAI Deployment for Text-To-Speech (TTS)')
+param azureOpenAiTtsDeployment string = 'tts-1'
+
 var acrName = replace(toLower('${environmentName}acr'), '-', '')
 var backendImage = '${containerRegistry.properties.loginServer}/xt-whatif-backend:${imageTag}'
 var frontendImage = '${containerRegistry.properties.loginServer}/xt-whatif-frontend:${imageTag}'
@@ -48,7 +51,28 @@ resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' =
     name: 'Basic'
   }
   properties: {
-    adminUserEnabled: true
+    adminUserEnabled: false
+  }
+}
+
+// ============================================================================
+// 2. Managed Identity & Role Assignment for ACR Image Pull
+// ============================================================================
+resource containerAppIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${environmentName}-identity'
+  location: location
+}
+
+// Built-in AcrPull role definition ID: 7f951dda-4ed3-4680-a7ca-43fe172d538d
+var acrPullRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistry.id, containerAppIdentity.id, acrPullRoleDefinitionId)
+  scope: containerRegistry
+  properties: {
+    roleDefinitionId: acrPullRoleDefinitionId
+    principalId: containerAppIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -84,15 +108,10 @@ resource appEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
 var registries = [
   {
     server: containerRegistry.properties.loginServer
-    username: containerRegistry.listCredentials().username
-    passwordSecretRef: 'acr-password'
+    identity: containerAppIdentity.id
   }
 ]
 var backendSecrets = [
-  {
-    name: 'acr-password'
-    value: containerRegistry.listCredentials().passwords[0].value
-  }
   {
     name: 'openai-api-key'
     value: azureOpenAiKey
@@ -118,6 +137,10 @@ var openAiEnv = [
   {
     name: 'AZURE_OPENAI_DEPLOYMENT_MINI'
     value: 'gpt-4o-mini'
+  }
+  {
+    name: 'AZURE_OPENAI_TTS_DEPLOYMENT'
+    value: azureOpenAiTtsDeployment
   }
 ]
 var healthProbes = [
@@ -147,6 +170,15 @@ var healthProbes = [
 resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'xt-whatif-aca-gateway'
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${containerAppIdentity.id}': {}
+    }
+  }
+  dependsOn: [
+    acrPullRoleAssignment
+  ]
   properties: {
     managedEnvironmentId: appEnvironment.id
     configuration: {
@@ -220,6 +252,15 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
 resource liveApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'xt-whatif-live'
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${containerAppIdentity.id}': {}
+    }
+  }
+  dependsOn: [
+    acrPullRoleAssignment
+  ]
   properties: {
     managedEnvironmentId: appEnvironment.id
     configuration: {
@@ -284,6 +325,15 @@ resource liveApp 'Microsoft.App/containerApps@2023-05-01' = {
 resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'xt-whatif-frontend'
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${containerAppIdentity.id}': {}
+    }
+  }
+  dependsOn: [
+    acrPullRoleAssignment
+  ]
   properties: {
     managedEnvironmentId: appEnvironment.id
     configuration: {
@@ -294,12 +344,6 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
         allowInsecure: false
       }
       registries: registries
-      secrets: [
-        {
-          name: 'acr-password'
-          value: containerRegistry.listCredentials().passwords[0].value
-        }
-      ]
     }
     template: {
       containers: [
@@ -349,3 +393,5 @@ output frontendUrl string = 'https://${frontendApp.properties.configuration.ingr
 output gatewayFqdn string = gatewayApp.properties.configuration.ingress.fqdn
 output liveFqdn string = liveApp.properties.configuration.ingress.fqdn
 output frontendFqdn string = frontendApp.properties.configuration.ingress.fqdn
+output managedIdentityId string = containerAppIdentity.id
+output managedIdentityClientId string = containerAppIdentity.properties.clientId
