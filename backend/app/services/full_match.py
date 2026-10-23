@@ -117,7 +117,7 @@ def generate_full_match(seed: int, match_id: Optional[int] = None) -> List[LiveE
         receiver = None if kind in ("Shot", "Dribble") else _role_for(*end, exclude=actor)
         scenario = Scenario(
             key, kind, ball=start, ball_end=end, actor_role=actor, receiver_role=receiver,
-            press_distance_m=rng.uniform(2.0, 3.5), lane_clearance_m=3.5 if kind == "Shot" else 4.5,
+            press_distance_m=rng.uniform(2.0, 3.5), lane_clearance_m=2.0 if kind == "Shot" else 2.5,
         )
         frame = MatchFramePayload(
             match_id=match_id,

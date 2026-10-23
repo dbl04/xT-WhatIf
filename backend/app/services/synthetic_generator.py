@@ -117,7 +117,7 @@ class Scenario:
     keeper_rush_x: Optional[float] = None
     # Defenders are kept at least this far (m) from the ball's path: the action was played
     # through a gap, as it would be in a real match.
-    lane_clearance_m: float = 4.5
+    lane_clearance_m: float = 3.6
 
 
 # Coordinates are expressed with the attacking team going towards x = 120.
@@ -127,7 +127,7 @@ SCENARIOS: List[Scenario] = [
              ball=(97.0, 13.0), ball_end=(106.0, 24.0), actor_role="RW", press_distance_m=2.2),
     Scenario("counter_through", "Pass",
              ball=(60.0, 46.0), ball_end=(91.0, 34.0), actor_role="LCM", receiver_role="ST",
-             press_distance_m=3.5, def_line_x=74.0, lane_clearance_m=5.0),
+             press_distance_m=3.5, def_line_x=74.0, lane_clearance_m=4.0),
     Scenario("cutback", "Pass",
              ball=(113.0, 71.0), ball_end=(103.0, 45.0), actor_role="LW", receiver_role="RCM",
              press_distance_m=2.0),
@@ -139,10 +139,10 @@ SCENARIOS: List[Scenario] = [
              press_distance_m=3.0),
     Scenario("edge_shot", "Shot",
              ball=(97.0, 37.0), ball_end=(120.0, 38.5), actor_role="LCM", press_distance_m=2.4,
-             lane_clearance_m=3.5),
+             lane_clearance_m=2.8),
     Scenario("one_v_one", "Shot",
              ball=(106.0, 44.0), ball_end=(120.0, 41.0), actor_role="ST", press_distance_m=3.2,
-             keeper_rush_x=112.5, lane_clearance_m=3.0),
+             keeper_rush_x=112.5, lane_clearance_m=2.4),
 ]
 
 
@@ -239,8 +239,9 @@ def _clear_lane(points: Dict[int, List[float]], movable: List[int], start: Tuple
         t = ((px - sx) * ux + (py - sy) * uy) / length
         if not 0.05 < t < 0.98:
             continue
-        # The interception cone widens along the path, so the gap does too.
-        needed = clearance + 2.5 * t
+        # The interception cone widens along the path, so the gap does too (about as fast as
+        # tactical_math.PASS_SIGMA: a wider gap would leave the attackers nothing to improve).
+        needed = clearance + 1.5 * t
         side = (px - sx) * nx + (py - sy) * ny
         if abs(side) >= needed:
             continue
