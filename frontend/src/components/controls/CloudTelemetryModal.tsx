@@ -22,26 +22,6 @@ interface CloudTelemetryData {
   keda_active?: boolean;
 }
 
-interface StressBurstResult {
-  burst_count: number;
-  total_elapsed_ms: number;
-  avg_latency_ms: number;
-  sims_per_second: number;
-  kd_tree_lookups: number;
-  engine: string;
-}
-
-function normalizeBurstResult(api: StressBurstResponse): StressBurstResult {
-  return {
-    burst_count: api.simulations_count,
-    total_elapsed_ms: api.total_time_ms,
-    avg_latency_ms: api.average_latency_ms,
-    sims_per_second: api.throughput_simulations_per_sec,
-    kd_tree_lookups: api.kd_tree_lookups,
-    engine: api.engine,
-  };
-}
-
 interface CloudTelemetryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -70,7 +50,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isBursting, setIsBursting] = useState<boolean>(false);
-  const [burstResult, setBurstResult] = useState<StressBurstResult | null>(null);
+  const [burstResult, setBurstResult] = useState<StressBurstResponse | null>(null);
   // Shown in the viewer's language, so it is derived from the state rather than the API message.
   const [showChaosMessage, setShowChaosMessage] = useState<boolean>(false);
 
@@ -110,12 +90,12 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       });
 
       if (res.ok) {
-        const data = normalizeBurstResult(await res.json());
+        const data: StressBurstResponse = await res.json();
         setBurstResult(data);
         setTelemetry((prev) => ({
           ...prev,
           total_simulations: prev.total_simulations + 25,
-          last_compute_latency_ms: data.avg_latency_ms,
+          last_compute_latency_ms: data.average_latency_ms,
         }));
         setIsBursting(false);
         return;
@@ -126,13 +106,21 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
 
     // Simulated local benchmark
     await new Promise((r) => setTimeout(r, 480));
-    const simulatedResult: StressBurstResult = {
-      burst_count: 25,
-      total_elapsed_ms: 18.4,
-      avg_latency_ms: 0.74,
-      sims_per_second: 1358.7,
+    const simulatedResult: StressBurstResponse = {
+      status: "success",
+      benchmark: "25-Simulation Parallel KDTree Stress Burst (offline)",
+      simulations_count: 25,
+      total_time_ms: 18.4,
+      average_latency_ms: 0.74,
+      throughput_simulations_per_sec: 1358.7,
       kd_tree_lookups: 25 * 22 * 192,
       engine: "Scipy Voronoi + KDTree + 16x12 Expected Threat",
+      active_instance_id: "offline",
+      aca_gateway_replicas: telemetry.aca_gateway_replicas ?? 0,
+      aks_worker_pods: telemetry.aks_worker_pods ?? 0,
+      estimated_cpu_utilization_pct: 0,
+      sampled_simulated_xt: [],
+      metrics: {},
     };
     setBurstResult(simulatedResult);
     setTelemetry((prev) => ({
@@ -324,15 +312,15 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
         {burstResult && (
           <div className="mt-3 rounded-md border border-line px-4 py-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-[13px] text-fg">{t("cloud.burstDone", { n: burstResult.burst_count })}</span>
+              <span className="text-[13px] text-fg">{t("cloud.burstDone", { n: burstResult.simulations_count })}</span>
               <span className="font-display text-lg font-bold tabular-nums text-signal-green">
-                {burstResult.sims_per_second.toLocaleString()} sims/s
+                {burstResult.throughput_simulations_per_sec.toLocaleString()} sims/s
               </span>
             </div>
             <div className="mt-1 font-mono text-[11px] text-fg-muted">
               {t("cloud.burstStats", {
-                total: burstResult.total_elapsed_ms,
-                avg: burstResult.avg_latency_ms,
+                total: burstResult.total_time_ms,
+                avg: burstResult.average_latency_ms,
                 lookups: burstResult.kd_tree_lookups.toLocaleString(),
               })}
             </div>

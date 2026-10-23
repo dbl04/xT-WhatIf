@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -93,3 +93,21 @@ class CounterfactualRequest(BaseModel):
     # Personalisation of the agents' debate (see app/services/narration.py).
     language: Literal["en", "es"] = "en"
     audience: Literal["casual", "analyst", "coach", "audio_description"] = "analyst"
+
+class StressBurstResponse(BaseModel):
+    """POST /api/v1/cloud/stress-burst. The frontend reads these names as they are."""
+    status: str
+    benchmark: str
+    simulations_count: int
+    total_time_ms: float
+    average_latency_ms: float
+    throughput_simulations_per_sec: float
+    kd_tree_lookups: int
+    engine: str
+    active_instance_id: str
+    aca_gateway_replicas: int
+    # A number, or a text label while the chaos test has the AKS workers unreachable.
+    aks_worker_pods: Union[int, str]
+    estimated_cpu_utilization_pct: float
+    sampled_simulated_xt: List[float]
+    metrics: Dict[str, Any]
