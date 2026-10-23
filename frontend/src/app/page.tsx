@@ -282,9 +282,12 @@ function DashboardPage() {
   const isLive = connectionMode === "live";
 
   return (
-    <main className="relative flex h-screen w-screen select-none flex-col overflow-hidden bg-ink text-fg">
+    <main className="relative flex min-h-screen w-full select-none flex-col bg-ink text-fg lg:h-screen lg:overflow-hidden">
+      {/* Below lg the floating broadcast panels would cover most of the pitch, so the stage turns
+          into a scrolling column: pitch, transport, dock, pundits. lg and up keep the overlay. */}
+
       {/* 1. Top Broadcast Bar */}
-      <header className="z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4 sm:px-5">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-4">
           {/* Wordmark */}
           <div className="flex items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight">
@@ -397,12 +400,12 @@ function DashboardPage() {
       </header>
 
       {/* 2. Main Stadium Viewport */}
-      <div className="relative z-10 flex h-full w-full flex-1 items-center justify-center overflow-hidden p-2 sm:p-4">
+      <div className="relative z-10 flex w-full flex-1 flex-col gap-3 p-2 sm:p-4 lg:h-full lg:flex-row lg:items-center lg:justify-center lg:overflow-hidden">
         {/* Width capped so the 3:2 pitch fits the viewport height. 10.5rem = header (56px)
             + stage padding (32px) + pitch top bar (45px) + footer (33px) + frame border (2px);
             those bars have fixed heights and never wrap. */}
         <div
-          className="flex h-full w-full items-center justify-center"
+          className="order-1 flex w-full items-center justify-center self-center lg:h-full"
           style={{ maxWidth: "min(1720px, calc((100vh - 10.5rem) * 1.5))" }}
         >
           <TacticalPitch2D
@@ -434,7 +437,7 @@ function DashboardPage() {
         </div>
 
         {/* 3. Tactical Dock (Top-Left) */}
-        <div className="pointer-events-none absolute left-4 top-4 z-30 flex w-full max-w-[340px] flex-col">
+        <div className="pointer-events-none order-3 flex w-full flex-col lg:absolute lg:left-4 lg:top-4 lg:z-30 lg:max-w-[340px]">
           {challengeState ? (
             /* Challenge open: only the challenge card, always visible on large screens (the
                compact strip replaces the transport dock below lg). Auto-Coach, quick scenarios
@@ -444,7 +447,7 @@ function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
               aria-label={t("challenge.kicker")}
-              className={`pointer-events-auto max-h-[calc(100vh-7rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex ${reveal ? "flex" : "hidden"}`}
+              className={`pointer-events-auto flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex ${reveal ? "flex" : "hidden"}`}
             >
               {reveal ? (
                 <div className="p-3">
@@ -469,7 +472,7 @@ function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
               aria-label={t("live.kicker")}
-              className="pointer-events-auto flex max-h-[calc(100vh-7rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+              className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
             >
               <section className="border-b border-line p-3">
                 {liveState.matchEnd ? (
@@ -499,7 +502,7 @@ function DashboardPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -12 }}
                 transition={{ duration: 0.16, ease: "easeOut" }}
-                className="pointer-events-auto flex max-h-[calc(100vh-15rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+                className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
                 {liveAvailable && practising && (
                   <section className="border-b border-line p-3">
@@ -571,7 +574,7 @@ function DashboardPage() {
 
         {/* 4. Lower-Third (hidden during a challenge: the pundits discuss the answer and the
             card would cover the challenge card on short screens) */}
-        {!inChallenge && !isLiveView && <BroadcastCommentatorCard
+        {!inChallenge && !isLiveView && <div className="order-4 lg:contents"><BroadcastCommentatorCard
           messages={currentFrame.agent_debate}
           activeSpeakingRole={tts.activeSpeaker}
           isSpeaking={tts.isPlaying}
@@ -583,10 +586,10 @@ function DashboardPage() {
           onStopAudio={tts.stop}
           clockLabel={clock}
           eventType={currentFrame.event_type}
-        />}
+        /></div>}
 
         {/* 5. Transport Dock */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 mx-auto flex justify-center px-4">
+        <div className="pointer-events-none order-2 flex w-full flex-col items-center gap-3 lg:absolute lg:inset-x-0 lg:bottom-3 lg:z-30 lg:mx-auto lg:flex-row lg:justify-center lg:px-4">
           {challengeState && !reveal && (
             <div className="pointer-events-auto w-full max-w-xl lg:hidden">
               <ChallengeStrip
