@@ -32,8 +32,8 @@ const R = {
   fg: PALETTE.fg,
   muted: PALETTE.fgMuted,
   subtle: PALETTE.fgSubtle,
-  green: PALETTE.green,
-  magenta: PALETTE.magenta,
+  gain: PALETTE.gain,
+  loss: PALETTE.loss,
   home: PALETTE.home,
   turf: PALETTE.turf,
 };
@@ -190,7 +190,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           ctx.font = `800 20px ${DISPLAY}`;
           const ident = t("report.ident");
           const identW = ctx.measureText(ident).width + 28;
-          ctx.fillStyle = R.green;
+          ctx.fillStyle = R.gain;
           ctx.fillRect(M, 44, identW, 34);
           ctx.fillStyle = R.ink;
           ctx.fillText(ident, M + 14, 68);
@@ -220,10 +220,10 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           const modeText = matchInfo.isCounterfactual ? t("report.simulated") : t("report.original");
           ctx.font = `600 13px ${MONO}`;
           const modeW = ctx.measureText(modeText).width + 20;
-          ctx.strokeStyle = matchInfo.isCounterfactual ? R.green : R.fg;
+          ctx.strokeStyle = matchInfo.isCounterfactual ? R.gain : R.fg;
           ctx.lineWidth = 1;
           ctx.strokeRect(width - M - modeW + 0.5, 150.5, modeW, 28);
-          ctx.fillStyle = matchInfo.isCounterfactual ? R.green : R.fg;
+          ctx.fillStyle = matchInfo.isCounterfactual ? R.gain : R.fg;
           ctx.fillText(modeText, width - M - modeW + 10, 169);
 
           hairline(M, 204, width - M, 204);
@@ -255,7 +255,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           const statRows: Array<[string, string, string]> = [
             [t("report.originalXt"), metrics.original_xt.toFixed(2), R.muted],
             [t("report.simulatedXt"), metrics.simulated_xt.toFixed(2), R.fg],
-            ["Δ xT", isPos ? `+${metrics.xt_delta.toFixed(2)}` : metrics.xt_delta.toFixed(2), isPos ? R.green : R.magenta],
+            ["Δ xT", isPos ? `+${metrics.xt_delta.toFixed(2)}` : metrics.xt_delta.toFixed(2), isPos ? R.gain : R.loss],
           ];
           statRows.forEach(([label, value, color]) => {
             hairline(colX, y, colX + colW, y);

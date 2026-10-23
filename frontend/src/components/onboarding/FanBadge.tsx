@@ -18,7 +18,7 @@ export const FanBadge: React.FC = () => {
       onClick={openTeamSelection}
       title={`${identity.nickname} · ${teamInfo.name}. ${label}`}
       aria-label={`${identity.nickname} · ${teamInfo.name}. ${label}`}
-      className="flex h-8 max-w-[11rem] items-center gap-1.5 rounded-md border border-line bg-ink-800 px-2 transition-colors hover:border-line-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-green"
+      className="flex h-8 max-w-[11rem] items-center gap-1.5 rounded-md border border-line bg-ink-800 px-2 transition-colors hover:border-line-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-gain"
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20"

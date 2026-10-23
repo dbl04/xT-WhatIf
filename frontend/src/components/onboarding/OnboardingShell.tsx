@@ -26,7 +26,7 @@ export const OnboardingShell: React.FC<{
       <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line px-4 sm:px-5">
         <div className="flex items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight">
           <span className="text-fg">xT</span>
-          <span className="text-signal-green">/</span>
+          <span className="text-signal-gain">/</span>
           <span className="text-fg">WhatIf</span>
         </div>
         <span className="font-mono text-[11px] uppercase tracking-wider text-fg-subtle">
@@ -41,7 +41,7 @@ export const OnboardingShell: React.FC<{
           transition={{ duration: 0.2, ease: "easeOut" }}
           className="w-full max-w-3xl"
         >
-          <Kicker className="text-signal-green">{t("onboarding.kicker")}</Kicker>
+          <Kicker className="text-signal-gain">{t("onboarding.kicker")}</Kicker>
           <h1
             ref={headingRef}
             tabIndex={-1}

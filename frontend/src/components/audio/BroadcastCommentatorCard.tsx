@@ -93,14 +93,14 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
             className="pointer-events-auto w-full max-w-5xl overflow-hidden rounded-[3px] border border-line-strong bg-ink-900/95 backdrop-blur-sm"
           >
             <div className="flex items-center gap-4 px-4 py-3">
-              <span className="font-display text-sm font-bold uppercase tracking-[0.14em] text-signal-green">
+              <span className="font-display text-sm font-bold uppercase tracking-[0.14em] text-signal-gain">
                 {t("card.programme")}
               </span>
               <span className="h-4 w-px bg-line-strong" />
               <span className="text-[13px] text-fg-muted">{t("card.recalculating")}</span>
             </div>
             <div className="relative h-px w-full overflow-hidden bg-line">
-              <div className="absolute inset-y-0 left-0 w-1/3 animate-progress-indeterminate bg-signal-green" />
+              <div className="absolute inset-y-0 left-0 w-1/3 animate-progress-indeterminate bg-signal-gain" />
             </div>
           </motion.div>
         ) : isMinimized ? (
@@ -146,7 +146,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
           >
             {/* Top strap: programme ident + pundit switcher + controls */}
             <div className="flex items-stretch">
-              <div className="flex items-center gap-2 bg-signal-green px-3 py-1">
+              <div className="flex items-center gap-2 bg-signal-gain px-3 py-1">
                 <span className="font-display text-[13px] font-extrabold uppercase leading-none tracking-[0.14em] text-ink">
                   {t("card.programme")}
                 </span>

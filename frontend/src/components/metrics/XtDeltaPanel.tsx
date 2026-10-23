@@ -23,8 +23,8 @@ const Stat: React.FC<{
   const tones = {
     default: "text-fg",
     muted: "text-fg-muted",
-    green: "text-signal-green",
-    magenta: "text-signal-magenta",
+    green: "text-signal-gain",
+    magenta: "text-signal-loss",
   } as const;
   return (
     <div className="flex flex-col gap-1">

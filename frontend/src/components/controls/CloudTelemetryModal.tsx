@@ -247,7 +247,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
           {services.map((svc) => (
             <div key={svc.name} className="flex items-center gap-4 px-4 py-3">
               <span
-                className={`h-2 w-2 shrink-0 rounded-full ${svc.status === "ok" ? "bg-signal-green" : "bg-signal-magenta"}`}
+                className={`h-2 w-2 shrink-0 rounded-full ${svc.status === "ok" ? "bg-signal-gain" : "bg-signal-loss"}`}
                 aria-label={svc.status === "ok" ? t("cloud.operational") : t("cloud.down")}
               />
               <div className="min-w-0 flex-1">
@@ -255,7 +255,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
                   <span className="font-mono text-[13px] text-fg">{svc.name}</span>
                   <span className="text-[11px] text-fg-subtle">{svc.platform}</span>
                 </div>
-                <p className={`mt-0.5 text-[12px] ${svc.status === "ok" ? "text-fg-muted" : "text-signal-magenta"}`}>
+                <p className={`mt-0.5 text-[12px] ${svc.status === "ok" ? "text-fg-muted" : "text-signal-loss"}`}>
                   {svc.detail}
                 </p>
               </div>
@@ -279,7 +279,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
               <div className="mt-1 flex items-baseline gap-1">
                 <span
                   className={`font-display text-[32px] font-bold leading-none tabular-nums ${
-                    st.alert ? "text-signal-magenta" : "text-fg"
+                    st.alert ? "text-signal-loss" : "text-fg"
                   }`}
                 >
                   {st.value}
@@ -303,7 +303,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
             {isBursting ? t("cloud.bursting") : t("cloud.burst")}
           </Button>
 
-          <Button variant="secondary" onClick={handleChaosToggle} className={isCircuitBroken ? "border-signal-magenta/60 text-signal-magenta" : undefined}>
+          <Button variant="secondary" onClick={handleChaosToggle} className={isCircuitBroken ? "border-signal-loss/60 text-signal-loss" : undefined}>
             <Power className="h-3.5 w-3.5" />
             {isCircuitBroken ? t("cloud.restoreAks") : t("cloud.killAks")}
           </Button>
@@ -313,7 +313,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
           <div className="mt-3 rounded-md border border-line px-4 py-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="text-[13px] text-fg">{t("cloud.burstDone", { n: burstResult.simulations_count })}</span>
-              <span className="font-display text-lg font-bold tabular-nums text-signal-green">
+              <span className="font-display text-lg font-bold tabular-nums text-signal-gain">
                 {burstResult.throughput_simulations_per_sec.toLocaleString()} sims/s
               </span>
             </div>
@@ -330,7 +330,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
         {showChaosMessage && (
           <div
             className={`mt-3 border-l-2 py-1 pl-3 text-[12px] ${
-              isCircuitBroken ? "border-signal-magenta text-fg" : "border-signal-green text-fg-muted"
+              isCircuitBroken ? "border-signal-loss text-fg" : "border-signal-gain text-fg-muted"
             }`}
           >
             {isCircuitBroken ? t("cloud.chaosOn") : t("cloud.chaosOff")}

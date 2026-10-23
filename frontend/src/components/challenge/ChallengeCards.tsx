@@ -26,6 +26,7 @@ import {
   ChallengeTrend,
   DEFAULT_RULES,
 } from "@/lib/challenge";
+import { PALETTE } from "@/lib/palette";
 import type { ChallengeState } from "@/hooks/useChallenge";
 import type { PlayerNode, TeamInfo } from "@/types/match";
 
@@ -42,7 +43,7 @@ const ModeHeadline: React.FC<{ mode: ChallengeMode; teamColor?: string }> = ({ m
       <span
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border",
-          mode === "attack" ? "border-signal-green/40 text-signal-green" : "border-team-home/50 text-team-home"
+          mode === "attack" ? "border-signal-gain/40 text-signal-gain" : "border-team-home/50 text-team-home"
         )}
         aria-hidden
       >
@@ -82,14 +83,14 @@ export const PlayMomentCard: React.FC<{
       })}
       className={cn(
         "group relative flex w-full flex-col gap-3 overflow-hidden rounded-lg border border-line-strong bg-ink-800/60 p-3 pt-4 text-left transition-colors",
-        "hover:border-signal-green/60 hover:bg-ink-800",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-green"
+        "hover:border-signal-gain/60 hover:bg-ink-800",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-gain"
       )}
     >
       {/* Kit colour stripe of the user's team, like the onboarding cards */}
       <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: supportedTeam.primary_color }} aria-hidden />
       <div className="flex items-center justify-between gap-2">
-        <Kicker className="text-signal-green">{t("challenge.kicker")}</Kicker>
+        <Kicker className="text-signal-gain">{t("challenge.kicker")}</Kicker>
         <Tag>{t("challenge.possession", { team: possessionTeam.short_name })}</Tag>
       </div>
       <ModeHeadline mode={mode} />
@@ -131,8 +132,8 @@ const TREND_ICON: Record<ChallengeTrend, React.ElementType> = {
 };
 
 const TREND_TONE: Record<ChallengeTrend, string> = {
-  better: "text-signal-green",
-  worse: "text-signal-magenta",
+  better: "text-signal-gain",
+  worse: "text-signal-loss",
   same: "text-fg-muted",
 };
 
@@ -198,7 +199,7 @@ const TimerTile: React.FC<{ secondsLeft: number; durationS: number; stopped: boo
         aria-label={t("challenge.timeAria", { s: secondsLeft })}
         className={cn(
           "mt-1 font-display text-[28px] font-bold leading-none tabular-nums",
-          urgent ? "text-signal-magenta" : "text-fg",
+          urgent ? "text-signal-loss" : "text-fg",
           urgent && secondsLeft > 0 && "motion-safe:animate-pulse"
         )}
       >
@@ -206,7 +207,7 @@ const TimerTile: React.FC<{ secondsLeft: number; durationS: number; stopped: boo
       </span>
       <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
         <span
-          className={cn("block h-full rounded-full transition-[width] duration-300 ease-linear", urgent ? "bg-signal-magenta" : "bg-signal-green")}
+          className={cn("block h-full rounded-full transition-[width] duration-300 ease-linear", urgent ? "bg-signal-loss" : "bg-signal-gain")}
           style={{ width: `${pct}%` }}
         />
       </span>
@@ -274,7 +275,7 @@ export const ChallengeCard: React.FC<{
     <div className="relative flex flex-col gap-3 overflow-hidden p-3 pt-4">
       <span
         className="absolute inset-x-0 top-0 h-1"
-        style={{ backgroundColor: teamInfo?.primary_color ?? "#00ff85" }}
+        style={{ backgroundColor: teamInfo?.primary_color ?? PALETTE.gain }}
         aria-hidden
       />
       <span className="sr-only" aria-live="polite">
@@ -282,7 +283,7 @@ export const ChallengeCard: React.FC<{
       </span>
 
       <div className="flex items-center justify-between gap-2">
-        <Kicker className="text-signal-green">{t("challenge.kicker")}</Kicker>
+        <Kicker className="text-signal-gain">{t("challenge.kicker")}</Kicker>
         {isOpen ? (
           <IconButton size="sm" onClick={onLeave} title={t("challenge.leave")} aria-label={t("challenge.leave")}>
             <X className="h-3.5 w-3.5" />
@@ -315,9 +316,9 @@ export const ChallengeCard: React.FC<{
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-start gap-1.5 overflow-hidden rounded-md border border-signal-magenta/40 bg-signal-magenta/10 px-2 py-1.5 text-[12px] text-fg"
+                className="flex items-start gap-1.5 overflow-hidden rounded-md border border-signal-loss/40 bg-signal-loss/10 px-2 py-1.5 text-[12px] text-fg"
               >
-                <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0 text-signal-magenta" aria-hidden />
+                <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0 text-signal-loss" aria-hidden />
                 {notice === "limit"
                   ? t("challenge.limit", { n: state.rules.max_players })
                   : t("challenge.locked")}
@@ -326,8 +327,8 @@ export const ChallengeCard: React.FC<{
           </AnimatePresence>
 
           {state.violations.length > 0 && (
-            <div className="rounded-md border border-signal-magenta/40 bg-signal-magenta/[0.07] p-2" aria-live="polite">
-              <Kicker className="text-signal-magenta">{t("challenge.violations")}</Kicker>
+            <div className="rounded-md border border-signal-loss/40 bg-signal-loss/[0.07] p-2" aria-live="polite">
+              <Kicker className="text-signal-loss">{t("challenge.violations")}</Kicker>
               <ul className="mt-1 flex flex-col gap-0.5">
                 {state.violations.map((v, i) => (
                   <li
@@ -337,7 +338,7 @@ export const ChallengeCard: React.FC<{
                     onMouseLeave={() => onHighlightPlayer?.(null)}
                   >
                     <span className="truncate text-fg">{playerLabel(v.player_id)}</span>
-                    <span className="shrink-0 font-medium text-signal-magenta">{t(`challenge.rule.${v.rule}`)}</span>
+                    <span className="shrink-0 font-medium text-signal-loss">{t(`challenge.rule.${v.rule}`)}</span>
                   </li>
                 ))}
               </ul>
@@ -411,11 +412,11 @@ export const ChallengeCard: React.FC<{
           </div>
 
           {state.violations.length > 0 && (
-            <ul className="flex flex-col gap-0.5 rounded-md border border-signal-magenta/40 bg-signal-magenta/[0.07] p-2 text-[12px]">
+            <ul className="flex flex-col gap-0.5 rounded-md border border-signal-loss/40 bg-signal-loss/[0.07] p-2 text-[12px]">
               {state.violations.map((v, i) => (
                 <li key={`${v.player_id}-${v.rule}-${i}`} className="flex justify-between gap-2">
                   <span className="truncate text-fg">{playerLabel(v.player_id)}</span>
-                  <span className="shrink-0 text-signal-magenta">{t(`challenge.rule.${v.rule}`)}</span>
+                  <span className="shrink-0 text-signal-loss">{t(`challenge.rule.${v.rule}`)}</span>
                 </li>
               ))}
               <li className="mt-1 text-[11px] text-fg-muted">{t("challenge.illegalDropped")}</li>
@@ -470,7 +471,7 @@ export const ChallengeStrip: React.FC<{
   } else if (firstViolation) {
     const p = byId.get(firstViolation.player_id);
     message = (
-      <span className="text-signal-magenta">
+      <span className="text-signal-loss">
         {p ? `#${p.jersey_number} ${p.name.split(" ").pop()} · ` : ""}
         {t(`challenge.rule.${firstViolation.rule}`)}
         {state.violations.length > 1 ? ` (+${state.violations.length - 1})` : ""}
@@ -493,14 +494,14 @@ export const ChallengeStrip: React.FC<{
       aria-label={t("challenge.kicker")}
       role="region"
     >
-      <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: teamInfo?.primary_color ?? "#00ff85" }} aria-hidden />
+      <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: teamInfo?.primary_color ?? PALETTE.gain }} aria-hidden />
       <span className="sr-only" aria-live="polite">
         {announcement}
       </span>
       <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-2.5 sm:gap-3">
         <span className="flex min-w-0 items-center gap-1.5">
           <Icon
-            className={cn("h-4 w-4 shrink-0", state.mode === "attack" ? "text-signal-green" : "text-team-home")}
+            className={cn("h-4 w-4 shrink-0", state.mode === "attack" ? "text-signal-gain" : "text-team-home")}
             aria-hidden
           />
           <span className="hidden truncate font-display text-lg font-bold uppercase leading-none tracking-tight text-fg min-[420px]:inline">
@@ -513,7 +514,7 @@ export const ChallengeStrip: React.FC<{
           aria-label={t("challenge.timeAria", { s: secondsLeft })}
           className={cn(
             "font-display text-2xl font-bold leading-none tabular-nums",
-            urgent ? "text-signal-magenta" : "text-fg",
+            urgent ? "text-signal-loss" : "text-fg",
             urgent && secondsLeft > 0 && "motion-safe:animate-pulse"
           )}
         >
@@ -587,7 +588,7 @@ export const ChallengeStrip: React.FC<{
         <span
           className={cn(
             "block h-full transition-[width] duration-300 ease-linear",
-            !isOpen ? "bg-fg-subtle" : urgent ? "bg-signal-magenta" : "bg-signal-green"
+            !isOpen ? "bg-fg-subtle" : urgent ? "bg-signal-loss" : "bg-signal-gain"
           )}
           style={{ width: `${isOpen ? pct : 100}%` }}
         />

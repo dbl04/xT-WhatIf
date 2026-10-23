@@ -289,7 +289,7 @@ function DashboardPage() {
           {/* Wordmark */}
           <div className="flex items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight">
             <span className="text-fg">xT</span>
-            <span className="text-signal-green">/</span>
+            <span className="text-signal-gain">/</span>
             <span className="text-fg">WhatIf</span>
           </div>
 
@@ -320,7 +320,7 @@ function DashboardPage() {
             <span className="truncate text-xs text-fg-muted">
               {fixture.venue ? `${fixture.venue} · ` : ""}
               {fixture.home.name} v {fixture.away.name} ·{" "}
-              <span className={currentFrame.is_counterfactual_mode ? "text-signal-green" : "text-fg"}>
+              <span className={currentFrame.is_counterfactual_mode ? "text-signal-gain" : "text-fg"}>
                 {currentFrame.is_counterfactual_mode ? t("header.simulated") : t("header.original")}
               </span>
             </span>
@@ -385,7 +385,7 @@ function DashboardPage() {
             className="mr-2 hidden items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted sm:inline-flex"
             title={isLive ? t("nav.liveTitle") : t("nav.offlineTitle")}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-green" : "bg-fg-subtle"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-gain" : "bg-fg-subtle"}`} />
             {isLive ? "Live" : "Offline"}
           </span>
 
@@ -535,7 +535,7 @@ function DashboardPage() {
                           className="group flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg"
                         >
                           <span className="truncate">{preset.label}</span>
-                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-colors group-hover:text-signal-green" />
+                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-colors group-hover:text-signal-gain" />
                         </button>
                       </li>
                     ))}

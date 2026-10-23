@@ -38,7 +38,7 @@ export const LiveStatusCard: React.FC<{
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-2">
-        <Kicker className="flex items-center gap-1.5 text-signal-green">
+        <Kicker className="flex items-center gap-1.5 text-signal-gain">
           <Radio className="h-3 w-3 animate-pulse" aria-hidden />
           {t("live.kicker")}
         </Kicker>
@@ -58,7 +58,7 @@ export const LiveStatusCard: React.FC<{
           <span className="font-display text-2xl font-extrabold leading-none tabular-nums text-fg" aria-live="polite">
             {live.score.home} – {live.score.away}
           </span>
-          <span className="font-mono text-[10px] tabular-nums text-signal-green">{clockLabel(clockSeconds)}</span>
+          <span className="font-mono text-[10px] tabular-nums text-signal-gain">{clockLabel(clockSeconds)}</span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5 font-display text-lg font-bold uppercase">
           {matchInfo.away.short_name}
@@ -104,7 +104,7 @@ const TickerRow: React.FC<{ event: LiveEventSummary; matchInfo: MatchInfo; langu
     <li
       className={cn(
         "flex items-center gap-2 border-b border-line py-1 text-[12px] last:border-b-0",
-        isGoal ? "text-signal-green" : "text-fg-muted"
+        isGoal ? "text-signal-gain" : "text-fg-muted"
       )}
     >
       <span className="w-7 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{event.minute}&apos;</span>
@@ -126,7 +126,7 @@ export const RevealCard: React.FC<{ reveal: MomentReveal; onContinue: () => void
   return (
     <div className="flex flex-col gap-3" aria-live="polite">
       <div className="flex items-center justify-between gap-2">
-        <Kicker className="text-signal-green">{t("reveal.kicker")}</Kicker>
+        <Kicker className="text-signal-gain">{t("reveal.kicker")}</Kicker>
         <Tag tone={reveal.mode === "attack" ? "green" : undefined}>{t(`challenge.mode.${reveal.mode}`)}</Tag>
       </div>
 
@@ -149,8 +149,8 @@ export const RevealCard: React.FC<{ reveal: MomentReveal; onContinue: () => void
       </div>
 
       {reveal.beat_machine && (
-        <div className="flex items-center gap-2 rounded-md border border-signal-green/50 bg-signal-green/10 px-2.5 py-1.5 text-[12px] text-fg">
-          <Award className="h-4 w-4 text-signal-green" aria-hidden />
+        <div className="flex items-center gap-2 rounded-md border border-signal-gain/50 bg-signal-gain/10 px-2.5 py-1.5 text-[12px] text-fg">
+          <Award className="h-4 w-4 text-signal-gain" aria-hidden />
           {t("reveal.beat")}
         </div>
       )}
@@ -163,7 +163,7 @@ export const RevealCard: React.FC<{ reveal: MomentReveal; onContinue: () => void
       </div>
 
       <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
-        <span className="h-2 w-2 rounded-full border border-signal-green bg-signal-green/30" aria-hidden />
+        <span className="h-2 w-2 rounded-full border border-signal-gain bg-signal-gain/30" aria-hidden />
         {t("reveal.legend")}
       </p>
 
@@ -177,7 +177,7 @@ export const RevealCard: React.FC<{ reveal: MomentReveal; onContinue: () => void
 const ChanceStat: React.FC<{ label: string; value: number | null; accent?: boolean }> = ({ label, value, accent }) => (
   <div>
     <dt className="font-mono text-[9px] uppercase text-fg-subtle">{label}</dt>
-    <dd className={cn("font-display text-base font-bold tabular-nums", accent ? "text-signal-green" : "text-fg")}>
+    <dd className={cn("font-display text-base font-bold tabular-nums", accent ? "text-signal-gain" : "text-fg")}>
       {value == null ? "—" : `${value}%`}
     </dd>
   </div>
@@ -219,7 +219,7 @@ export const LeaderboardCard: React.FC<{
                 key={`${r.rank}-${r.nickname}`}
                 className={cn(
                   "flex items-center gap-2 border-b border-line px-2 py-1 text-[12px] last:border-b-0",
-                  isYou ? "bg-signal-green/10 text-fg" : "text-fg-muted"
+                  isYou ? "bg-signal-gain/10 text-fg" : "text-fg-muted"
                 )}
               >
                 <span className="w-5 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{r.rank}</span>
@@ -261,7 +261,7 @@ export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo }> = (
   const you = end.leaderboard.you;
   return (
     <div className="flex flex-col gap-2.5">
-      <Kicker className="text-signal-green">{t("end.kicker")}</Kicker>
+      <Kicker className="text-signal-gain">{t("end.kicker")}</Kicker>
       <div className="flex items-center justify-center gap-3 rounded-md border border-line bg-ink-800/70 py-2 font-display text-2xl font-extrabold uppercase">
         <span>{matchInfo.home.short_name}</span>
         <span className="tabular-nums">{end.score.home} – {end.score.away}</span>
@@ -271,8 +271,8 @@ export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo }> = (
       {end.badges.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">
           {end.badges.map((b) => (
-            <li key={b} className="inline-flex items-center gap-1 rounded-md border border-signal-green/50 bg-signal-green/10 px-2 py-1 text-[12px] text-fg">
-              <Award className="h-3.5 w-3.5 text-signal-green" aria-hidden />
+            <li key={b} className="inline-flex items-center gap-1 rounded-md border border-signal-gain/50 bg-signal-gain/10 px-2 py-1 text-[12px] text-fg">
+              <Award className="h-3.5 w-3.5 text-signal-gain" aria-hidden />
               {t(BADGE_KEYS[b] ?? "badge.player_of_the_match")}
             </li>
           ))}
