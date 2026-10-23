@@ -1,0 +1,102 @@
+name: Deploy to Azure (ACA & AKS)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR_NAME: ${{ vars.ACR_NAME || 'xtwhatifprodacr' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RG || 'rg-xtwhatif-hackathon' }}
+  AKS_CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME || 'aks-xtwhatif-prod' }}
+  BACKEND_IMAGE: xt-whatif-backend
+  FRONTEND_IMAGE: xt-whatif-frontend
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Update Azure Deployments
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 2. Logs into Azure using a Service Principal (stored in secrets)
+      - name: Log in to Azure using Service Principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Authenticate Docker client against Azure Container Registry
+      - name: Log in to Azure Container Registry
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      # 3. Builds backend Docker image
+      # 4. Tags the image using Git SHA (${{ github.sha }}) instead of latest
+      # 5. Pushes to ACR
+      - name: Build and Push Backend Image (Git SHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      # 3. Builds frontend Docker image
+      # 4. Tags the image using Git SHA (${{ github.sha }}) instead of latest
+      # 5. Pushes to ACR
+      - name: Build and Push Frontend Image (Git SHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+      # 6. Updates the Azure Container App with the new SHA tag
+      - name: Update Azure Container Apps (ACA)
+        run: |
+          echo "Updating ACA Gateway container image to ${{ github.sha }}..."
+          az containerapp update \
+            --name xt-whatif-aca-gateway \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+          echo "Updating ACA Live match container image to ${{ github.sha }}..."
+          az containerapp update \
+            --name xt-whatif-live \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+          echo "Updating ACA Frontend container image to ${{ github.sha }}..."
+          az containerapp update \
+            --name xt-whatif-frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+      # 6. Updates the AKS deployment with the new SHA tag
+      - name: Set AKS Cluster Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - name: Update AKS Compute Workers Deployment
+        run: |
+          echo "Applying Kubernetes manifests..."
+          kubectl apply -f ./infra/k8s-aks-workers.yaml
+
+          echo "Updating AKS Worker image to ${{ github.sha }}..."
+          kubectl set image deployment/xt-whatif-aks-worker worker=${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n xt-whatif
+
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment/xt-whatif-aks-worker -n xt-whatif --timeout=180s
