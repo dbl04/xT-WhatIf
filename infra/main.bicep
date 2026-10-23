@@ -1,4 +1,4 @@
-@description('xT-WhatIf Azure Infrastructure as Code - Azure Container Apps (ACA) & Registry')
+// xT-WhatIf Azure Infrastructure as Code - Azure Container Apps (ACA) & Registry
 
 @description('Deployment region for all resources')
 param location string = resourceGroup().location
@@ -23,7 +23,7 @@ param azureOpenAiEndpoint string = 'https://xtwhatif-openai.openai.azure.com/'
 
 @description('Azure OpenAI API Key')
 @secure()
-param azureOpenAiKey string = 'mock-azure-openai-key'
+param azureOpenAiKey string = ''
 
 @description('Azure OpenAI Deployment for Text-To-Speech (TTS)')
 param azureOpenAiTtsDeployment string = 'gpt-4o-mini-tts'
