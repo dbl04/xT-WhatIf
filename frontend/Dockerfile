@@ -1,10 +1,10 @@
 # syntax=docker.io/docker/dockerfile:1
 
 FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat ca-certificates
 
 # Step 1. Rebuild the source code only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install dependencies based on package-lock.json
@@ -27,8 +27,11 @@ ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 # Set environment variables for build time
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Ensure Node prioritizes IPv4 DNS and uses system CA certificates for next/font/google fetch
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
 
-RUN npm run build
+# Ensure network access is enabled during build for downloading Google Fonts
+RUN --network=default npm run build
 
 # Step 3. Production image, copy all the files and run next
 FROM base AS runner
