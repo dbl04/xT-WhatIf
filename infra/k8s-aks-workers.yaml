@@ -37,7 +37,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: xtwhatifacr.azurecr.io/xt-whatif-backend:latest
+          image: xtwhatifprodacr.azurecr.io/xt-whatif-backend:latest  # CI replaces the tag with the commit SHA
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

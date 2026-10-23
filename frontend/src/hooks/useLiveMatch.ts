@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MatchFramePayload, MatchInfo, TeamSide } from "@/types/match";
 import type { ChallengeMode, ChallengeMove } from "@/lib/challenge";
 import type { Audience, Language } from "@/lib/i18n";
+import { LIVE_WS_URL } from "@/lib/api";
 
 /**
  * Client of the live match (backend/app/services/live_match.py, WebSocket /ws/live).
@@ -146,7 +147,7 @@ export function useLiveMatch({
   language,
   audience,
   enabled = true,
-  wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws",
+  wsUrl = `${LIVE_WS_URL}/ws`,
 }: UseLiveMatchOptions) {
   const [state, setState] = useState<LiveState>(INITIAL);
   const socketRef = useRef<WebSocket | null>(null);

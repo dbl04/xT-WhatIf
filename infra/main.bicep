@@ -6,8 +6,17 @@ param location string = resourceGroup().location
 @description('Unique environment prefix for resource naming')
 param environmentName string = 'xtwhatif-prod'
 
+@description('Image tag to deploy (the commit SHA from CI, so every deploy creates a new revision)')
+param imageTag string = 'latest'
+
 @description('Optional internal URL for AKS distributed computation worker')
 param aksWorkerUrl string = ''
+
+@description('Simulated fans on the live leaderboard (real load comes from backend/scripts/live_load_test.py)')
+param liveBots int = 200
+
+@description('Real seconds the 90 minutes of the live match last')
+param liveMatchDurationSeconds int = 300
 
 @description('Azure OpenAI API Endpoint')
 param azureOpenAiEndpoint string = 'https://xtwhatif-openai.openai.azure.com/'
@@ -17,6 +26,17 @@ param azureOpenAiEndpoint string = 'https://xtwhatif-openai.openai.azure.com/'
 param azureOpenAiKey string = 'mock-azure-openai-key'
 
 var acrName = replace(toLower('${environmentName}acr'), '-', '')
+var backendImage = '${containerRegistry.properties.loginServer}/xt-whatif-backend:${imageTag}'
+var frontendImage = '${containerRegistry.properties.loginServer}/xt-whatif-frontend:${imageTag}'
+
+// Every app's public address is <name>.<environment default domain>, known before the apps
+// exist: the URLs below need no dependency between apps.
+var defaultDomain = appEnvironment.properties.defaultDomain
+var gatewayFqdn = 'xt-whatif-aca-gateway.${defaultDomain}'
+var liveFqdn = 'xt-whatif-live.${defaultDomain}'
+var frontendFqdn = 'xt-whatif-frontend.${defaultDomain}'
+// Only the frontend may call the APIs from a browser.
+var corsOrigins = '["https://${frontendFqdn}"]'
 
 // ============================================================================
 // 1. Azure Container Registry (ACR)
@@ -60,8 +80,69 @@ resource appEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
   }
 }
 
+// Shared by both backend apps.
+var registries = [
+  {
+    server: containerRegistry.properties.loginServer
+    username: containerRegistry.listCredentials().username
+    passwordSecretRef: 'acr-password'
+  }
+]
+var backendSecrets = [
+  {
+    name: 'acr-password'
+    value: containerRegistry.listCredentials().passwords[0].value
+  }
+  {
+    name: 'openai-api-key'
+    value: azureOpenAiKey
+  }
+]
+var openAiEnv = [
+  {
+    name: 'AZURE_OPENAI_API_KEY'
+    secretRef: 'openai-api-key'
+  }
+  {
+    name: 'AZURE_OPENAI_ENDPOINT'
+    value: azureOpenAiEndpoint
+  }
+  {
+    name: 'AZURE_OPENAI_API_VERSION'
+    value: '2024-10-21'
+  }
+  {
+    name: 'AZURE_OPENAI_DEPLOYMENT_GPT4O'
+    value: 'gpt-4o'
+  }
+  {
+    name: 'AZURE_OPENAI_DEPLOYMENT_MINI'
+    value: 'gpt-4o-mini'
+  }
+]
+var healthProbes = [
+  {
+    type: 'Liveness'
+    httpGet: {
+      path: '/health'
+      port: 8000
+    }
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  }
+  {
+    type: 'Readiness'
+    httpGet: {
+      path: '/health'
+      port: 8000
+    }
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  }
+]
+
 // ============================================================================
-// 3. Azure Container App: xt-whatif-aca-gateway (Backend Gateway)
+// 3. Azure Container App: xt-whatif-aca-gateway (stateless API, scales with KEDA)
 // ============================================================================
 resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'xt-whatif-aca-gateway'
@@ -75,37 +156,27 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
         transport: 'auto' // Native WebSocket and HTTP/2 support
         allowInsecure: false
       }
-      registries: [
-        {
-          server: containerRegistry.properties.loginServer
-          username: containerRegistry.listCredentials().username
-          passwordSecretRef: 'acr-password'
-        }
-      ]
-      secrets: [
-        {
-          name: 'acr-password'
-          value: containerRegistry.listCredentials().passwords[0].value
-        }
-        {
-          name: 'openai-api-key'
-          value: azureOpenAiKey
-        }
-      ]
+      registries: registries
+      secrets: backendSecrets
     }
     template: {
       containers: [
         {
           name: 'aca-gateway'
-          image: '${containerRegistry.properties.loginServer}/xt-whatif-backend:latest'
+          image: backendImage
           resources: {
             cpu: json('1.0')
             memory: '2Gi'
           }
-          env: [
+          env: concat([
             {
               name: 'SERVICE_ROLE'
               value: 'aca-gateway'
+            }
+            {
+              // The live match runs in xt-whatif-live only: replicas here must never start one.
+              name: 'LIVE_ENABLED'
+              value: 'false'
             }
             {
               name: 'AKS_WORKER_URL'
@@ -116,50 +187,11 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: 'production'
             }
             {
-              name: 'AZURE_OPENAI_API_KEY'
-              secretRef: 'openai-api-key'
-            }
-            {
-              name: 'AZURE_OPENAI_ENDPOINT'
-              value: azureOpenAiEndpoint
-            }
-            {
-              name: 'AZURE_OPENAI_API_VERSION'
-              value: '2024-10-21'
-            }
-            {
-              name: 'AZURE_OPENAI_DEPLOYMENT_GPT4O'
-              value: 'gpt-4o'
-            }
-            {
-              name: 'AZURE_OPENAI_DEPLOYMENT_MINI'
-              value: 'gpt-4o-mini'
-            }
-            {
               name: 'BACKEND_CORS_ORIGINS'
-              value: '["*"]'
+              value: corsOrigins
             }
-          ]
-          probes: [
-            {
-              type: 'Liveness'
-              httpGet: {
-                path: '/health'
-                port: 8000
-              }
-              initialDelaySeconds: 15
-              periodSeconds: 20
-            }
-            {
-              type: 'Readiness'
-              httpGet: {
-                path: '/health'
-                port: 8000
-              }
-              initialDelaySeconds: 5
-              periodSeconds: 10
-            }
-          ]
+          ], openAiEnv)
+          probes: healthProbes
         }
       ]
       scale: {
@@ -181,7 +213,73 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
 }
 
 // ============================================================================
-// 4. Azure Container App: xt-whatif-frontend (Next.js 15 App Router)
+// 4. Azure Container App: xt-whatif-live (the one live match: exactly one replica)
+// ============================================================================
+// Every fan must see the same match and the same key moment, so the match room lives in
+// a single replica. It serves /ws/live and the preview of live moments.
+resource liveApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: 'xt-whatif-live'
+  location: location
+  properties: {
+    managedEnvironmentId: appEnvironment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8000
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: registries
+      secrets: backendSecrets
+    }
+    template: {
+      containers: [
+        {
+          name: 'live-match'
+          image: backendImage
+          resources: {
+            cpu: json('1.0')
+            memory: '2Gi'
+          }
+          env: concat([
+            {
+              name: 'SERVICE_ROLE'
+              value: 'live'
+            }
+            {
+              name: 'LIVE_ENABLED'
+              value: 'true'
+            }
+            {
+              name: 'LIVE_BOTS'
+              value: string(liveBots)
+            }
+            {
+              name: 'LIVE_MATCH_DURATION_S'
+              value: string(liveMatchDurationSeconds)
+            }
+            {
+              name: 'ENVIRONMENT'
+              value: 'production'
+            }
+            {
+              name: 'BACKEND_CORS_ORIGINS'
+              value: corsOrigins
+            }
+          ], openAiEnv)
+          probes: healthProbes
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+}
+
+// ============================================================================
+// 5. Azure Container App: xt-whatif-frontend (Next.js 15 App Router)
 // ============================================================================
 resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'xt-whatif-frontend'
@@ -195,13 +293,7 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      registries: [
-        {
-          server: containerRegistry.properties.loginServer
-          username: containerRegistry.listCredentials().username
-          passwordSecretRef: 'acr-password'
-        }
-      ]
+      registries: registries
       secrets: [
         {
           name: 'acr-password'
@@ -213,19 +305,28 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'frontend'
-          image: '${containerRegistry.properties.loginServer}/xt-whatif-frontend:latest'
+          image: frontendImage
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
           }
+          // Read by the root layout on every request (frontend/src/lib/api.ts).
           env: [
             {
-              name: 'NEXT_PUBLIC_API_URL'
-              value: 'https://${gatewayApp.properties.configuration.ingress.fqdn}'
+              name: 'API_URL'
+              value: 'https://${gatewayFqdn}'
             }
             {
-              name: 'NEXT_PUBLIC_WS_URL'
-              value: 'wss://${gatewayApp.properties.configuration.ingress.fqdn}'
+              name: 'WS_URL'
+              value: 'wss://${gatewayFqdn}'
+            }
+            {
+              name: 'LIVE_API_URL'
+              value: 'https://${liveFqdn}'
+            }
+            {
+              name: 'LIVE_WS_URL'
+              value: 'wss://${liveFqdn}'
             }
           ]
         }
@@ -243,6 +344,8 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
 // ============================================================================
 output acrLoginServer string = containerRegistry.properties.loginServer
 output gatewayUrl string = 'https://${gatewayApp.properties.configuration.ingress.fqdn}'
+output liveUrl string = 'https://${liveApp.properties.configuration.ingress.fqdn}'
 output frontendUrl string = 'https://${frontendApp.properties.configuration.ingress.fqdn}'
 output gatewayFqdn string = gatewayApp.properties.configuration.ingress.fqdn
+output liveFqdn string = liveApp.properties.configuration.ingress.fqdn
 output frontendFqdn string = frontendApp.properties.configuration.ingress.fqdn

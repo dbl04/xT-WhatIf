@@ -18,6 +18,7 @@ import { ChallengeCard, ChallengeStrip, PlayMomentCard } from "@/components/chal
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useChallenge } from "@/hooks/useChallenge";
+import { LIVE_API_URL } from "@/lib/api";
 import { liveClockSeconds, useLiveMatch } from "@/hooks/useLiveMatch";
 import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/components/live/LiveCards";
 import { modeFor } from "@/lib/challenge";
@@ -201,7 +202,14 @@ function DashboardPage() {
     tts.stop();
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
-    openChallenge({ frame: moment.frame, team: supportedSide, durationS: moment.window_s, deadline: liveState.momentDeadline ?? undefined });
+    openChallenge({
+      frame: moment.frame,
+      team: supportedSide,
+      durationS: moment.window_s,
+      deadline: liveState.momentDeadline ?? undefined,
+      // Only the single live-match service knows the moments of the live match.
+      previewBaseUrl: LIVE_API_URL,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLiveView, liveState.moment, liveState.reveal]);
 
