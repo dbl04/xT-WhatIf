@@ -36,6 +36,8 @@ from app.services.narration import (
 )
 from app.services.tts_service import router as tts_router
 from app.services.tactical_optimizer import router as optimizer_router
+from app.services.game_api import router as game_router
+from app.services.live_match import router as live_router, runner as live_runner
 
 
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +64,20 @@ app.add_middleware(
 app.middleware("http")(rate_limit_middleware)
 app.include_router(tts_router)
 app.include_router(optimizer_router)
+app.include_router(game_router)
+app.include_router(live_router)
+
+
+@app.on_event("startup")
+async def start_live_match():
+    # One live match per deployment: AKS workers only compute, and extra replicas must set LIVE_ENABLED=false.
+    if settings.LIVE_ENABLED and settings.SERVICE_ROLE != "aks-worker":
+        live_runner.start()
+
+
+@app.on_event("shutdown")
+async def stop_live_match():
+    await live_runner.stop()
 
 
 @app.get("/health", tags=["Health"])

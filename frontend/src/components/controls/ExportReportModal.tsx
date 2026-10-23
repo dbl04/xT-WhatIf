@@ -114,7 +114,10 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
         const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
         svgClone.setAttribute("width", String(SVG_RENDER_W));
         svgClone.setAttribute("height", String(SVG_RENDER_H));
-        thickenHairlinesForExport(svgClone, svgEl.viewBox.baseVal.width || 120);
+        // The board may be zoomed on the action; the report always shows the full pitch.
+        svgClone.setAttribute("viewBox", "0 0 120 80");
+        svgClone.setAttribute("overflow", "visible");
+        thickenHairlinesForExport(svgClone, 120);
 
         const svgString = new XMLSerializer().serializeToString(svgClone);
         const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });

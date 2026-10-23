@@ -24,6 +24,8 @@ WINDOW_SECONDS = 60.0
 ROUTE_LIMITS: Dict[str, int] = {
     "/api/v1/simulate": 60,
     "/api/v1/optimizer/solve": 40,
+    # Called while the user drags players during a 30 s challenge.
+    "/api/v1/game/preview": 240,
     "/api/v1/tts/synthesize": 30,
     "/api/v1/cloud/stress-burst": 6,
     "/api/v1/cloud/chaos-toggle": 12,

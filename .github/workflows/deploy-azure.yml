@@ -61,6 +61,11 @@ jobs:
         env:
           PYTHONPATH: ./backend
 
+      - name: Run Live Match Tests (full match, moment cycle, bots, socket)
+        run: python backend/test_live_match.py
+        env:
+          PYTHONPATH: ./backend
+
       - name: Run TTS Service Tests
         run: python backend/test_tts_service.py
         env:

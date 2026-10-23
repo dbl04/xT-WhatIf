@@ -59,6 +59,10 @@ MOMENT_LABELS: Dict[str, Dict[str, str]] = {
     "switch": {"en": "Switch of play to the far side", "es": "Cambio de orientación a la banda contraria"},
     "edge_shot": {"en": "Shot from the edge of the box", "es": "Disparo desde la frontal del área"},
     "one_v_one": {"en": "One-on-one with the keeper", "es": "Mano a mano con el portero"},
+    # Ordinary events of a full live match (never opened as challenges).
+    "buildup_pass": {"en": "Build-up pass", "es": "Pase en la salida"},
+    "progressive_pass": {"en": "Pass forward", "es": "Pase hacia delante"},
+    "carry": {"en": "Ball carry", "es": "Conducción"},
 }
 
 
@@ -847,3 +851,61 @@ def llm_user_prompt(frame: MatchFramePayload, lang: Language) -> str:
         f"- Optimal receiver detected: {ctx['optimal_name']} (ID {m.optimal_pass_target_id})\n"
         f"- Original pass receiver: {ctx['receiver_name']} (ID {ctx['receiver_id']})\n"
     )
+
+
+# ---------------------------------------------------------------------------
+# Live game: explanation shown when a key moment is revealed
+# ---------------------------------------------------------------------------
+REVEAL_TEXT = {
+    "en": {
+        "headline_attack": "The best move: {who}",
+        "headline_defend": "The best defensive move: {who}",
+        "moved": "{name} moves {dist} m and ends up {spot}",
+        "joiner": ", and ",
+        "body_attack": "{moves}. The best pass is then to {target}, and the chance of a goal rises from {base}% to {best}%.",
+        "body_defend": "{moves}. The best pass left is to {target}, and the chance of a goal falls from {base}% to {best}%.",
+        "no_move": "Nobody had to move: the original positions were already the best available.",
+        "you_scored": "You reached {score} of 1000 points.",
+        "you_beat": "You beat the machine: your move was better than the optimiser's.",
+        "you_missed": "You did not submit a move this time.",
+        "community": "{share}% of fans got 900 points or more.",
+    },
+    "es": {
+        "headline_attack": "El mejor movimiento: {who}",
+        "headline_defend": "El mejor movimiento defensivo: {who}",
+        "moved": "{name} se desplaza {dist} m y queda {spot}",
+        "joiner": ", y ",
+        "body_attack": "{moves}. Así, el mejor pase es hacia {target} y la probabilidad de gol sube del {base}% al {best}%.",
+        "body_defend": "{moves}. Así, el mejor pase que queda es hacia {target} y la probabilidad de gol baja del {base}% al {best}%.",
+        "no_move": "No hacía falta mover a nadie: las posiciones originales ya eran las mejores.",
+        "you_scored": "Has conseguido {score} de 1000 puntos.",
+        "you_beat": "Has superado a la máquina: tu movimiento era mejor que el del optimizador.",
+        "you_missed": "Esta vez no enviaste ningún movimiento.",
+        "community": "El {share}% de los aficionados consiguió 900 puntos o más.",
+    },
+}
+
+
+def reveal_explanation(frame: MatchFramePayload, mode: str, moves: List[tuple], base_value: float,
+                       best_value: float, best_target_id: Optional[int], lang: Language) -> Dict[str, str]:
+    """Headline and body explaining the optimum of a moment (same numbers the engine computed)."""
+    text = REVEAL_TEXT[lang]
+    by_id = {p.player_id: p for p in frame.players}
+    parts, names = [], []
+    for pid, x, y in moves:
+        p = by_id[pid]
+        names.append(p.name)
+        parts.append(text["moved"].format(name=p.name, dist=f"{math.hypot(x - p.x, y - p.y):.1f}",
+                                          spot=describe_spot(x, y, lang)))
+    target = by_id.get(best_target_id)
+    if not parts:
+        return {"headline": text[f"headline_{mode}"].format(who="—"), "body": text["no_move"]}
+    return {
+        "headline": text[f"headline_{mode}"].format(who=" + ".join(names)),
+        "body": text[f"body_{mode}"].format(
+            moves=text["joiner"].join(parts),
+            target=target.name if target else FALLBACK_NAMES[lang]["optimal"],
+            base=_pct(base_value),
+            best=_pct(best_value),
+        ),
+    }

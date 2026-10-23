@@ -4,7 +4,6 @@
 import React, {
   useState,
   useRef,
-  useCallback,
   useMemo,
   useEffect,
   useImperativeHandle,
@@ -14,13 +13,12 @@ import { PlayerNode, TacticalMetrics } from "@/types/match";
 import {
   STATSBOMB_PITCH_LENGTH,
   STATSBOMB_PITCH_WIDTH,
-  screenToStatsbomb,
   calculateDistanceMeters,
   getTacticalZoneName,
   TacticalZone,
 } from "@/lib/coordinates";
 import { useI18n } from "@/lib/i18n";
-import { Move } from "lucide-react";
+import { Move, Lock, ZoomIn, Maximize2 } from "lucide-react";
 import { Kicker } from "@/components/ui/primitives";
 import { PALETTE, hair } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
@@ -39,6 +37,17 @@ const INERTIA_RADIUS = 6.0;
 /** Base animation duration in ms (adjusted by speed multiplier) */
 const BASE_ANIM_DURATION_MS = 2000;
 
+/** Player disc radius and label sizes (pitch units = metres). */
+const PLAYER_R = 1.7;
+const NUMBER_FONT = 1.75;
+const NAME_FONT = 1.5;
+
+/** Zoom framing: players this close to the ball / target / carrier are part of the action. */
+const FOCUS_NEIGHBOUR_M = 25;
+const FOCUS_PADDING_M = 6;
+const FOCUS_MIN_WIDTH = 54;
+const VIEWBOX_ANIM_MS = 450;
+
 // ======================================================================
 // BROADCAST PALETTE (inline so the PNG export keeps it)
 // ======================================================================
@@ -50,6 +59,7 @@ const C = {
   white: PALETTE.fg,
   green: PALETTE.green,
   magenta: PALETTE.magenta,
+  red: PALETTE.red,
   home: PALETTE.home,
   away: PALETTE.away,
 } as const;
@@ -85,7 +95,34 @@ export interface TacticalPitch2DProps {
   onAnimationEnd?: () => void;
   onDragStart?: () => void;
   teamShortNames?: { home: string; away: string };
+  /** Challenge mode overlay; null/undefined for the free analysis board. */
+  challenge?: PitchChallenge | null;
 }
+
+/** Challenge overlay: who may move, the hard radius and the offside line. */
+export interface PitchChallenge {
+  movableIds: number[];
+  maxRadius: number;
+  maxPlayers: number;
+  offsideLineX: number | null;
+  /** Board locked (submitted): nothing can be dragged. */
+  locked: boolean;
+  /** Short, translated rule labels per player (server or offline violations). */
+  violationLabels: Record<number, string>;
+  /** A locked player or a third player was grabbed. */
+  onBlocked?: (playerId: number, reason: "locked" | "limit") => void;
+  /** Reveal: the optimum moves, drawn as green arrows to green target rings. */
+  optimum?: { player_id: number; fromX: number; fromY: number; x: number; y: number }[];
+}
+
+interface ViewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const FULL_VIEW: ViewBox = { x: 0, y: 0, w: STATSBOMB_PITCH_LENGTH, h: STATSBOMB_PITCH_WIDTH };
 
 export interface TacticalPitch2DHandle {
   getSvgElement: () => SVGSVGElement | null;
@@ -101,6 +138,153 @@ function computeCellXt(col: number, row: number): number {
   let val = Math.pow(xProgress, 2.2) * 0.48 * centralFactor + 0.015;
   if (col >= 11 && row >= 3 && row <= 8) val += 0.08;
   return Number(Math.min(0.65, Math.max(0.01, val)).toFixed(3));
+}
+
+// ======================================================================
+// ZOOM FRAMING
+// ======================================================================
+/**
+ * Box around the action (ball, ball end, carrier and the players within FOCUS_NEIGHBOUR_M of
+ * them, at their ORIGINAL positions so it does not move while dragging), padded, widened to
+ * the 3:2 pitch ratio and clamped inside the pitch.
+ */
+function computeFocusBox(
+  players: PlayerNode[],
+  ballX: number,
+  ballY: number,
+  ballEndX?: number | null,
+  ballEndY?: number | null
+): ViewBox {
+  const origin = (p: PlayerNode) => ({ x: p.original_x ?? p.x, y: p.original_y ?? p.y });
+  const anchors = [{ x: ballX, y: ballY }];
+  if (ballEndX != null && ballEndY != null) anchors.push({ x: ballEndX, y: ballEndY });
+  const actor = players.find((p) => p.is_actor);
+  if (actor) anchors.push(origin(actor));
+
+  const points = [...anchors];
+  players.forEach((p) => {
+    const o = origin(p);
+    if (anchors.some((a) => Math.hypot(a.x - o.x, a.y - o.y) <= FOCUS_NEIGHBOUR_M)) points.push(o);
+  });
+
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const ratio = STATSBOMB_PITCH_LENGTH / STATSBOMB_PITCH_WIDTH;
+  let w = maxX - minX + FOCUS_PADDING_M * 2;
+  const h0 = maxY - minY + FOCUS_PADDING_M * 2;
+  if (w / h0 < ratio) w = h0 * ratio;
+  w = Math.min(STATSBOMB_PITCH_LENGTH, Math.max(FOCUS_MIN_WIDTH, w));
+  const h = w / ratio;
+  const x = Math.max(0, Math.min(STATSBOMB_PITCH_LENGTH - w, (minX + maxX) / 2 - w / 2));
+  const y = Math.max(0, Math.min(STATSBOMB_PITCH_WIDTH - h, (minY + maxY) / 2 - h / 2));
+  return {
+    x: Number(x.toFixed(2)),
+    y: Number(y.toFixed(2)),
+    w: Number(w.toFixed(2)),
+    h: Number(h.toFixed(2)),
+  };
+}
+
+/** Animates the viewBox towards `target` (ease-out), instantly under reduced motion. */
+function useAnimatedViewBox(target: ViewBox): ViewBox {
+  const [box, setBox] = useState<ViewBox>(target);
+  const boxRef = useRef<ViewBox>(target);
+  const { x, y, w, h } = target;
+
+  useEffect(() => {
+    const from = boxRef.current;
+    const to = { x, y, w, h };
+    if (from.x === x && from.y === y && from.w === w && from.h === h) return;
+    const reduce =
+      typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      boxRef.current = to;
+      setBox(to);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const step = (time: number) => {
+      const k = Math.min(1, (time - start) / VIEWBOX_ANIM_MS);
+      const e = 1 - Math.pow(1 - k, 3);
+      const next = {
+        x: from.x + (to.x - from.x) * e,
+        y: from.y + (to.y - from.y) * e,
+        w: from.w + (to.w - from.w) * e,
+        h: from.h + (to.h - from.h) * e,
+      };
+      boxRef.current = next;
+      setBox(next);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [x, y, w, h]);
+
+  return box;
+}
+
+// ======================================================================
+// NAME LABELS (greedy placement: below, then above, else hidden)
+// ======================================================================
+interface Rect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+const overlaps = (a: Rect, b: Rect) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+
+const shortName = (name: string) => (name.split(" ").pop() || "").toUpperCase();
+
+const LABEL_BELOW = PLAYER_R + NAME_FONT + 0.1;
+const LABEL_ABOVE = -PLAYER_R - 0.45;
+
+/**
+ * Baseline offset (from the player centre) of each name that is shown. Players are taken in
+ * `order`: a `forced` one always gets a label; the others only when it fits without covering
+ * another label or player disc.
+ */
+function placeNameLabels(
+  players: PlayerNode[],
+  order: { id: number; forced: boolean }[],
+  reserved: Rect[]
+): Map<number, number> {
+  const byId = new Map(players.map((p) => [p.player_id, p]));
+  const placed: Rect[] = [...reserved];
+  const result = new Map<number, number>();
+
+  order.forEach(({ id, forced }) => {
+    const p = byId.get(id);
+    if (!p) return;
+    const halfW = (shortName(p.name).length * NAME_FONT * 0.56) / 2 + 0.3;
+    const rectFor = (dy: number): Rect => ({
+      x0: p.x - halfW,
+      x1: p.x + halfW,
+      y0: p.y + dy - NAME_FONT * 0.8,
+      y1: p.y + dy + NAME_FONT * 0.2,
+    });
+    const free = (r: Rect) =>
+      !placed.some((q) => overlaps(r, q)) &&
+      !players.some(
+        (o) =>
+          o.player_id !== id &&
+          overlaps(r, { x0: o.x - PLAYER_R, y0: o.y - PLAYER_R, x1: o.x + PLAYER_R, y1: o.y + PLAYER_R })
+      );
+    let dy: number | null = null;
+    if (free(rectFor(LABEL_BELOW))) dy = LABEL_BELOW;
+    else if (free(rectFor(LABEL_ABOVE))) dy = LABEL_ABOVE;
+    else if (forced) dy = LABEL_BELOW;
+    if (dy == null) return;
+    placed.push(rectFor(dy));
+    result.set(id, dy);
+  });
+  return result;
 }
 
 // ======================================================================
@@ -127,6 +311,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       onAnimationEnd,
       onDragStart,
       teamShortNames = { home: "HOM", away: "AWY" },
+      challenge = null,
     },
     ref
   ) {
@@ -142,7 +327,10 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const [dragPos, setDragPos] = useState<{ id: number; x: number; y: number } | null>(null);
     const [hoveredZone, setHoveredZone] = useState<TacticalZone | null>(null);
     const [hoveredCellXt, setHoveredCellXt] = useState<number | null>(null);
+    const [isZoomed, setIsZoomed] = useState<boolean>(true);
     const svgRef = useRef<SVGSVGElement | null>(null);
+
+    const movableSet = useMemo(() => new Set(challenge?.movableIds ?? []), [challenge?.movableIds]);
 
     // ============================================================
     // CINEMATIC PLAYBACK (requestAnimationFrame)
@@ -253,26 +441,74 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // ======================================================================
     // POINTER HANDLERS (pauses animation on drag)
     // ======================================================================
+    /**
+     * Pointer → pitch coordinates through the SVG's own screen transform, so it stays exact
+     * whatever the viewBox (zoom), letterboxing or padding. Clamped inside the pitch, 0.1 m.
+     */
+    const toPitch = (clientX: number, clientY: number) => {
+      const ctm = svgRef.current?.getScreenCTM();
+      if (!ctm) return null;
+      const pt = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+      const margin = 0.5;
+      return {
+        x: Number(Math.max(margin, Math.min(STATSBOMB_PITCH_LENGTH - margin, pt.x)).toFixed(1)),
+        y: Number(Math.max(margin, Math.min(STATSBOMB_PITCH_WIDTH - margin, pt.y)).toFixed(1)),
+      };
+    };
+
     const handlePointerDown = (id: number, e: React.PointerEvent) => {
       e.stopPropagation();
+      if (onClickPlayer) onClickPlayer(id);
+      if (challenge) {
+        if (challenge.locked) return;
+        if (!movableSet.has(id)) {
+          challenge.onBlocked?.(id, "locked");
+          return;
+        }
+        const othersMoved = players.filter((p) => p.is_modified && p.player_id !== id).length;
+        if (othersMoved >= challenge.maxPlayers) {
+          challenge.onBlocked?.(id, "limit");
+          return;
+        }
+      }
       // Pause the animation as soon as a drag starts
       if (onDragStart) onDragStart();
       setDraggingId(id);
-      if (onClickPlayer) onClickPlayer(id);
       try { (e.target as Element).setPointerCapture(e.pointerId); } catch {}
     };
 
-    const handlePointerMove = useCallback(
-      (e: React.PointerEvent) => {
-        if (draggingId === null || !svgRef.current || !onPlayerMove) return;
-        const rect = svgRef.current.getBoundingClientRect();
-        const { x, y } = screenToStatsbomb(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
-        setHoveredZone(getTacticalZoneName(x, y));
-        setDragPos({ id: draggingId, x, y });
-        onPlayerMove(draggingId, x, y);
-      },
-      [draggingId, onPlayerMove]
-    );
+    const handlePointerMove = (e: React.PointerEvent) => {
+      if (draggingId === null || !onPlayerMove) return;
+      const point = toPitch(e.clientX, e.clientY);
+      if (!point) return;
+      let { x, y } = point;
+      if (challenge) {
+        // Hard limit: the player cannot leave the ring around the original position.
+        const p = players.find((q) => q.player_id === draggingId);
+        if (p) {
+          const ox = p.original_x ?? p.x;
+          const oy = p.original_y ?? p.y;
+          const d = Math.hypot(x - ox, y - oy);
+          const limit = Math.max(0, challenge.maxRadius - 0.06);
+          if (d > limit && d > 0) {
+            x = Number((ox + ((x - ox) / d) * limit).toFixed(1));
+            y = Number((oy + ((y - oy) / d) * limit).toFixed(1));
+          }
+        }
+      }
+      setHoveredZone(getTacticalZoneName(x, y));
+      setDragPos({ id: draggingId, x, y });
+      onPlayerMove(draggingId, x, y);
+    };
+
+    // Drop a drag in progress if the board gets locked (e.g. the clock runs out mid-gesture).
+    useEffect(() => {
+      if (challenge?.locked && draggingId !== null) {
+        setDraggingId(null);
+        setDragPos(null);
+        setHoveredZone(null);
+      }
+    }, [challenge?.locked, draggingId]);
 
     const handlePointerUp = (e: React.PointerEvent) => {
       if (draggingId !== null) {
@@ -334,6 +570,58 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       ghost: [showGhostMode, setShowGhostMode],
     };
 
+    // Zoom on the area of interest (stable while dragging: uses original positions).
+    const focusBox = useMemo(
+      () => computeFocusBox(players, ballX, ballY, ballEndX, ballEndY),
+      // Only the moment's geometry matters, not every drag tick.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [
+        ballX,
+        ballY,
+        ballEndX,
+        ballEndY,
+        players.map((p) => `${p.player_id}:${p.original_x ?? p.x}:${p.original_y ?? p.y}:${p.is_actor ? 1 : 0}`).join("|"),
+      ]
+    );
+    const viewBox = useAnimatedViewBox(isZoomed ? focusBox : FULL_VIEW);
+    const isFramed = viewBox.w < STATSBOMB_PITCH_LENGTH - 0.01;
+
+    // Distance chips of moved players reserve their space before the names are placed.
+    const showGhosts = showGhostMode || !!challenge;
+    const violationRects = useMemo<Rect[]>(() => {
+      const rects: Rect[] = [];
+      renderPlayers.forEach((p) => {
+        if (showGhosts && p.is_modified && p.original_x != null && p.original_y != null) {
+          const mx = (p.original_x + p.x) / 2;
+          const my = (p.original_y + p.y) / 2;
+          if (Math.hypot(p.x - p.original_x, p.y - p.original_y) > 0.4) {
+            rects.push({ x0: mx - 3.4, x1: mx + 3.4, y0: my - 1.4, y1: my + 1.4 });
+          }
+        }
+      });
+      return rects;
+    }, [challenge, renderPlayers, showGhosts]);
+
+    // Which names are shown and where. In challenge mode only the carrier, movable,
+    // highlighted and hovered players carry a name; the rest stay as numbered discs.
+    const nameOffsets = useMemo(() => {
+      const rank = (p: PlayerNode) => {
+        if (p.player_id === draggingId) return 0;
+        if (p.is_actor) return 1;
+        if (p.player_id === selectedPlayerId) return 2;
+        if (highlightedPlayerIds.includes(p.player_id)) return 3;
+        if (p.is_modified) return 4;
+        if (challenge && movableSet.has(p.player_id)) return 5;
+        return 6;
+      };
+      const order = renderPlayers
+        .filter((p) => !challenge || rank(p) <= 5)
+        .map((p) => ({ id: p.player_id, r: rank(p) }))
+        .sort((a, b) => a.r - b.r)
+        .map(({ id, r }) => ({ id, forced: r <= 4 }));
+      return placeNameLabels(renderPlayers, order, violationRects);
+    }, [renderPlayers, draggingId, selectedPlayerId, highlightedPlayerIds, challenge, movableSet, violationRects]);
+
     const renderInertiaPlate = (x: number, y: number, over: boolean) => (
       <g transform={`translate(${x}, ${y})`}>
         <rect x={over ? -12.5 : -8.5} y="-1.7" width={over ? 25 : 17} height="3.4" fill={over ? C.magenta : C.ink} stroke={over ? "none" : C.white} {...hair(0.5)} />
@@ -350,6 +638,32 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
             <Kicker className="text-fg">{t("pitch.title")}</Kicker>
             <span className="font-mono text-[10px] text-fg-subtle">{t("pitch.subtitle")}</span>
+          </div>
+
+          {/* View: zoom on the action / full pitch */}
+          <div
+            className="flex shrink-0 items-center rounded-md border border-line p-0.5"
+            role="group"
+            aria-label={t("pitch.viewAria")}
+          >
+            {[
+              { zoomed: true, label: t("pitch.zoom"), Icon: ZoomIn },
+              { zoomed: false, label: t("pitch.full"), Icon: Maximize2 },
+            ].map(({ zoomed, label, Icon }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setIsZoomed(zoomed)}
+                aria-pressed={isZoomed === zoomed}
+                title={label}
+                className={`flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[5px] px-2 text-xs transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-signal-green ${
+                  isZoomed === zoomed ? "bg-white/[0.1] text-fg" : "text-fg-subtle hover:text-fg-muted"
+                }`}
+              >
+                <Icon className="h-3 w-3" aria-hidden />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
           </div>
 
           <div className="ml-auto flex min-w-0 items-center gap-0.5 overflow-x-auto" role="group" aria-label={t("pitch.layers")}>
@@ -379,8 +693,9 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         <div className="relative flex aspect-[120/80] w-full items-center justify-center bg-turf p-2">
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${STATSBOMB_PITCH_LENGTH} ${STATSBOMB_PITCH_WIDTH}`}
-            className="pitch-svg h-full w-full overflow-visible"
+            viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+            className={`pitch-svg h-full w-full ${isFramed ? "overflow-hidden" : "overflow-visible"}`}
+            data-zoomed={isFramed ? "true" : "false"}
             fontFamily={DISPLAY_FONT}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -500,7 +815,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                     <circle cx={ballEndX} cy={ballEndY} r="1.2" fill="none" stroke={C.white} {...hair(0.5)} />
                   </g>
                 )}
-                {isCounterfactualMode && optimalTargetPlayer && (
+                {isCounterfactualMode && !challenge && optimalTargetPlayer && (
                   <g id="optimalPassLine">
                     <line
                       x1={actorPlayer ? actorPlayer.x : ballX} y1={actorPlayer ? actorPlayer.y : ballY}
@@ -524,8 +839,39 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
               </g>
             )}
 
-            {/* GHOST VECTORS + INERTIA RING */}
-            {showGhostMode &&
+            {/* OFFSIDE LINE (challenge, attack) */}
+            {challenge && challenge.offsideLineX != null && (
+              <g pointerEvents="none" aria-hidden>
+                <line
+                  x1={challenge.offsideLineX}
+                  y1={0}
+                  x2={challenge.offsideLineX}
+                  y2={STATSBOMB_PITCH_WIDTH}
+                  stroke={C.white}
+                  strokeDasharray="2.5 1.5"
+                  opacity={0.8}
+                  {...hair(1.25)}
+                />
+                <g transform={`translate(${challenge.offsideLineX}, ${viewBox.y + viewBox.h - 2.2})`}>
+                  <rect
+                    x={-(t("pitch.offside").length * 1.3 * 0.6) / 2 - 0.6}
+                    y="-1.1"
+                    width={t("pitch.offside").length * 1.3 * 0.6 + 1.2}
+                    height="2.2"
+                    fill={C.ink}
+                    stroke={C.white}
+                    opacity={0.9}
+                    {...hair(0.5)}
+                  />
+                  <text y="0.45" fontSize="1.3" fontWeight="700" letterSpacing="0.1" fill={C.white} textAnchor="middle">
+                    {t("pitch.offside")}
+                  </text>
+                </g>
+              </g>
+            )}
+
+            {/* GHOST VECTORS + INERTIA RING (in challenge mode the ring is the hard limit, always shown) */}
+            {(showGhostMode || challenge) &&
               renderPlayers
                 .filter((p) => p.is_modified && p.original_x != null && p.original_y != null)
                 .map((p) => {
@@ -534,14 +880,15 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   const distanceMeters = calculateDistanceMeters({ x: origX, y: origY }, { x: p.x, y: p.y });
                   const midX = (origX + p.x) / 2;
                   const midY = (origY + p.y) / 2;
-                  const isOverInertia = distanceMeters > INERTIA_RADIUS;
+                  const ringRadius = challenge ? challenge.maxRadius : INERTIA_RADIUS;
+                  const isOverInertia = !challenge && distanceMeters > INERTIA_RADIUS;
                   const accent = isOverInertia ? C.magenta : C.white;
 
                   return (
                     <g key={`ghost-${p.player_id}`} pointerEvents="none">
                       {/* Physical inertia ring (6.0 m) */}
-                      <circle cx={origX} cy={origY} r={INERTIA_RADIUS} fill="none" stroke={accent} strokeDasharray="4 3" opacity={0.8} {...hair(isOverInertia ? 1 : 0.5)} />
-                      {distanceMeters > 0.4 &&
+                      <circle cx={origX} cy={origY} r={ringRadius} fill={challenge ? "rgba(255,255,255,0.04)" : "none"} stroke={accent} strokeDasharray="4 3" opacity={0.8} {...hair(isOverInertia ? 1 : 0.5)} />
+                      {distanceMeters > 0.4 && !challenge &&
                         renderInertiaPlate(origX, origY - INERTIA_RADIUS - 1.6, isOverInertia)}
 
                       {/* Ghost arrow */}
@@ -550,8 +897,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                       {/* Distance chip */}
                       {distanceMeters > 0.4 && (
                         <g transform={`translate(${midX}, ${midY})`}>
-                          <rect x="-4" y="-1.7" width="8" height="3.4" fill={C.ink} stroke={accent} {...hair(0.5)} />
-                          <text x="0" y="0.75" fontSize="2" fontWeight="700" fill={accent} textAnchor="middle">
+                          <rect x="-3.4" y="-1.4" width="6.8" height="2.8" fill={C.ink} stroke={accent} {...hair(0.5)} />
+                          <text x="0" y="0.55" fontSize="1.6" fontWeight="700" fill={accent} textAnchor="middle">
                             +{distanceMeters}m
                           </text>
                         </g>
@@ -559,8 +906,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
                       {/* Ghost node */}
                       <g opacity="0.45">
-                        <circle cx={origX} cy={origY} r="2.4" fill="none" stroke={p.team === "home" ? C.home : C.away} strokeDasharray="2 2" {...hair(1)} />
-                        <text x={origX} y={origY + 0.85} fontSize="2.3" fontWeight="700" fill={C.white} textAnchor="middle">{p.jersey_number}</text>
+                        <circle cx={origX} cy={origY} r={PLAYER_R} fill="none" stroke={p.team === "home" ? C.home : C.away} strokeDasharray="1.5 1.5" {...hair(1)} />
+                        <text x={origX} y={origY + NUMBER_FONT * 0.35} fontSize={NUMBER_FONT} fontWeight="700" fill={C.white} textAnchor="middle">{p.jersey_number}</text>
                       </g>
                     </g>
                   );
@@ -573,14 +920,23 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 const origX = p.original_x ?? p.x;
                 const origY = p.original_y ?? p.y;
                 const dist = calculateDistanceMeters({ x: origX, y: origY }, { x: p.x, y: p.y });
-                const isOver = dist > INERTIA_RADIUS;
+                const isOver = !challenge && dist > INERTIA_RADIUS;
                 return (
                   <g key={`drag-ring-${p.player_id}`} pointerEvents="none">
-                    <circle cx={origX} cy={origY} r={INERTIA_RADIUS} fill="none" stroke={isOver ? C.magenta : C.white} strokeDasharray="4 3" opacity={0.85} {...hair(isOver ? 1 : 0.5)} />
+                    <circle cx={origX} cy={origY} r={challenge ? challenge.maxRadius : INERTIA_RADIUS} fill="none" stroke={isOver ? C.magenta : C.white} strokeDasharray="4 3" opacity={0.85} {...hair(isOver ? 1 : 0.5)} />
                     {isOver && renderInertiaPlate(origX, origY - INERTIA_RADIUS - 1.6, true)}
                   </g>
                 );
               })}
+
+            {/* REVEAL: optimum moves (green arrow from the original spot to the best spot) */}
+            {challenge?.optimum?.map((m) => (
+              <g key={`opt-${m.player_id}`} pointerEvents="none" data-optimum-for={m.player_id}>
+                <line x1={m.fromX} y1={m.fromY} x2={m.x} y2={m.y} stroke={C.green} strokeDasharray="1.6 1" {...hair(2)} />
+                <circle cx={m.x} cy={m.y} r={PLAYER_R + 1.1} fill={C.green} fillOpacity={0.18} stroke={C.green} {...hair(2)} />
+                <circle cx={m.x} cy={m.y} r={0.45} fill={C.green} />
+              </g>
+            ))}
 
             {/* PLAYERS */}
             {renderPlayers.map((p) => {
@@ -589,28 +945,54 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
               const isActor = p.is_actor;
               const isHighlighted = highlightedPlayerIds.includes(p.player_id);
               const isSelected = selectedPlayerId === p.player_id;
+              const isMovable = !!challenge && !challenge.locked && movableSet.has(p.player_id);
+              const isLocked = !!challenge && !movableSet.has(p.player_id);
+              const nameDy = nameOffsets.get(p.player_id);
+              const violation = challenge?.violationLabels[p.player_id];
+              const cursor = !challenge
+                ? "cursor-grab active:cursor-grabbing"
+                : isMovable
+                  ? "cursor-grab active:cursor-grabbing"
+                  : "cursor-default";
 
               return (
                 <g key={p.player_id} transform={`translate(${p.x}, ${p.y})`}
                   onPointerDown={(e) => handlePointerDown(p.player_id, e)}
                   onMouseEnter={() => onHoverPlayer && onHoverPlayer(p.player_id)}
                   onMouseLeave={() => onHoverPlayer && onHoverPlayer(null)}
-                  className="cursor-grab active:cursor-grabbing"
+                  className={cursor}
+                  opacity={isLocked && !isActor && !isHighlighted && !isSelected ? 0.42 : 1}
+                  data-player-id={p.player_id}
+                  data-movable={challenge ? (isMovable ? "true" : "false") : undefined}
                 >
-                  {isSelected && <circle r="5.1" fill="none" stroke={C.white} strokeDasharray="2 2" {...hair(0.5)} />}
-                  {isHighlighted && <circle r="4.5" fill="none" stroke={C.white} {...hair(1.5)} />}
-                  {isActor && <circle r="3.7" fill="none" stroke={C.green} {...hair(1.5)} />}
-                  {p.is_modified && !isActor && <circle r="3.7" fill="none" stroke={C.white} strokeDasharray="2 1.5" {...hair(1)} />}
-                  <circle r={isDragging ? "3" : "2.5"} fill={isHome ? C.home : C.away} stroke={C.ink} {...hair(0.5)} />
-                  <text y="0.85" fontSize="2.5" fontWeight="700" fill={C.ink} textAnchor="middle" pointerEvents="none">{p.jersey_number}</text>
-                  <text y="5.3" fontSize="2.1" fontWeight="600" letterSpacing="0.08" fill={C.white} stroke={C.ink} strokeWidth="0.5" paintOrder="stroke" textAnchor="middle" pointerEvents="none">{(p.name.split(" ").pop() || "").toUpperCase()}</text>
+                  {/* Generous invisible hit area so small discs stay easy to grab on touch */}
+                  <circle r={PLAYER_R + 1.1} fill="transparent" />
+                  {isSelected && <circle r={PLAYER_R + 1.7} fill="none" stroke={C.white} strokeDasharray="1.5 1.5" {...hair(0.5)} />}
+                  {isHighlighted && <circle r={PLAYER_R + 1.3} fill="none" stroke={C.white} {...hair(1.5)} />}
+                  {isActor && <circle r={PLAYER_R + 0.85} fill="none" stroke={C.green} {...hair(1.5)} />}
+                  {p.is_modified && !isActor && <circle r={PLAYER_R + 0.85} fill="none" stroke={C.white} strokeDasharray="1.5 1" {...hair(1)} />}
+                  {isMovable && !p.is_modified && (
+                    <circle r={PLAYER_R + 0.7} fill="none" stroke={C.green} strokeDasharray="1.2 0.9" opacity={0.85} {...hair(1)} />
+                  )}
+                  {/* A broken rule is a red ring; the reason is in the challenge card (and the tooltip). */}
+                  {violation && (
+                    <>
+                      <title>{violation}</title>
+                      <circle r={PLAYER_R + 0.9} fill={C.red} fillOpacity={0.28} stroke={C.red} {...hair(2)} pointerEvents="none" />
+                    </>
+                  )}
+                  <circle r={isDragging ? PLAYER_R + 0.35 : PLAYER_R} fill={isHome ? C.home : C.away} stroke={violation ? C.red : C.ink} {...hair(violation ? 1.5 : 0.5)} />
+                  <text y={NUMBER_FONT * 0.35} fontSize={NUMBER_FONT} fontWeight="700" fill={C.ink} textAnchor="middle" pointerEvents="none">{p.jersey_number}</text>
+                  {nameDy != null && (
+                    <text y={nameDy} fontSize={NAME_FONT} fontWeight="600" letterSpacing="0.06" fill={C.white} stroke={C.ink} strokeWidth="0.4" paintOrder="stroke" textAnchor="middle" pointerEvents="none">{shortName(p.name)}</text>
+                  )}
                 </g>
               );
             })}
 
             {/* Ball (animated during playback) */}
             <g transform={`translate(${animBallX}, ${animBallY})`} pointerEvents="none">
-              <circle r="1.1" fill={C.white} stroke={C.ink} {...hair(1)} />
+              <circle r="0.85" fill={C.white} stroke={C.ink} {...hair(1)} />
             </g>
           </svg>
         </div>
@@ -618,8 +1000,18 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         {/* Footer: hint, legend, readouts */}
         <div className="flex h-8 flex-nowrap items-center justify-between gap-4 border-t border-line px-4 text-[11px] text-fg-subtle">
           <div className="flex min-w-0 items-center gap-2">
-            <Move className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{t("pitch.hint")}</span>
+            {challenge?.locked ? (
+              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            ) : (
+              <Move className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            )}
+            <span className="truncate">
+              {challenge
+                ? challenge.locked
+                  ? t("challenge.hintLocked")
+                  : t("challenge.hint", { n: challenge.maxPlayers, r: challenge.maxRadius })
+                : t("pitch.hint")}
+            </span>
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
