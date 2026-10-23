@@ -39,27 +39,50 @@ jobs:
       # Authenticate Docker client against Azure Container Registry (auto-discover or provision if missing)
       - name: Ensure Azure Container Registry Exists & Log In
         run: |
-          echo "Looking for existing Azure Container Registry in ${{ env.RESOURCE_GROUP }}..."
-          EXISTING_ACR=$(az acr list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv 2>/dev/null || true)
+          set -e
+          echo "=== 1. Active Azure Account & Subscription ==="
+          az account show --query "{SubscriptionId:id, TenantId:tenantId, Name:name}" -o table
+
+          echo "=== 2. Checking Resource Group ${{ env.RESOURCE_GROUP }} ==="
+          if ! az group show --name "${{ env.RESOURCE_GROUP }}" -o table 2>/dev/null; then
+            echo "Resource Group ${{ env.RESOURCE_GROUP }} not found in subscription!"
+            echo "Available Resource Groups in subscription:"
+            az group list --query "[].{Name:name, Location:location}" -o table
+            exit 1
+          fi
+
+          RG_LOCATION=$(az group show --name "${{ env.RESOURCE_GROUP }}" --query location -o tsv)
+          echo "Resource Group Location: $RG_LOCATION"
+
+          echo "=== 3. Registering Resource Providers if needed ==="
+          az provider register --namespace Microsoft.ContainerRegistry || true
+          az provider register --namespace Microsoft.App || true
+          az provider register --namespace Microsoft.OperationalInsights || true
+
+          echo "=== 4. Checking for existing Azure Container Registry in ${{ env.RESOURCE_GROUP }} ==="
+          EXISTING_ACR=$(az acr list --resource-group "${{ env.RESOURCE_GROUP }}" --query "[0].name" -o tsv 2>/dev/null || true)
+
           if [ -n "$EXISTING_ACR" ] && [ "$EXISTING_ACR" != "null" ]; then
-            echo "Found existing ACR in ${{ env.RESOURCE_GROUP }}: $EXISTING_ACR"
             TARGET_ACR="$EXISTING_ACR"
+            echo "Found existing ACR in ${{ env.RESOURCE_GROUP }}: $TARGET_ACR"
           else
             TARGET_ACR="${{ env.ACR_NAME }}"
-            echo "No existing ACR found in ${{ env.RESOURCE_GROUP }}. Checking if $TARGET_ACR exists..."
-            if ! az acr show --name "$TARGET_ACR" &>/dev/null; then
-              LOCATION=$(az group show --name ${{ env.RESOURCE_GROUP }} --query location -o tsv)
-              echo "Provisioning new ACR $TARGET_ACR in location $LOCATION..."
+            echo "No existing ACR in ${{ env.RESOURCE_GROUP }}. Checking if $TARGET_ACR exists globally..."
+            if ! az acr show --name "$TARGET_ACR" --resource-group "${{ env.RESOURCE_GROUP }}" 2>/dev/null; then
+              echo "Creating ACR $TARGET_ACR in ${{ env.RESOURCE_GROUP }} ($RG_LOCATION)..."
               az acr create \
                 --name "$TARGET_ACR" \
-                --resource-group ${{ env.RESOURCE_GROUP }} \
-                --location "$LOCATION" \
+                --resource-group "${{ env.RESOURCE_GROUP }}" \
+                --location "$RG_LOCATION" \
                 --sku Basic \
                 --admin-enabled false
             fi
           fi
-          echo "Using ACR: $TARGET_ACR"
+
+          echo "Target ACR: $TARGET_ACR"
           echo "ACR_NAME=$TARGET_ACR" >> $GITHUB_ENV
+
+          echo "=== 5. Logging into ACR $TARGET_ACR ==="
           az acr login --name "$TARGET_ACR"
 
       # 3. Builds backend Docker image
