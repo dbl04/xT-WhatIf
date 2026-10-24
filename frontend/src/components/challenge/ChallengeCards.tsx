@@ -8,6 +8,7 @@ import {
   ArrowUp,
   Check,
   CloudOff,
+  Loader2,
   Lock,
   Play,
   RotateCcw,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/challenge";
 import { PALETTE } from "@/lib/palette";
 import type { ChallengeState } from "@/hooks/useChallenge";
+import type { SubmitAck, SubmitDelivery } from "@/hooks/useLiveMatch";
 import type { PlayerNode, TeamInfo } from "@/types/match";
 
 const MODE_ICON: Record<ChallengeMode, React.ElementType> = { attack: Swords, defend: Shield };
@@ -247,6 +249,45 @@ function useTimerAnnouncement(secondsLeft: number, open: boolean, auto: boolean)
   return message;
 }
 
+/** Live match only: whether the submitted moves reached the server. */
+export interface LiveDelivery {
+  status: SubmitDelivery;
+  reason?: SubmitAck["reason"];
+  reconnecting: boolean;
+}
+
+const DeliveryNote: React.FC<{ delivery: LiveDelivery }> = ({ delivery }) => {
+  const { t } = useI18n();
+  const { status, reason, reconnecting } = delivery;
+  if (status === "idle") return null;
+  if (status === "failed") {
+    return (
+      <span role="alert" className="flex items-start gap-1.5 text-[12px] text-signal-loss">
+        <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+        {t("challenge.delivery.failed", { reason: t(`challenge.delivery.reason.${reason ?? "invalid"}`) })}
+      </span>
+    );
+  }
+  if (status === "received") {
+    return (
+      <span className="flex items-center gap-1.5 text-[12px] text-signal-gain" aria-live="polite">
+        <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        {t("challenge.delivery.received")}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-start gap-1.5 text-[12px] text-fg-muted" aria-live="polite">
+      {reconnecting ? (
+        <CloudOff className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+      ) : (
+        <Loader2 className="mt-px h-3.5 w-3.5 shrink-0 motion-safe:animate-spin" aria-hidden />
+      )}
+      {reconnecting ? t("challenge.delivery.reconnecting") : t("challenge.delivery.sending")}
+    </span>
+  );
+};
+
 // ======================================================================
 // CHALLENGE CARD — open and submitted states
 // ======================================================================
@@ -259,7 +300,8 @@ export const ChallengeCard: React.FC<{
   onReset: () => void;
   onLeave: () => void;
   onHighlightPlayer?: (playerId: number | null) => void;
-}> = ({ state, secondsLeft, notice, teamInfo, onConfirm, onReset, onLeave, onHighlightPlayer }) => {
+  delivery?: LiveDelivery;
+}> = ({ state, secondsLeft, notice, teamInfo, onConfirm, onReset, onLeave, onHighlightPlayer, delivery }) => {
   const { t, locale } = useI18n();
   const num = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   const isOpen = state.status === "open";
@@ -423,7 +465,8 @@ export const ChallengeCard: React.FC<{
             </ul>
           )}
 
-          <p className="text-[12px] text-fg-muted">{t("challenge.revealSoon")}</p>
+          {delivery && <DeliveryNote delivery={delivery} />}
+          {delivery?.status !== "failed" && <p className="text-[12px] text-fg-muted">{t("challenge.revealSoon")}</p>}
 
           <div className="flex items-center border-t border-line pt-3">
             <Button variant="secondary" onClick={onLeave} className="ml-auto">
@@ -448,7 +491,8 @@ export const ChallengeStrip: React.FC<{
   onConfirm: () => void;
   onReset: () => void;
   onLeave: () => void;
-}> = ({ state, secondsLeft, notice, teamInfo, onConfirm, onReset, onLeave }) => {
+  delivery?: LiveDelivery;
+}> = ({ state, secondsLeft, notice, teamInfo, onConfirm, onReset, onLeave, delivery }) => {
   const { t } = useI18n();
   const isOpen = state.status === "open";
   const announcement = useTimerAnnouncement(secondsLeft, isOpen, !!state.submission?.auto);
@@ -461,7 +505,12 @@ export const ChallengeStrip: React.FC<{
 
   let message: React.ReactNode = null;
   if (!isOpen) {
-    message = t("challenge.revealSoon");
+    message =
+      delivery && delivery.status !== "idle" && delivery.status !== "received" ? (
+        <DeliveryNote delivery={delivery} />
+      ) : (
+        t("challenge.revealSoon")
+      );
   } else if (notice) {
     message = (
       <span className="text-fg">

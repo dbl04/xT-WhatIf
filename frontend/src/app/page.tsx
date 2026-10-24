@@ -14,7 +14,7 @@ import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentato
 import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
 import { OnboardingGate, useFanSession } from "@/components/onboarding/OnboardingGate";
 import { FanBadge } from "@/components/onboarding/FanBadge";
-import { ChallengeCard, ChallengeStrip, PlayMomentCard } from "@/components/challenge/ChallengeCards";
+import { ChallengeCard, ChallengeStrip, PlayMomentCard, type LiveDelivery } from "@/components/challenge/ChallengeCards";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useChallenge } from "@/hooks/useChallenge";
@@ -24,6 +24,7 @@ import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/com
 import { modeFor } from "@/lib/challenge";
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
+import { sfx } from "@/lib/sfx";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
 import { useI18n } from "@/lib/i18n";
@@ -180,6 +181,8 @@ function DashboardPage() {
 
   const challenge = useChallenge({
     onSubmit: (submission) => {
+      if (submission.auto) sfx.whistle();
+      else sfx.confirm();
       const moment = liveState.moment;
       if (!moment || moment.frame.event_uuid !== submission.eventUuid) return; // practice: nothing to send
       // Only legal moves are sent: a player breaking a rule stays in place (the server would
@@ -190,6 +193,11 @@ function DashboardPage() {
   });
   const challengeState = challenge.state;
   const inChallenge = challengeState !== null;
+  // Delivery of the moves only matters on the live moment's board, not in practice.
+  const liveDelivery: LiveDelivery | undefined =
+    challengeState && liveState.moment?.frame.event_uuid === challengeState.baseFrame.event_uuid
+      ? { status: liveState.delivery, reason: liveState.lastAck?.reason, reconnecting: liveState.reconnecting }
+      : undefined;
 
   // MOMENT_OPEN → open the challenge on the server's moment (once per moment).
   const openedMomentRef = useRef<string | null>(null);
@@ -202,6 +210,7 @@ function DashboardPage() {
     tts.stop();
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
+    sfx.whistle();
     openChallenge({
       frame: moment.frame,
       team: supportedSide,
@@ -219,6 +228,12 @@ function DashboardPage() {
       submitChallenge(true);
     }
   }, [isLiveView, challengeState?.status, liveState.momentDeadline, submitChallenge]);
+
+  // Countdown ticks over the last seconds of an open challenge.
+  const secondsLeft = challenge.secondsLeft;
+  useEffect(() => {
+    if (challengeState?.status === "open" && secondsLeft > 0 && secondsLeft <= 10) sfx.tick(secondsLeft);
+  }, [challengeState?.status, secondsLeft]);
 
   const continueAfterReveal = () => {
     live.dismissReveal();
@@ -243,12 +258,29 @@ function DashboardPage() {
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
     setIsHudDrawerOpen(true);
+    sfx.whistle();
     challenge.open({ frame: currentFrame, team: supportedSide });
   };
 
   const { flashNotice } = challenge;
   const reveal =
     isLiveView && liveState.reveal && liveState.reveal.moment_id === liveState.moment?.moment_id ? liveState.reveal : null;
+  // One sound per reveal: rising when the fan found (nearly) the best move.
+  const revealSoundRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!reveal || revealSoundRef.current === reveal.moment_id) return;
+    revealSoundRef.current = reveal.moment_id;
+    sfx.reveal(reveal.beat_machine || (reveal.your_score ?? 0) >= 900);
+  }, [reveal]);
+  const { drop: dropOnBoard } = challenge;
+  const dropInChallenge = useCallback(
+    (_playerId: number) => {
+      if (challengeState?.status === "open") sfx.drop();
+      dropOnBoard();
+    },
+    [challengeState?.status, dropOnBoard]
+  );
+
   // What the pitch shows: the live action, the challenge board, or the key moment being practised.
   const pitchFrame = challengeState ? challengeState.baseFrame : isLiveView && liveState.frame ? liveState.frame : currentFrame;
   const liveMatchInfo = liveState.matchInfo ?? getMatchInfo(currentFrame);
@@ -265,7 +297,10 @@ function DashboardPage() {
       offsideLineX: challengeState.rules.offside_line_x,
       locked: challengeState.status !== "open",
       violationLabels,
-      onBlocked: (_id, reason) => flashNotice(reason),
+      onBlocked: (_id, reason) => {
+        sfx.blocked();
+        flashNotice(reason);
+      },
       optimum: reveal
         ? reveal.optimum_moves.map((m) => {
             const from = challengeState.baseFrame.players.find((p) => p.player_id === m.player_id);
@@ -430,7 +465,7 @@ function DashboardPage() {
             // In a challenge the board belongs to useChallenge: no counterfactual simulation
             // or debate on drop (that is the reveal's job), only the preview arrow.
             onPlayerMove={inChallenge ? challenge.move : isLiveView ? () => {} : updatePlayerPosition}
-            onSimulationTrigger={inChallenge ? challenge.drop : isLiveView ? () => {} : onPlayerDrop}
+            onSimulationTrigger={inChallenge ? dropInChallenge : isLiveView ? () => {} : onPlayerDrop}
             onAnimationEnd={() => setIsPlaying(false)}
             onDragStart={handleDragStart}
           />
@@ -463,6 +498,7 @@ function DashboardPage() {
                   onReset={challenge.reset}
                   onLeave={challenge.close}
                   onHighlightPlayer={setHoveredPlayerId}
+                  delivery={liveDelivery}
                 />
               )}
             </motion.aside>
@@ -600,6 +636,7 @@ function DashboardPage() {
                 onConfirm={() => challenge.submit(false)}
                 onReset={challenge.reset}
                 onLeave={challenge.close}
+                delivery={liveDelivery}
               />
             </div>
           )}

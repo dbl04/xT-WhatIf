@@ -82,6 +82,8 @@ export interface SubmitAck {
 }
 
 export type LiveStatus = "connecting" | "live" | "ended" | "offline";
+/** Where the fan's moves for the open moment are: queued, sent, acknowledged or rejected. */
+export type SubmitDelivery = "idle" | "sending" | "received" | "failed";
 
 export interface LiveState {
   status: LiveStatus;
@@ -104,6 +106,9 @@ export interface LiveState {
   leaderboard: Leaderboard | null;
   matchEnd: MatchEnd | null;
   lastAck: SubmitAck | null;
+  delivery: SubmitDelivery;
+  /** The socket dropped and a new connection is being attempted. */
+  reconnecting: boolean;
 }
 
 const INITIAL: LiveState = {
@@ -123,9 +128,26 @@ const INITIAL: LiveState = {
   leaderboard: null,
   matchEnd: null,
   lastAck: null,
+  delivery: "idle",
+  reconnecting: false,
 };
 
 const MAX_TICKER = 8;
+
+/**
+ * Deadline of a moment that was already open when the fan joined or reconnected: what is
+ * left of it, from the server's epoch times. A clock too far off to give a plausible
+ * remainder falls back to the whole window.
+ */
+function joinedMomentDeadline(m: MomentOpen, now: number): number {
+  const window = Math.max(0, m.closes_at_ms - m.opened_at_ms);
+  const left = m.closes_at_ms - now;
+  return now + (left >= 0 && left <= window ? left : window) - LATENCY_ALLOWANCE_MS;
+}
+
+function send(ws: WebSocket, momentId: string, moves: ChallengeMove[]) {
+  ws.send(JSON.stringify({ type: "SUBMIT", payload: { moment_id: momentId, moves } }));
+}
 /** Network allowance taken off the window so the local timer never outlives the server's. */
 const LATENCY_ALLOWANCE_MS = 400;
 
@@ -151,6 +173,9 @@ export function useLiveMatch({
 }: UseLiveMatchOptions) {
   const [state, setState] = useState<LiveState>(INITIAL);
   const socketRef = useRef<WebSocket | null>(null);
+  // Moves not acknowledged yet: re-sent when the socket reopens (the server keeps one
+  // submission per fan, so sending twice is harmless).
+  const pendingRef = useRef<{ momentId: string; moves: ChallengeMove[] } | null>(null);
 
   useEffect(() => {
     if (!enabled || !userId) return;
@@ -162,6 +187,7 @@ export function useLiveMatch({
     const handle = (message: { type: string; payload: any }) => {
       const p = message.payload;
       const now = Date.now();
+      if (message.type === "SUBMIT_ACK" || message.type === "MOMENT_OPEN") pendingRef.current = null;
       setState((s) => {
         switch (message.type) {
           case "MATCH_STATE":
@@ -179,9 +205,7 @@ export function useLiveMatch({
               frameSeq: s.frameSeq + 1,
               recentEvents: [...(p.recent_events ?? [])].reverse(),
               moment: p.active_moment,
-              momentDeadline: p.active_moment
-                ? now + Math.max(0, p.active_moment.closes_at_ms - p.active_moment.opened_at_ms) - LATENCY_ALLOWANCE_MS
-                : null,
+              momentDeadline: p.active_moment ? joinedMomentDeadline(p.active_moment, now) : null,
               leaderboard: p.leaderboard,
               matchEnd: p.status === "ended" ? s.matchEnd : null,
               reveal: p.status === "ended" ? s.reveal : null,
@@ -207,9 +231,10 @@ export function useLiveMatch({
               momentDeadline: now + p.window_s * 1000 - LATENCY_ALLOWANCE_MS,
               reveal: null,
               lastAck: null,
+              delivery: "idle",
             };
           case "SUBMIT_ACK":
-            return { ...s, lastAck: p };
+            return { ...s, lastAck: p, delivery: p.accepted ? "received" : "failed" };
           case "MOMENT_CLOSED":
             return s.moment?.moment_id === p.moment_id ? { ...s, momentDeadline: now } : s;
           case "MOMENT_REVEAL":
@@ -235,6 +260,9 @@ export function useLiveMatch({
       socketRef.current = ws;
       ws.onopen = () => {
         attempts = 0;
+        setState((s) => ({ ...s, reconnecting: false }));
+        const pending = pendingRef.current;
+        if (pending) send(ws!, pending.momentId, pending.moves);
       };
       ws.onmessage = (event) => {
         try {
@@ -248,7 +276,7 @@ export function useLiveMatch({
         socketRef.current = null;
         attempts += 1;
         // After two failed attempts the app falls back to the offline key moments.
-        if (attempts >= 2) setState((s) => ({ ...s, status: "offline" }));
+        setState((s) => ({ ...s, reconnecting: true, ...(attempts >= 2 ? { status: "offline" } : {}) }));
         retry = setTimeout(connect, Math.min(10000, 1000 * 2 ** Math.min(attempts, 4)));
       };
     };
@@ -263,12 +291,15 @@ export function useLiveMatch({
     };
   }, [enabled, userId, nickname, team, language, audience, wsUrl]);
 
-  /** Sends the user's moves for the open moment. Returns false when the socket is not open. */
-  const submit = useCallback((momentId: string, moves: ChallengeMove[]): boolean => {
+  /**
+   * Sends the user's moves for the open moment. When the socket is not open the moves stay
+   * queued and go out as soon as it reconnects; `delivery` tracks the outcome.
+   */
+  const submit = useCallback((momentId: string, moves: ChallengeMove[]) => {
+    pendingRef.current = { momentId, moves };
+    setState((s) => ({ ...s, delivery: "sending" }));
     const ws = socketRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    ws.send(JSON.stringify({ type: "SUBMIT", payload: { moment_id: momentId, moves } }));
-    return true;
+    if (ws && ws.readyState === WebSocket.OPEN) send(ws, momentId, moves);
   }, []);
 
   const dismissReveal = useCallback(() => setState((s) => ({ ...s, reveal: null, moment: null, momentDeadline: null })), []);

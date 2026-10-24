@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
-import { ChevronDown, Users } from "lucide-react";
+import { ChevronDown, Users, Volume2, VolumeX } from "lucide-react";
 import { AUDIENCES, LANGUAGES, useI18n } from "@/lib/i18n";
+import { useSfxMuted } from "@/lib/sfx";
 
-/** Personalisation controls: interface/commentary language and the pundits' audience. */
+/** Personalisation controls: interface/commentary language, the pundits' audience and sound effects. */
 export const ProfileSwitcher: React.FC = () => {
   const { language, setLanguage, audience, setAudience, t } = useI18n();
+  const [muted, setMuted] = useSfxMuted();
 
   return (
     <div className="flex items-center gap-1.5">
@@ -31,6 +33,17 @@ export const ProfileSwitcher: React.FC = () => {
           </button>
         ))}
       </div>
+
+      <button
+        type="button"
+        onClick={() => setMuted(!muted)}
+        aria-pressed={muted}
+        title={muted ? t("sound.unmute") : t("sound.mute")}
+        aria-label={muted ? t("sound.unmute") : t("sound.mute")}
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-ink-800 text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
+      >
+        {muted ? <VolumeX className="h-3.5 w-3.5" aria-hidden /> : <Volume2 className="h-3.5 w-3.5" aria-hidden />}
+      </button>
 
       {/* Hidden on phones to keep the header within 375 px; the audience stays editable from
           the fan badge → Edit profile screen. */}
