@@ -19,7 +19,7 @@ import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useChallenge } from "@/hooks/useChallenge";
 import { LIVE_API_URL } from "@/lib/api";
-import { liveClockSeconds, useLiveMatch } from "@/hooks/useLiveMatch";
+import { liveClockSeconds, useLiveMatch, type MomentReveal } from "@/hooks/useLiveMatch";
 import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/components/live/LiveCards";
 import { modeFor } from "@/lib/challenge";
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
@@ -28,7 +28,7 @@ import { sfx } from "@/lib/sfx";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
 import { useI18n } from "@/lib/i18n";
-import { PlayerNode } from "@/types/match";
+import { MatchFramePayload, PlayerNode } from "@/types/match";
 import {
   Download,
   Columns2,
@@ -47,6 +47,22 @@ export default function HomePage() {
       <DashboardPage />
     </OnboardingGate>
   );
+}
+
+/** Reveal: the pass the optimum opens, from the ball to its receiver where the optimum leaves them. */
+function revealPass(frame: MatchFramePayload, reveal: MomentReveal): PitchChallenge["optimumPass"] {
+  const target = reveal.optimum_target_id;
+  if (target == null) return undefined;
+  const moved = reveal.optimum_moves.find((m) => m.player_id === target);
+  const player = frame.players.find((p) => p.player_id === target);
+  if (!moved && !player) return undefined;
+  return {
+    fromX: frame.ball_x,
+    fromY: frame.ball_y,
+    toX: moved?.x ?? player!.x,
+    toY: moved?.y ?? player!.y,
+    changed: reveal.base_target_id != null && reveal.base_target_id !== target,
+  };
 }
 
 function DashboardPage() {
@@ -307,6 +323,7 @@ function DashboardPage() {
             return { ...m, fromX: from?.x ?? m.x, fromY: from?.y ?? m.y };
           })
         : undefined,
+      optimumPass: reveal ? revealPass(challengeState.baseFrame, reveal) : undefined,
     };
   }, [challengeState, t, flashNotice, reveal]);
 

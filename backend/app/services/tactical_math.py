@@ -283,15 +283,35 @@ def calculate_shot_probability(
 
 
 # -----------------------------------------------------------------------------
+# Offside
+# -----------------------------------------------------------------------------
+# Tolerance for positions rounded to 0.1 m by the client.
+OFFSIDE_EPS = 0.05
+
+
+def offside_line_x(players: List[PlayerNode], possession: TeamSide, ball_x: float) -> float:
+    """Second-last defender (keeper included), the ball or halfway, whichever is furthest forward."""
+    defenders_x = sorted((p.x for p in players if p.team != possession), reverse=True)
+    second_last = defenders_x[1] if len(defenders_x) >= 2 else 120.0
+    return max(second_last, ball_x, 60.0)
+
+
+def is_offside(player: PlayerNode, line_x: Optional[float]) -> bool:
+    return line_x is not None and player.x > line_x + OFFSIDE_EPS
+
+
+# -----------------------------------------------------------------------------
 # Optimal Pass Target Identification
 # -----------------------------------------------------------------------------
 def find_optimal_pass_target(
     actor: PlayerNode,
     teammates: List[PlayerNode],
-    opponents: List[PlayerNode]
+    opponents: List[PlayerNode],
+    offside_x: Optional[float] = None,
 ) -> Tuple[Optional[int], float]:
     """
     Evaluates all teammates to find the highest Expected Value (EV = prob * xT).
+    Teammates beyond `offside_x` cannot receive.
     Returns (optimal_player_id, pass_completion_prob_to_optimal).
     """
     best_id: Optional[int] = None
@@ -299,7 +319,7 @@ def find_optimal_pass_target(
     best_prob = 50.0
 
     for mate in teammates:
-        if mate.player_id == actor.player_id:
+        if mate.player_id == actor.player_id or is_offside(mate, offside_x):
             continue
 
         prob = calculate_pass_probability_cone(
@@ -373,8 +393,10 @@ def simulate_counterfactual(
         opponents=opponents
     )
 
-    # 2. Recalculate optimal pass target across all teammates
-    optimal_id, _ = find_optimal_pass_target(actor, teammates, opponents)
+    # 2. Recalculate optimal pass target across all onside teammates. The line is the one of
+    #    the untouched frame: a defender stepping up does not play anyone offside
+    line = offside_line_x(base_frame.players, possession_team, base_frame.ball_x)
+    optimal_id, _ = find_optimal_pass_target(actor, teammates, opponents, line)
     if optimal_id is None and len(teammates) > 1:
         other_mates = [m for m in teammates if m.player_id != actor.player_id]
         if other_mates:

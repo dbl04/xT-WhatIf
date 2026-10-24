@@ -65,11 +65,14 @@ def _moment_key(event_type: str, start: Tuple[float, float], end: Tuple[float, f
 
 
 def is_candidate(event: LiveEvent) -> bool:
-    """Detector pre-filter (rules): shots and actions that reach the box area or switch the play."""
+    """
+    Detector pre-filter (rules): shots and actions that reach the last 35 m or switch the play.
+    Attackers stand onside, so passes ending short of the box still give both sides room to play.
+    """
     f = event.frame
     return (
         f.event_type == "Shot"
-        or (f.ball_end_x or 0) >= 95
+        or (f.ball_end_x or 0) >= 85
         or f.moment_key in ("switch", "cutback", "wide_carry")
     )
 

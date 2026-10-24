@@ -18,6 +18,7 @@ possession always attacking towards x = 120.
      shifted towards it, midfield line ~12 m ahead, lone striker screening.
 3. The nearest defender presses the ball carrier, the receiver is placed on the pass
    destination, Gaussian noise is added and players are pushed apart (>= 1.8 m).
+   Attackers are then held onside: the frame is the moment the ball is played.
 4. Metrics are computed with the same engine used for counterfactuals
    (`simulate_counterfactual` with no moved players), so an untouched frame always
    has a delta xT of exactly 0.
@@ -61,6 +62,8 @@ PITCH_LENGTH = 120.0
 PITCH_WIDTH = 80.0
 MIN_PLAYER_SPACING_M = 1.8
 POSITION_NOISE_SD_M = 1.6
+# Attackers stand at least this far behind the offside line when the ball is played.
+ONSIDE_MARGIN_M = 1.5
 
 # Fictional fixture. Kit colours match the frontend palette (home celeste, away white).
 HOME_TEAM = TeamInfo(name="Redmoor Albion", short_name="RDM", primary_color="#75aadb")
@@ -127,7 +130,7 @@ SCENARIOS: List[Scenario] = [
              ball=(97.0, 13.0), ball_end=(106.0, 24.0), actor_role="RW", press_distance_m=2.2),
     Scenario("counter_through", "Pass",
              ball=(60.0, 46.0), ball_end=(91.0, 34.0), actor_role="LCM", receiver_role="ST",
-             press_distance_m=3.5, def_line_x=74.0, lane_clearance_m=4.0),
+             press_distance_m=3.5, def_line_x=78.0, lane_clearance_m=4.0),
     Scenario("cutback", "Pass",
              ball=(113.0, 71.0), ball_end=(103.0, 45.0), actor_role="LW", receiver_role="RCM",
              press_distance_m=2.0),
@@ -312,6 +315,22 @@ def _build_players(scenario: Scenario, possession: TeamSide, rng: random.Random)
     _separate(points, fixed)
     # Separation can nudge someone back towards the lane; clear once more.
     _clear_lane(points, lane_defenders, (bx, by), (ex, ey), scenario.lane_clearance_m)
+
+    # The frame is the moment the ball is played: every attacker, the receiver included, is
+    # onside then (a through ball is met further on, at ball_end). Noise and separation can
+    # push someone over, so hold them back, separate again and end on the hold.
+    attackers = [pid for pid in points if meta[pid][2] == attacking_side and pid != actor_id]
+
+    def hold_onside() -> None:
+        defenders_x = sorted((points[pid][0] for pid in points if meta[pid][2] == defending_side), reverse=True)
+        line = max(defenders_x[1], bx, PITCH_LENGTH / 2.0) - ONSIDE_MARGIN_M
+        for pid in attackers:
+            points[pid][0] = min(points[pid][0], line)
+
+    for _ in range(3):
+        hold_onside()
+        _separate(points, fixed)
+    hold_onside()
 
     players: List[PlayerNode] = []
     for pid, (x, y) in sorted(points.items()):

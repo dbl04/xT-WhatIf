@@ -584,7 +584,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Switch of play to the far side: 0.11 xT in play",
-            "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.11 xT, with a 45.2% chance of completing the action and 28.0% local space control in the final third. The highest-value option is O. Thornwell.",
+            "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.11 xT, with a 45.2% chance of completing the action and 26.8% local space control in the final third. The highest-value option is O. Thornwell.",
             "referenced_metric": "xT: 0.11 | Pass prob.: 45.2%",
             "highlighted_player_ids": [
               102,
@@ -617,7 +617,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Switch of play to the far side: baseline 0.11 xT",
-            "analysis_body": "Baseline before any adjustment: 0.11 xT, 45.2% pass completion and 28.0% space control. Highest-value receiver: O. Thornwell.",
+            "analysis_body": "Baseline before any adjustment: 0.11 xT, 45.2% pass completion and 26.8% space control. Highest-value receiver: O. Thornwell.",
             "referenced_metric": "Baseline xT: 0.11",
             "highlighted_player_ids": [
               102,
@@ -718,7 +718,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Cambio de orientación a la banda contraria: 0.11 xT en juego",
-            "analysis_body": "D. Okonne inicia la acción en (71.0, 11.0). El valor de la jugada es 0.11 xT con un 45.2% de probabilidad de completar la acción y un control territorial local del 28.0% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "analysis_body": "D. Okonne inicia la acción en (71.0, 11.0). El valor de la jugada es 0.11 xT con un 45.2% de probabilidad de completar la acción y un control territorial local del 26.8% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
             "referenced_metric": "xT: 0.11 | Prob. pase: 45.2%",
             "highlighted_player_ids": [
               102,
@@ -751,7 +751,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Cambio de orientación a la banda contraria: punto de partida 0.11 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.11 xT, 45.2% de acierto en el pase y 28.0% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "analysis_body": "Punto de partida antes de ajustar: 0.11 xT, 45.2% de acierto en el pase y 26.8% de control del espacio. Receptor de mayor valor: O. Thornwell.",
             "referenced_metric": "xT de partida: 0.11",
             "highlighted_player_ids": [
               102,
@@ -1124,7 +1124,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Through ball into the half-space: 0.35 xT in play",
-            "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.35 xT, with a 73.7% chance of completing the action and 47.2% local space control in the final third. The highest-value option is O. Thornwell.",
+            "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.35 xT, with a 73.7% chance of completing the action and 43.3% local space control in the final third. The highest-value option is O. Thornwell.",
             "referenced_metric": "xT: 0.35 | Pass prob.: 73.7%",
             "highlighted_player_ids": [
               108,
@@ -1157,7 +1157,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Through ball into the half-space: baseline 0.35 xT",
-            "analysis_body": "Baseline before any adjustment: 0.35 xT, 73.7% pass completion and 47.2% space control. Highest-value receiver: O. Thornwell.",
+            "analysis_body": "Baseline before any adjustment: 0.35 xT, 73.7% pass completion and 43.3% space control. Highest-value receiver: O. Thornwell.",
             "referenced_metric": "Baseline xT: 0.35",
             "highlighted_player_ids": [
               108,
@@ -1190,7 +1190,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Through ball into the half-space",
-            "analysis_body": "Redmoor Albion attack towards goal. M. Ferrant has the ball in the right half-space, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is inside the penalty area. The chance of a goal is about 35 percent.",
+            "analysis_body": "Redmoor Albion attack towards goal. M. Ferrant has the ball in the right half-space, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is through the middle, about 30 metres from goal. The chance of a goal is about 35 percent.",
             "referenced_metric": "Goal threat 35%",
             "highlighted_player_ids": [
               108,
@@ -1258,7 +1258,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Pase filtrado al pasillo interior: 0.35 xT en juego",
-            "analysis_body": "M. Ferrant inicia la acción en (87.0, 28.0). El valor de la jugada es 0.35 xT con un 73.7% de probabilidad de completar la acción y un control territorial local del 47.2% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "analysis_body": "M. Ferrant inicia la acción en (87.0, 28.0). El valor de la jugada es 0.35 xT con un 73.7% de probabilidad de completar la acción y un control territorial local del 43.3% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
             "referenced_metric": "xT: 0.35 | Prob. pase: 73.7%",
             "highlighted_player_ids": [
               108,
@@ -1291,7 +1291,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Pase filtrado al pasillo interior: punto de partida 0.35 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.35 xT, 73.7% de acierto en el pase y 47.2% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "analysis_body": "Punto de partida antes de ajustar: 0.35 xT, 73.7% de acierto en el pase y 43.3% de control del espacio. Receptor de mayor valor: O. Thornwell.",
             "referenced_metric": "xT de partida: 0.35",
             "highlighted_player_ids": [
               108,
@@ -1324,7 +1324,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Pase filtrado al pasillo interior",
-            "analysis_body": "Redmoor Albion ataca hacia la portería. M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está dentro del área. La probabilidad de gol ronda el 35 por ciento.",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está por el centro, a unos 30 metros de la portería. La probabilidad de gol ronda el 35 por ciento.",
             "referenced_metric": "Peligro de gol 35%",
             "highlighted_player_ids": [
               108,
@@ -1394,8 +1394,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Counter-attack: ball into space: 0.25 xT in play",
-            "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.25 xT, with a 68.2% chance of completing the action and 68.3% local space control in the final third. The highest-value option is Z. Ombrell.",
-            "referenced_metric": "xT: 0.25 | Pass prob.: 68.2%",
+            "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.25 xT, with a 67.0% chance of completing the action and 75.3% local space control in the final third. The highest-value option is Z. Ombrell.",
+            "referenced_metric": "xT: 0.25 | Pass prob.: 67.0%",
             "highlighted_player_ids": [
               210,
               209
@@ -1427,7 +1427,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Counter-attack: ball into space: baseline 0.25 xT",
-            "analysis_body": "Baseline before any adjustment: 0.25 xT, 68.2% pass completion and 68.3% space control. Highest-value receiver: Z. Ombrell.",
+            "analysis_body": "Baseline before any adjustment: 0.25 xT, 67.0% pass completion and 75.3% space control. Highest-value receiver: Z. Ombrell.",
             "referenced_metric": "Baseline xT: 0.25",
             "highlighted_player_ids": [
               210,
@@ -1460,7 +1460,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Counter-attack: ball into space",
-            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 60 metres from goal. The most dangerous pass is to Z. Ombrell, who is through the middle, about 30 metres from goal. The chance of a goal is about 25 percent.",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 60 metres from goal. The most dangerous pass is to Z. Ombrell, who is through the middle, about 40 metres from goal. The chance of a goal is about 25 percent.",
             "referenced_metric": "Goal threat 25%",
             "highlighted_player_ids": [
               210,
@@ -1528,8 +1528,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Contraataque: pase al espacio: 0.25 xT en juego",
-            "analysis_body": "I. Kowalin inicia la acción en (60.0, 46.0). El valor de la jugada es 0.25 xT con un 68.2% de probabilidad de completar la acción y un control territorial local del 68.3% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
-            "referenced_metric": "xT: 0.25 | Prob. pase: 68.2%",
+            "analysis_body": "I. Kowalin inicia la acción en (60.0, 46.0). El valor de la jugada es 0.25 xT con un 67.0% de probabilidad de completar la acción y un control territorial local del 75.3% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
+            "referenced_metric": "xT: 0.25 | Prob. pase: 67.0%",
             "highlighted_player_ids": [
               210,
               209
@@ -1561,7 +1561,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Contraataque: pase al espacio: punto de partida 0.25 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.25 xT, 68.2% de acierto en el pase y 68.3% de control del espacio. Receptor de mayor valor: Z. Ombrell.",
+            "analysis_body": "Punto de partida antes de ajustar: 0.25 xT, 67.0% de acierto en el pase y 75.3% de control del espacio. Receptor de mayor valor: Z. Ombrell.",
             "referenced_metric": "xT de partida: 0.25",
             "highlighted_player_ids": [
               210,
@@ -1594,7 +1594,7 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Contraataque: pase al espacio",
-            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. El pase más peligroso es hacia Z. Ombrell, que está por el centro, a unos 30 metros de la portería. La probabilidad de gol ronda el 25 por ciento.",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. El pase más peligroso es hacia Z. Ombrell, que está por el centro, a unos 40 metros de la portería. La probabilidad de gol ronda el 25 por ciento.",
             "referenced_metric": "Peligro de gol 25%",
             "highlighted_player_ids": [
               210,

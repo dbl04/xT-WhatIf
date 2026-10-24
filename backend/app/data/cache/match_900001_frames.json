@@ -863,9 +863,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 87.0,
+        "x": 79.7,
         "y": 68.9,
-        "original_x": 87.0,
+        "original_x": 79.7,
         "original_y": 68.9,
         "is_modified": false
       },
@@ -1017,7 +1017,7 @@
       "original_xt": 0.11,
       "simulated_xt": 0.11,
       "xt_delta": 0.0,
-      "space_control_home_pct": 28.0,
+      "space_control_home_pct": 26.8,
       "optimal_pass_target_id": 109,
       "pass_completion_prob": 45.2
     },
@@ -1029,7 +1029,7 @@
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "37:09",
         "headline": "Switch of play to the far side: 0.11 xT in play",
-        "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.11 xT, with a 45.2% chance of completing the action and 28.0% local space control in the final third. The highest-value option is O. Thornwell.",
+        "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.11 xT, with a 45.2% chance of completing the action and 26.8% local space control in the final third. The highest-value option is O. Thornwell.",
         "referenced_metric": "xT: 0.11 | Pass prob.: 45.2%",
         "highlighted_player_ids": [
           102,
@@ -1551,9 +1551,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 102.0,
+        "x": 92.9,
         "y": 33.2,
-        "original_x": 102.0,
+        "original_x": 92.9,
         "original_y": 33.2,
         "is_modified": false
       },
@@ -1577,9 +1577,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 93.4,
+        "x": 92.9,
         "y": 73.2,
-        "original_x": 93.4,
+        "original_x": 92.9,
         "original_y": 73.2,
         "is_modified": false
       },
@@ -1731,7 +1731,7 @@
       "original_xt": 0.35,
       "simulated_xt": 0.35,
       "xt_delta": 0.0,
-      "space_control_home_pct": 47.2,
+      "space_control_home_pct": 43.3,
       "optimal_pass_target_id": 109,
       "pass_completion_prob": 73.7
     },
@@ -1743,7 +1743,7 @@
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "55:12",
         "headline": "Through ball into the half-space: 0.35 xT in play",
-        "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.35 xT, with a 73.7% chance of completing the action and 47.2% local space control in the final third. The highest-value option is O. Thornwell.",
+        "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.35 xT, with a 73.7% chance of completing the action and 43.3% local space control in the final third. The highest-value option is O. Thornwell.",
         "referenced_metric": "xT: 0.35 | Pass prob.: 73.7%",
         "highlighted_player_ids": [
           108,
@@ -1817,9 +1817,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 73.1,
+        "x": 77.1,
         "y": 63.0,
-        "original_x": 73.1,
+        "original_x": 77.1,
         "original_y": 63.0,
         "is_modified": false
       },
@@ -1830,9 +1830,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 74.0,
+        "x": 78.0,
         "y": 26.6,
-        "original_x": 74.0,
+        "original_x": 78.0,
         "original_y": 26.6,
         "is_modified": false
       },
@@ -1843,9 +1843,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 71.9,
+        "x": 75.9,
         "y": 48.3,
-        "original_x": 71.9,
+        "original_x": 75.9,
         "original_y": 48.3,
         "is_modified": false
       },
@@ -1856,10 +1856,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 74.8,
-        "y": 35.1,
-        "original_x": 74.8,
-        "original_y": 35.1,
+        "x": 81.8,
+        "y": 42.9,
+        "original_x": 81.8,
+        "original_y": 42.9,
         "is_modified": false
       },
       {
@@ -1869,10 +1869,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 64.6,
-        "y": 39.6,
-        "original_x": 64.6,
-        "original_y": 39.6,
+        "x": 68.0,
+        "y": 38.1,
+        "original_x": 68.0,
+        "original_y": 38.1,
         "is_modified": false
       },
       {
@@ -1882,9 +1882,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 60.6,
+        "x": 64.6,
         "y": 62.1,
-        "original_x": 60.6,
+        "original_x": 64.6,
         "original_y": 62.1,
         "is_modified": false
       },
@@ -1908,9 +1908,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 44.1,
+        "x": 48.1,
         "y": 42.4,
-        "original_x": 44.1,
+        "original_x": 48.1,
         "original_y": 42.4,
         "is_modified": false
       },
@@ -1921,9 +1921,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 64.5,
+        "x": 68.5,
         "y": 33.4,
-        "original_x": 64.5,
+        "original_x": 68.5,
         "original_y": 33.4,
         "is_modified": false
       },
@@ -1934,9 +1934,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 59.5,
+        "x": 63.5,
         "y": 23.1,
-        "original_x": 59.5,
+        "original_x": 63.5,
         "original_y": 23.1,
         "is_modified": false
       },
@@ -2025,9 +2025,9 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 66.1,
+        "x": 70.1,
         "y": 6.4,
-        "original_x": 66.1,
+        "original_x": 70.1,
         "original_y": 6.4,
         "is_modified": false
       },
@@ -2051,9 +2051,9 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 91.3,
+        "x": 80.3,
         "y": 34.6,
-        "original_x": 91.3,
+        "original_x": 80.3,
         "original_y": 34.6,
         "is_modified": false
       },
@@ -2077,9 +2077,9 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 69.9,
+        "x": 73.9,
         "y": 74.1,
-        "original_x": 69.9,
+        "original_x": 73.9,
         "original_y": 74.1,
         "is_modified": false
       }
@@ -2088,9 +2088,9 @@
       "original_xt": 0.25,
       "simulated_xt": 0.25,
       "xt_delta": 0.0,
-      "space_control_home_pct": 68.3,
+      "space_control_home_pct": 75.3,
       "optimal_pass_target_id": 209,
-      "pass_completion_prob": 68.2
+      "pass_completion_prob": 67.0
     },
     "agent_debate": [
       {
@@ -2100,8 +2100,8 @@
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "71:48",
         "headline": "Counter-attack: ball into space: 0.25 xT in play",
-        "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.25 xT, with a 68.2% chance of completing the action and 68.3% local space control in the final third. The highest-value option is Z. Ombrell.",
-        "referenced_metric": "xT: 0.25 | Pass prob.: 68.2%",
+        "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.25 xT, with a 67.0% chance of completing the action and 75.3% local space control in the final third. The highest-value option is Z. Ombrell.",
+        "referenced_metric": "xT: 0.25 | Pass prob.: 67.0%",
         "highlighted_player_ids": [
           210,
           209

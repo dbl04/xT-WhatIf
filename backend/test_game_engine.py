@@ -54,10 +54,21 @@ class ActionValueTest(unittest.TestCase):
                 calculate_pass_probability_cone(f.ball_x, f.ball_y, p.x, p.y, opponents) / 100.0 * get_xt_at_point(p.x, p.y)
                 for p in f.players
                 if p.team == f.possession_team and not p.is_keeper and p.player_id != carrier.player_id
+                and p.x <= offside_line(f) + 0.05
             )
             v = frame_value(f)
             self.assertAlmostEqual(v.value, expected, places=9)
             self.assertIsNotNone(v.target_id)
+
+    def test_offside_teammate_cannot_receive(self):
+        for f in FRAMES:
+            target = frame_value(f).target_id
+            if target is None:
+                continue
+            p = next(q for q in f.players if q.player_id == target)
+            # Past the line of the untouched frame (no rule check here: only the value)
+            v = frame_value(f, [(target, round(offside_line(f) + 3.0, 1), p.y)])
+            self.assertNotEqual(v.target_id, target, f.moment_label)
 
     def test_both_teams_change_the_value(self):
         """The legacy metric ignored attackers; V must move with attackers and defenders alike."""
@@ -132,7 +143,7 @@ class RulesTest(unittest.TestCase):
                 if p.x <= line:
                     self.assertIn("offside", rules, (f.moment_label, p.name))
                 else:
-                    # Drawn beyond the line at the reception point: exempt.
+                    # Already beyond the line: may move, but cannot receive until back onside.
                     self.assertNotIn("offside", rules, (f.moment_label, p.name))
 
     def test_offside_does_not_apply_to_defenders(self):

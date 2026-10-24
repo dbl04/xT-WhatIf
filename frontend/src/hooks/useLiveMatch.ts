@@ -45,6 +45,8 @@ export interface MomentReveal {
   mode: ChallengeMode;
   optimum_moves: ChallengeMove[];
   optimum_target_id: number | null;
+  /** Best receiver before any move: the pass changed when it differs from optimum_target_id. */
+  base_target_id: number | null;
   your_moves: ChallengeMove[];
   your_score: number | null;
   beat_machine: boolean;

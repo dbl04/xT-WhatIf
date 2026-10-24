@@ -26,7 +26,7 @@ from app.services.synthetic_generator import (
     _dump,
     generate_match,
 )
-from app.services.tactical_math import simulate_counterfactual
+from app.services.tactical_math import offside_line_x, simulate_counterfactual
 
 
 class TestSyntheticGenerator(unittest.TestCase):
@@ -68,6 +68,13 @@ class TestSyntheticGenerator(unittest.TestCase):
             closest = min(math.hypot(a.x - b.x, a.y - b.y) for a, b in itertools.combinations(f.players, 2))
             # Rounding to 0.1 m and pitch clamping can shave a few centimetres.
             self.assertGreaterEqual(closest, MIN_PLAYER_SPACING_M - 0.3, f.moment_label)
+
+    def test_attackers_are_onside_when_the_ball_is_played(self):
+        for f in self.frames:
+            line = offside_line_x(f.players, f.possession_team, f.ball_x)
+            for p in f.players:
+                if p.team == f.possession_team and not p.is_actor:
+                    self.assertLessEqual(p.x, line, (f.moment_label, p.name))
 
     def test_keepers_guard_their_own_goal(self):
         for f in self.frames:

@@ -113,6 +113,8 @@ export interface PitchChallenge {
   onBlocked?: (playerId: number, reason: "locked" | "limit") => void;
   /** Reveal: the optimum moves, drawn as green arrows to green target rings. */
   optimum?: { player_id: number; fromX: number; fromY: number; x: number; y: number }[];
+  /** Reveal: the optimum's pass, from the ball to its receiver; `changed` when it is a new receiver. */
+  optimumPass?: { fromX: number; fromY: number; toX: number; toY: number; changed: boolean };
 }
 
 interface ViewBox {
@@ -928,6 +930,22 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   </g>
                 );
               })}
+
+            {/* REVEAL: the optimum's pass, labelled when the moves send the ball to a new receiver */}
+            {challenge?.optimumPass && (() => {
+              const pass = challenge.optimumPass;
+              const label = t(pass.changed ? "pitch.newPass" : "pitch.bestOption");
+              const w = label.length * 1.15 + 2;
+              return (
+                <g id="optimumPassLine" pointerEvents="none" data-changed={pass.changed ? "true" : "false"}>
+                  <line x1={pass.fromX} y1={pass.fromY} x2={pass.toX} y2={pass.toY} stroke={C.gain} markerEnd="url(#optimalArrowHead)" {...hair(1.5)} />
+                  <g transform={`translate(${(pass.fromX + pass.toX) / 2}, ${(pass.fromY + pass.toY) / 2 - 2.8})`}>
+                    <rect x={-w / 2} y="-1.8" width={w} height="3.6" fill={C.gain} />
+                    <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">{label}</text>
+                  </g>
+                </g>
+              );
+            })()}
 
             {/* REVEAL: optimum moves (green arrow from the original spot to the best spot) */}
             {challenge?.optimum?.map((m) => (
