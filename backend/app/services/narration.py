@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from app.schemas.match_contract import AgentMessage, AgentRole, MatchFramePayload, PlayerNode
 
@@ -733,7 +733,9 @@ def delta_context(frame: MatchFramePayload, lang: Language = DEFAULT_LANGUAGE) -
 
 
 def counterfactual_debate(frame: MatchFramePayload, lang: Language = DEFAULT_LANGUAGE,
-                          audience: Audience = DEFAULT_AUDIENCE) -> List[AgentMessage]:
+                          audience: Audience = DEFAULT_AUDIENCE,
+                          tool_trace: Optional[List[Any]] = None,
+                          coach_proposal: Optional[Any] = None) -> List[AgentMessage]:
     """Deterministic debate after a move: names, metric shifts and wording for the chosen profile."""
     m = frame.metrics
     delta = m.xt_delta
@@ -767,10 +769,67 @@ def counterfactual_debate(frame: MatchFramePayload, lang: Language = DEFAULT_LAN
     case = "down" if delta < 0 else "up" if delta > 0 else "flat"
     clock = f"{frame.minute}:{frame.second:02d} [{SIMULATION_TAG[lang]}]"
     templates = TEMPLATES[lang][audience]
+    ds_parts = list(templates[DS][case])
+    co_parts = list(templates[CO][case])
+
+    # When invoked by the Multi-Agent Orchestrator with tool trace & Coach Bianchi's proposal,
+    # enrich the dialectical exchange so Bianchi proposes a concrete adjustment, Voronoi validates
+    # it with tool telemetry (simulate_counterfactual, optimizer/solve, xt_at), they contrast
+    # numbers, and issue an explicit verdict.
+    if coach_proposal is not None and tool_trace and audience in ("analyst", "coach"):
+        opt_xt: Optional[float] = None
+        opt_prob: Optional[float] = None
+        bianchi_xt: Optional[float] = None
+        target_cell_xt: Optional[float] = None
+        for rec in tool_trace:
+            tname = getattr(rec, "tool_name", "")
+            res = getattr(rec, "result", {}) or {}
+            if tname in ("optimizer/solve", "optimizer_solve"):
+                pm = res.get("projected_metrics", {})
+                if "simulated_xt" in pm:
+                    opt_xt = float(pm["simulated_xt"])
+                if "pass_completion_prob" in pm:
+                    opt_prob = float(pm["pass_completion_prob"])
+            elif tname == "simulate_counterfactual":
+                if "simulated_xt" in res:
+                    bianchi_xt = float(res["simulated_xt"])
+            elif tname == "xt_at":
+                if "xt_rounded" in res:
+                    target_cell_xt = float(res["xt_rounded"])
+
+        p_name = getattr(coach_proposal, "player_name", fields["mod"])
+        p_disp = float(getattr(coach_proposal, "displacement_m", 3.5))
+        p_tx = float(getattr(coach_proposal, "to_x", 90.0))
+        p_ty = float(getattr(coach_proposal, "to_y", 40.0))
+        opt_xt_val = opt_xt if opt_xt is not None else m.simulated_xt
+        bianchi_xt_val = bianchi_xt if bianchi_xt is not None else m.simulated_xt
+        cell_xt_val = target_cell_xt if target_cell_xt is not None else m.simulated_xt
+
+        if lang == "es":
+            co_parts[1] = (
+                f"{co_parts[1]} Propongo bascular a {p_name} {p_disp:.1f} m hacia ({p_tx:.1f}, {p_ty:.1f}) "
+                f"para cerrar ese intervalo interior. Veredicto táctico: corregir perfil y vigilancia."
+            )
+            ds_parts[1] = (
+                f"{ds_parts[1]} Validando la propuesta de Bianchi con las herramientas (xt_at={cell_xt_val:.2f}, "
+                f"simulate_counterfactual={bianchi_xt_val:.2f} xT vs optimizer/solve={opt_xt_val:.2f} xT): "
+                f"Veredicto cuantitativo: {'ajuste aprobado' if delta <= 0 else 'aplicar solución del optimizador'}."
+            )
+        else:
+            co_parts[1] = (
+                f"{co_parts[1]} I propose sliding {p_name} {p_disp:.1f} m to ({p_tx:.1f}, {p_ty:.1f}) "
+                f"to screen that inside channel. Tactical verdict: adjust cover and body shape."
+            )
+            ds_parts[1] = (
+                f"{ds_parts[1]} Validating Bianchi's proposal via engine tools (xt_at={cell_xt_val:.2f}, "
+                f"simulate_counterfactual={bianchi_xt_val:.2f} xT vs optimizer/solve={opt_xt_val:.2f} xT): "
+                f"Quantitative verdict: {'adjustment approved' if delta <= 0 else 'apply optimizer solution'}."
+            )
+
     return [
-        _message(DS, lang, clock, templates[DS][case], fields, [mod_id, ctx["receiver_id"]],
+        _message(DS, lang, clock, tuple(ds_parts), fields, [mod_id, ctx["receiver_id"]],
                  f"msg-{str(uuid.uuid4())[:8]}"),
-        _message(CO, lang, clock, templates[CO][case], fields, [mod_id, optimal_id],
+        _message(CO, lang, clock, tuple(co_parts), fields, [mod_id, optimal_id],
                  f"msg-{str(uuid.uuid4())[:8]}"),
     ]
 
@@ -850,6 +909,61 @@ def llm_user_prompt(frame: MatchFramePayload, lang: Language) -> str:
         f"- Local territorial control (Voronoi, home side): {m.space_control_home_pct:.1f}%\n"
         f"- Optimal receiver detected: {ctx['optimal_name']} (ID {m.optimal_pass_target_id})\n"
         f"- Original pass receiver: {ctx['receiver_name']} (ID {ctx['receiver_id']})\n"
+    )
+
+
+def bianchi_agent_system_prompt(lang: Language, audience: Audience) -> str:
+    """System prompt for Coach Bianchi (Classic Coach) in the multi-agent dialectical workflow."""
+    name = AGENT_NAMES[lang][CO]
+    tag = SIMULATION_TAG[lang]
+    return (
+        f"You are '{name}' (agent_role: 'classic_coach', avatar_badge: 'PRO-COACH'). "
+        "You are a veteran tactical football coach in a dialectical debate with Dr. Voronoi (Data Scientist). "
+        "Your job in Turn 1 is to:\n"
+        "1. Read the counterfactual freeze-frame and identify the tactical danger (e.g. open half-space, "
+        "centre-back/full-back interval, pressing distance, or unmarked optimal receiver).\n"
+        "2. Propose a concrete defensive/tactical adjustment within the 6.0m inertia radius (player_id, to_x, to_y) "
+        "and state a clear coaching verdict.\n"
+        "3. Never invent numbers: only cite the exact numbers provided in the telemetry or proposal.\n"
+        f"{LANGUAGE_STYLE[lang]}\n{AUDIENCE_STYLE[audience]}\n"
+        "Reply ONLY with valid JSON:\n"
+        "{\n"
+        "  \"proposal\": {\"player_id\": 5, \"to_x\": 92.0, \"to_y\": 38.0, \"reason\": \"...\"},\n"
+        "  \"message\": {\n"
+        f"    \"message_id\": \"msg-02\", \"agent_role\": \"classic_coach\", \"agent_name\": \"{name}\",\n"
+        f"    \"avatar_badge\": \"PRO-COACH\", \"timestamp_label\": \"MM:SS [{tag}]\",\n"
+        "    \"headline\": \"...\", \"analysis_body\": \"...\", \"referenced_metric\": \"...\",\n"
+        "    \"highlighted_player_ids\": [5, 10]\n"
+        "  }\n"
+        "}"
+    )
+
+
+def voronoi_agent_system_prompt(lang: Language, audience: Audience) -> str:
+    """System prompt for Dr. Voronoi (Data Scientist) in the multi-agent dialectical workflow with tools."""
+    name = AGENT_NAMES[lang][DS]
+    tag = SIMULATION_TAG[lang]
+    return (
+        f"You are '{name}' (agent_role: 'data_scientist', avatar_badge: 'AI-QUANT'). "
+        "You are the quantitative spatial scientist in a dialectical debate with Coach Bianchi. "
+        "You have access to three deterministic engine tools: `simulate_counterfactual`, `optimizer_solve` (optimizer/solve), and `xt_at`.\n"
+        "Your job is to:\n"
+        "1. Call the engine tools (`xt_at`, `simulate_counterfactual`, `optimizer_solve`) to validate both the user's "
+        "counterfactual move and Coach Bianchi's proposed adjustment.\n"
+        "2. Contrast/disagree with Coach Bianchi using exact metrics (original_xt, simulated_xt, xt_delta, "
+        "pass_completion_prob %, space_control_home_pct %, and optimizer projected_xt) and issue a final quantitative verdict.\n"
+        "3. Every single number in your text MUST match the exact metrics from the frame or tool outputs.\n"
+        f"{LANGUAGE_STYLE[lang]}\n{AUDIENCE_STYLE[audience]}\n"
+        "After calling tools, reply ONLY with valid JSON:\n"
+        "{\n"
+        "  \"verdict\": \"approved | rejected | optimizer_preferred\",\n"
+        "  \"message\": {\n"
+        f"    \"message_id\": \"msg-01\", \"agent_role\": \"data_scientist\", \"agent_name\": \"{name}\",\n"
+        f"    \"avatar_badge\": \"AI-QUANT\", \"timestamp_label\": \"MM:SS [{tag}]\",\n"
+        "    \"headline\": \"...\", \"analysis_body\": \"...\", \"referenced_metric\": \"...\",\n"
+        "    \"highlighted_player_ids\": [5, 11]\n"
+        "  }\n"
+        "}"
     )
 
 

@@ -1,33 +1,48 @@
 """
 Dialectical Multi-Agent Tactical Swarm for xT-WhatIf.
-Orchestrates high-level debates between:
-- Dr. Voronoi (Data Scientist) [AI-QUANT]: Rigorous spatial metrics, xT grid shifts, Voronoi territory.
-- Coach Bianchi (Classic Coach) [PRO-COACH]: Tactical football wisdom, rest defense, marking profiles, passing lane risks.
+
+Orchestrates real tool-calling multi-agent debates between:
+- Coach Bianchi (Classic Coach) [PRO-COACH]: Proposes a concrete tactical adjustment within the
+  6.0m biomechanical inertia ring to close exposed intervals and passing lanes.
+- Dr. Voronoi (Data Scientist) [AI-QUANT]: Validates both the user's move and Bianchi's proposal
+  by calling the deterministic engine tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`),
+  disagrees/contrasts with exact metrics, and issues a quantitative verdict.
 
 Features:
-1. In-memory simulation cache (_simulation_cache) for sub-10ms repeat responses.
-2. Async Azure OpenAI client with structured JSON parsing and 3.5s timeout.
-3. Dynamic heuristic fallback that interpolates real player names, meters displaced, and optimal targets.
-4. Personalisation: every debate is written for a language (en/es) and an audience profile
-   (casual, analyst, coach, audio_description). Wording lives in app/services/narration.py.
+1. Multi-Agent Tool-Calling Orchestrator (`app.agents.orchestrator.DialecticalAgentOrchestrator`)
+   supporting Microsoft Agent Framework, Azure AI Foundry Agent Service, and Azure OpenAI Tools.
+2. Deterministic Numerical Verifier (`app.agents.verifier.verify_and_repair_debate`): every number
+   in the LLM output must match ground-truth metrics; mismatches are repaired or fall back to template.
+3. In-memory simulation cache (`_simulation_cache`) for sub-10ms repeat responses.
+4. Personalisation: language (`en` / `es`) x audience (`casual`, `analyst`, `coach`, `audio_description`).
+5. Natural-language What-If support (`"¿y si el lateral cierra por dentro?"`) using the same tools.
 """
 
-import json
+from __future__ import annotations
+
 import asyncio
 import logging
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 from openai import AsyncAzureOpenAI
 
 from app.core.config import settings
-from app.schemas.match_contract import MatchFramePayload, AgentMessage
+from app.schemas.match_contract import AgentMessage, MatchFramePayload
 from app.services.narration import (
-    Audience,
     DEFAULT_AUDIENCE,
     DEFAULT_LANGUAGE,
+    Audience,
     Language,
     counterfactual_debate,
-    llm_system_prompt,
-    llm_user_prompt,
+    normalize_audience,
+    normalize_language,
+)
+from app.agents.orchestrator import DialecticalAgentOrchestrator, DialecticalDebateReport
+from app.agents.tools import EngineToolRegistry, propose_coach_adjustment
+from app.agents.verifier import verify_and_repair_debate
+from app.agents.what_if_nl import (
+    WhatIfNLRequest,
+    WhatIfNLResponse,
+    execute_natural_language_what_if,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,12 +50,15 @@ logger = logging.getLogger(__name__)
 # In-memory LRU-style cache for simulation debates
 # Key: (event_uuid, tuple_of_sorted_modified_positions, language, audience) -> List[AgentMessage]
 _simulation_cache: Dict[Tuple, List[AgentMessage]] = {}
+_simulation_report_cache: Dict[Tuple, DialecticalDebateReport] = {}
 
 
 class TacticalAgentSwarm:
     def __init__(self):
         self.client: Optional[AsyncAzureOpenAI] = None
         self._init_azure_client()
+        self.orchestrator = DialecticalAgentOrchestrator(client=self.client)
+        self.last_report: Optional[DialecticalDebateReport] = None
 
     def _init_azure_client(self):
         if (
@@ -53,17 +71,21 @@ class TacticalAgentSwarm:
                 self.client = AsyncAzureOpenAI(
                     api_key=settings.AZURE_OPENAI_API_KEY,
                     api_version=settings.AZURE_OPENAI_API_VERSION,
-                    azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
+                    azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
                 )
-                logger.info("TacticalAgentSwarm: Azure OpenAI client initialized successfully.")
+                logger.info("TacticalAgentSwarm: Azure OpenAI / Foundry client initialized successfully.")
             except Exception as e:
-                logger.warning(f"Could not initialize Azure OpenAI client: {e}. Running in heuristic fallback mode.")
+                logger.warning(f"Could not initialize Azure OpenAI client: {e}. Running in deterministic tool mode.")
                 self.client = None
         else:
             self.client = None
 
-    def _build_cache_key(self, frame: MatchFramePayload, language: Language = DEFAULT_LANGUAGE,
-                         audience: Audience = DEFAULT_AUDIENCE) -> Tuple:
+    def _build_cache_key(
+        self,
+        frame: MatchFramePayload,
+        language: Language = DEFAULT_LANGUAGE,
+        audience: Audience = DEFAULT_AUDIENCE,
+    ) -> Tuple:
         """Creates a deterministic cache key from modified player coordinates and the narration profile."""
         mod_tuples = tuple(
             sorted(
@@ -74,66 +96,119 @@ class TacticalAgentSwarm:
         )
         return (frame.event_uuid, mod_tuples, language, audience)
 
-    async def generate_debate(self, frame: MatchFramePayload, language: Language = DEFAULT_LANGUAGE,
-                              audience: Audience = DEFAULT_AUDIENCE) -> List[AgentMessage]:
+    async def generate_debate(
+        self,
+        frame: MatchFramePayload,
+        language: Language = DEFAULT_LANGUAGE,
+        audience: Audience = DEFAULT_AUDIENCE,
+    ) -> List[AgentMessage]:
         """
-        Generates multi-agent debate based on the simulated frame.
-        Checks cache first (<10ms), tries Azure OpenAI with 3.5s timeout, and falls back to dynamic heuristics.
+        Generates a verified multi-agent debate on the simulated frame:
+        - Checks `_simulation_cache` first (<10ms).
+        - Runs the Dialectical Multi-Agent Orchestrator (Bianchi proposes adjustment ->
+          Voronoi validates with `simulate_counterfactual`, `optimizer/solve`, `xt_at` ->
+          Deterministic Verifier checks every number).
+        - Preserves the exact `List[AgentMessage]` response contract.
         """
-        cache_key = self._build_cache_key(frame, language, audience)
+        lang = normalize_language(language)
+        aud = normalize_audience(audience)
+        cache_key = self._build_cache_key(frame, lang, aud)
         if cache_key in _simulation_cache:
             logger.info("Serving agent debate from in-memory simulation cache.")
+            if cache_key in _simulation_report_cache:
+                self.last_report = _simulation_report_cache[cache_key]
             return _simulation_cache[cache_key]
 
-        messages: Optional[List[AgentMessage]] = None
+        timeout_s = getattr(settings, "AGENT_SWARM_TIMEOUT_S", 8.0) or 8.0
+        report: Optional[DialecticalDebateReport] = None
 
-        # Attempt Azure OpenAI call if configured
-        if self.client:
-            try:
-                messages = await asyncio.wait_for(
-                    self._run_azure_openai_debate(frame, language, audience),
-                    timeout=3.5
-                )
-            except asyncio.TimeoutError:
-                logger.warning("Azure OpenAI debate call timed out (>3.5s). Falling back to dynamic heuristics.")
-            except Exception as e:
-                logger.warning(f"Azure OpenAI debate call failed: {e}. Falling back to dynamic heuristics.")
+        try:
+            self.orchestrator.client = self.client
+            report = await asyncio.wait_for(
+                self.orchestrator.run_debate(frame, language=lang, audience=aud, client=self.client),
+                timeout=timeout_s,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Multi-agent debate timed out (>%.1fs). Falling back to deterministic verified template.",
+                timeout_s,
+            )
+        except Exception as e:
+            logger.warning("Multi-agent debate call failed (%s). Falling back to deterministic verified template.", e)
 
-        # Fallback to dynamic, resilient heuristic generator
-        if not messages:
-            messages = counterfactual_debate(frame, language, audience)
+        if report is None:
+            # Even on timeout/error, run the deterministic tool validation & verifier
+            registry = EngineToolRegistry(bound_frame=frame)
+            proposal = propose_coach_adjustment(frame, lang)
+            await self.orchestrator._ensure_validation_tools_called(registry, frame, proposal, lang)
+            fallback_msgs = counterfactual_debate(
+                frame, lang, aud, tool_trace=registry.trace, coach_proposal=proposal
+            )
+            verification = verify_and_repair_debate(
+                messages=fallback_msgs,
+                frame=frame,
+                language=lang,
+                audience=aud,
+                tool_trace=registry.trace,
+                coach_proposal=proposal,
+            )
+            report = DialecticalDebateReport(
+                messages=verification.messages,
+                bianchi_proposal=proposal,
+                tool_calls=list(registry.trace),
+                verdict=None,
+                verification=verification,
+                framework=self.orchestrator.framework,
+                used_llm=False,
+            )
 
-        # Cache result
-        _simulation_cache[cache_key] = messages
-        return messages
+        self.last_report = report
+        _simulation_cache[cache_key] = report.messages
+        _simulation_report_cache[cache_key] = report
+        return report.messages
 
-    async def _run_azure_openai_debate(self, frame: MatchFramePayload, language: Language,
-                                       audience: Audience) -> Optional[List[AgentMessage]]:
-        """Executes a structured JSON call to Azure OpenAI generating both agent perspectives."""
+    async def _run_azure_openai_debate(
+        self,
+        frame: MatchFramePayload,
+        language: Language = DEFAULT_LANGUAGE,
+        audience: Audience = DEFAULT_AUDIENCE,
+    ) -> Optional[List[AgentMessage]]:
+        """
+        Executes the Azure OpenAI / Foundry multi-agent turn with tool calling and deterministic verification.
+        """
         if not self.client:
             return None
+        lang = normalize_language(language)
+        aud = normalize_audience(audience)
+        report = await self.orchestrator.run_debate(frame, language=lang, audience=aud, client=self.client)
+        self.last_report = report
+        return report.messages
 
-        response = await self.client.chat.completions.create(
-            model=settings.AZURE_OPENAI_DEPLOYMENT_REASONING,
-            messages=[
-                {"role": "system", "content": llm_system_prompt(language, audience)},
-                {"role": "user", "content": llm_user_prompt(frame, language)}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=600
-        )
-
-        content = response.choices[0].message.content
-        if not content:
-            return None
-
-        parsed = json.loads(content)
-        debate_list = parsed.get("debate", [])
-        if len(debate_list) >= 2:
-            return [AgentMessage(**item) for item in debate_list]
-
-        return None
+    async def run_natural_language_what_if(
+        self,
+        request: WhatIfNLRequest | str,
+        match_id: Optional[int] = None,
+        event_uuid: Optional[str] = None,
+        language: Language = DEFAULT_LANGUAGE,
+        audience: Audience = DEFAULT_AUDIENCE,
+    ) -> WhatIfNLResponse:
+        """
+        Executes a natural-language what-if query (e.g. '¿y si el lateral cierra por dentro?')
+        using the engine tools (`xt_at`, `simulate_counterfactual`, `optimizer/solve`) and
+        verified multi-agent debate.
+        """
+        if isinstance(request, str):
+            req_obj = WhatIfNLRequest(
+                query=request,
+                match_id=match_id or 900001,
+                event_uuid=event_uuid,
+                language=normalize_language(language),
+                audience=normalize_audience(audience),
+            )
+        else:
+            req_obj = request
+        self.orchestrator.client = self.client
+        return await execute_natural_language_what_if(req_obj, orchestrator=self.orchestrator)
 
 
 swarm = TacticalAgentSwarm()
