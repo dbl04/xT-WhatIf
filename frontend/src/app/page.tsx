@@ -462,7 +462,6 @@ function DashboardPage() {
         >
           <TacticalPitch2D
             ref={pitchRef}
-            teamShortNames={teamShortNames}
             players={replay.players ?? (challengeState ? challengeState.players : pitchFrame.players)}
             ballX={pitchFrame.ball_x}
             ballY={pitchFrame.ball_y}

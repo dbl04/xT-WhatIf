@@ -93,7 +93,6 @@ export interface TacticalPitch2DProps {
   onSimulationTrigger?: (playerId: number) => void;
   onAnimationEnd?: () => void;
   onDragStart?: () => void;
-  teamShortNames?: { home: string; away: string };
   /** Challenge mode overlay; null/undefined for the free analysis board. */
   challenge?: PitchChallenge | null;
   /** Nothing can be dragged (the live match outside a key moment). */
@@ -301,7 +300,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       onSimulationTrigger,
       onAnimationEnd,
       onDragStart,
-      teamShortNames = { home: "HOM", away: "AWY" },
       challenge = null,
       readOnly = false,
     },
@@ -1026,11 +1024,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />{teamShortNames.home}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />{teamShortNames.away}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-gain" />{t("pitch.onBall")}</span>
               <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-gain" />{t("pitch.bestPass")}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-loss" />{t("pitch.inertia")}</span>
             </div>
             {hoveredCellXt != null && (
               <span className="font-mono text-[10px] text-fg-muted">{t("pitch.cellXt")} <span className="text-signal-gain">{hoveredCellXt.toFixed(3)}</span></span>
