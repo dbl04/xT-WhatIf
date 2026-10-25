@@ -72,7 +72,6 @@ function DashboardPage() {
     frames,
     currentFrameIndex,
     currentFrame,
-    connectionMode,
     isThinking,
     highlightedPlayerIds,
     setHighlightedPlayerIds,
@@ -341,7 +340,6 @@ function DashboardPage() {
   const clock = isLiveView
     ? `${Math.floor(liveClock / 60)}:${String(liveClock % 60).padStart(2, "0")}`
     : `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
-  const isLive = connectionMode === "live";
 
   return (
     <main className="relative flex min-h-screen w-full select-none flex-col bg-ink text-fg lg:h-screen lg:overflow-hidden">
@@ -446,14 +444,6 @@ function DashboardPage() {
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
 
-          <span
-            className="mr-2 hidden items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted sm:inline-flex"
-            title={isLive ? t("nav.liveTitle") : t("nav.offlineTitle")}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-gain" : "bg-fg-subtle"}`} />
-            {isLive ? "Live" : "Offline"}
-          </span>
-
           <Button variant="primary" onClick={() => setIsExportModalOpen(true)} title={t("nav.exportTitle")}>
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{t("nav.export")}</span>
@@ -482,6 +472,8 @@ function DashboardPage() {
             isCounterfactualMode={!inChallenge && !isLiveView && currentFrame.is_counterfactual_mode}
             isPlaying={(isPlaying && !inChallenge) || replayPassing}
             challenge={pitchChallenge}
+            // The live match can only be touched while a key moment is open.
+            readOnly={isLiveView && !inChallenge}
             playbackSpeed={playbackSpeed}
             highlightedPlayerIds={highlightedPlayerIds}
             selectedPlayerId={hoveredPlayerId}
@@ -560,6 +552,7 @@ function DashboardPage() {
                   leaderboard={liveState.leaderboard}
                   matchInfo={liveMatchInfo}
                   nickname={fanSession?.identity.nickname ?? ""}
+                  team={supportedSide}
                 />
               </section>
             </motion.aside>

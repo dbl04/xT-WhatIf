@@ -9,7 +9,6 @@ import {
   Check,
   CloudOff,
   Loader2,
-  Lock,
   Play,
   RotateCcw,
   Shield,
@@ -326,15 +325,10 @@ export const ChallengeCard: React.FC<{
 
       <div className="flex items-center justify-between gap-2">
         <Kicker className="text-signal-gain">{t("challenge.kicker")}</Kicker>
-        {isOpen ? (
+        {isOpen && (
           <IconButton size="sm" onClick={onLeave} title={t("challenge.leave")} aria-label={t("challenge.leave")}>
             <X className="h-3.5 w-3.5" />
           </IconButton>
-        ) : (
-          <Tag tone={state.submission?.auto ? "magenta" : "green"}>
-            {state.submission?.auto ? <Lock className="h-3 w-3" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
-            {state.submission?.auto ? t("challenge.autoSubmitted") : t("challenge.submitted")}
-          </Tag>
         )}
       </div>
 
@@ -422,7 +416,7 @@ export const ChallengeCard: React.FC<{
         <>
           <div className="rounded-md border border-line bg-ink-800/70 p-2.5">
             <div className="font-display text-lg font-bold uppercase leading-none tracking-tight text-fg">
-              {t("challenge.submittedTitle")}
+              {t("challenge.yourMoves")}
             </div>
             {state.submission && state.submission.moves.length > 0 ? (
               <ul className="mt-2 flex flex-col gap-1">
@@ -604,9 +598,6 @@ export const ChallengeStrip: React.FC<{
             </>
           ) : (
             <>
-              <Tag tone={state.submission?.auto ? "magenta" : "green"} className="hidden sm:inline-flex">
-                {state.submission?.auto ? t("challenge.autoSubmitted") : t("challenge.submitted")}
-              </Tag>
               <Button variant="secondary" onClick={onLeave}>
                 {t("challenge.back")}
               </Button>
@@ -615,11 +606,6 @@ export const ChallengeStrip: React.FC<{
         </span>
       </div>
       <div className="flex items-center gap-2 px-2.5 pb-2 text-[11px] text-fg-muted">
-        {!isOpen && (
-          <Tag tone={state.submission?.auto ? "magenta" : "green"} className="sm:hidden">
-            {state.submission?.auto ? t("challenge.autoSubmitted") : t("challenge.submitted")}
-          </Tag>
-        )}
         <span className="min-w-0 truncate" aria-live="polite">
           {message}
         </span>

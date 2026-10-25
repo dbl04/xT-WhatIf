@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Award, Radio, RotateCcw, Trophy, Users } from "lucide-react";
+import { Award, RotateCcw, Trophy, Users } from "lucide-react";
 import { Button, Kicker, Tag } from "@/components/ui/primitives";
 import { MessageKey, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -39,10 +39,7 @@ export const LiveStatusCard: React.FC<{
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-2">
-        <Kicker className="flex items-center gap-1.5 text-signal-gain">
-          <Radio className="h-3 w-3 animate-pulse" aria-hidden />
-          {t("live.kicker")}
-        </Kicker>
+        <Kicker className="text-signal-gain">{t("live.kicker")}</Kicker>
         <span className="font-mono text-[10px] text-fg-subtle">
           <Users className="mr-1 inline h-3 w-3 align-[-2px]" aria-hidden />
           {t("live.fans", { n: fans.toLocaleString() })}
@@ -202,11 +199,6 @@ export const RevealCard: React.FC<{
         <p className="mt-1 text-[11.5px] text-fg-subtle">{reveal.explanation.community}</p>
       </div>
 
-      <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
-        <span className="h-2 w-2 rounded-full border border-signal-gain bg-signal-gain/30" aria-hidden />
-        {t("reveal.legend")}
-      </p>
-
       <Button variant="primary" onClick={onContinue}>
         {t("reveal.continue")}
       </Button>
@@ -224,51 +216,52 @@ const ChanceStat: React.FC<{ label: string; value: number | null; accent?: boole
 );
 
 // ======================================================================
-// LEADERBOARD
+// LEADERBOARD — the top rows and, below them, the fan's own position when outside them
 // ======================================================================
 export const LeaderboardCard: React.FC<{
   leaderboard: Leaderboard | null;
   matchInfo: MatchInfo;
   nickname: string;
+  team: TeamSide;
   rows?: number;
-}> = ({ leaderboard, matchInfo, nickname, rows = 5 }) => {
+}> = ({ leaderboard, matchInfo, nickname, team, rows = 5 }) => {
   const { t } = useI18n();
   const top = leaderboard?.top.slice(0, rows) ?? [];
-  const scored = top.some((r) => r.total > 0);
+  const you = leaderboard?.you ?? null;
+  // Ranks are unique, so the fan's row is found by rank (nicknames may repeat).
+  const youInTop = !!you && top.some((r) => r.rank === you.rank);
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Kicker className="flex items-center gap-1.5">
-          <Trophy className="h-3 w-3" aria-hidden />
-          {t("board.kicker")}
-        </Kicker>
-        {leaderboard?.you && (
-          <span className="font-mono text-[10px] text-fg-muted">
-            {t("board.you")} #{leaderboard.you.rank} · {leaderboard.you.total}
-          </span>
-        )}
-      </div>
-      {!scored ? (
-        <p className="text-[12px] text-fg-subtle">{t("board.empty")}</p>
-      ) : (
+      <Kicker className="flex items-center gap-1.5">
+        <Trophy className="h-3 w-3" aria-hidden />
+        {t("board.kicker")}
+      </Kicker>
+      {top.length > 0 && (
         <ol className="flex flex-col rounded-md border border-line">
-          {top.map((r) => {
-            const isYou = r.nickname === nickname && !r.is_bot;
-            return (
-              <li
-                key={`${r.rank}-${r.nickname}`}
-                className={cn(
-                  "flex items-center gap-2 border-b border-line px-2 py-1 text-[12px] last:border-b-0",
-                  isYou ? "bg-signal-gain/10 text-fg" : "text-fg-muted"
-                )}
-              >
-                <span className="w-5 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{r.rank}</span>
-                <TeamDot color={matchInfo[r.team].primary_color} />
-                <span className="min-w-0 flex-1 truncate">{r.nickname}</span>
-                <span className="font-mono text-[11px] tabular-nums text-fg">{r.total}</span>
+          {top.map((r) => (
+            <LeaderboardRow
+              key={`${r.rank}-${r.nickname}`}
+              rank={r.rank}
+              nickname={r.nickname}
+              total={r.total}
+              color={matchInfo[r.team].primary_color}
+              isYou={!!you && r.rank === you.rank}
+            />
+          ))}
+          {you && !youInTop && (
+            <>
+              <li aria-hidden className="border-b border-line px-2 text-center font-mono text-[10px] leading-4 text-fg-subtle">
+                …
               </li>
-            );
-          })}
+              <LeaderboardRow
+                rank={you.rank}
+                nickname={nickname}
+                total={you.total}
+                color={matchInfo[team].primary_color}
+                isYou
+              />
+            </>
+          )}
         </ol>
       )}
       {leaderboard && (
@@ -286,6 +279,27 @@ export const LeaderboardCard: React.FC<{
     </div>
   );
 };
+
+const LeaderboardRow: React.FC<{ rank: number; nickname: string; total: number; color?: string; isYou: boolean }> = ({
+  rank,
+  nickname,
+  total,
+  color,
+  isYou,
+}) => (
+  <li
+    aria-current={isYou ? "true" : undefined}
+    className={cn(
+      "flex items-center gap-2 border-b border-line px-2 py-1 text-[12px] last:border-b-0",
+      isYou ? "bg-signal-gain/10 font-semibold text-fg" : "text-fg-muted"
+    )}
+  >
+    <span className="w-6 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{rank}</span>
+    <TeamDot color={color} />
+    <span className="min-w-0 flex-1 truncate">{nickname}</span>
+    <span className="font-mono text-[11px] tabular-nums text-fg">{total}</span>
+  </li>
+);
 
 // ======================================================================
 // FULL TIME
