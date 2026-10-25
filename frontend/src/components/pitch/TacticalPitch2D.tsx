@@ -20,14 +20,13 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { Move, Lock, ZoomIn, Maximize2 } from "lucide-react";
 import { Kicker } from "@/components/ui/primitives";
-import { PALETTE, hair } from "@/lib/palette";
+import { PALETTE, hair, withAlpha } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
+import { XT_GRID_COLS, XT_GRID_ROWS, xtCell } from "@/lib/xt";
 
 // ======================================================================
 // ARCHITECTURE CONSTANTS
 // ======================================================================
-const XT_GRID_COLS = 16;
-const XT_GRID_ROWS = 12;
 const CELL_W = STATSBOMB_PITCH_LENGTH / XT_GRID_COLS; // 7.5m
 const CELL_H = STATSBOMB_PITCH_WIDTH / XT_GRID_ROWS; // 6.6667m
 
@@ -57,8 +56,8 @@ const C = {
   turfStripe: PALETTE.turfStripe,
   line: PALETTE.pitchLine,
   white: PALETTE.fg,
-  green: PALETTE.green,
-  magenta: PALETTE.magenta,
+  gain: PALETTE.gain,
+  loss: PALETTE.loss,
   red: PALETTE.red,
   home: PALETTE.home,
   away: PALETTE.away,
@@ -113,6 +112,8 @@ export interface PitchChallenge {
   onBlocked?: (playerId: number, reason: "locked" | "limit") => void;
   /** Reveal: the optimum moves, drawn as green arrows to green target rings. */
   optimum?: { player_id: number; fromX: number; fromY: number; x: number; y: number }[];
+  /** Reveal: the optimum's pass, from the ball to its receiver; `changed` when it is a new receiver. */
+  optimumPass?: { fromX: number; fromY: number; toX: number; toY: number; changed: boolean };
 }
 
 interface ViewBox {
@@ -126,18 +127,6 @@ const FULL_VIEW: ViewBox = { x: 0, y: 0, w: STATSBOMB_PITCH_LENGTH, h: STATSBOMB
 
 export interface TacticalPitch2DHandle {
   getSvgElement: () => SVGSVGElement | null;
-}
-
-// ======================================================================
-// xT HEATMAP UTILITIES
-// ======================================================================
-function computeCellXt(col: number, row: number): number {
-  const xProgress = col / (XT_GRID_COLS - 1);
-  const yDist = Math.abs(row - 5.5) / 5.5;
-  const centralFactor = 1 - yDist * 0.45;
-  let val = Math.pow(xProgress, 2.2) * 0.48 * centralFactor + 0.015;
-  if (col >= 11 && row >= 3 && row <= 8) val += 0.08;
-  return Number(Math.min(0.65, Math.max(0.01, val)).toFixed(3));
 }
 
 // ======================================================================
@@ -419,7 +408,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       const cells = [];
       for (let col = 0; col < XT_GRID_COLS; col++) {
         for (let row = 0; row < XT_GRID_ROWS; row++) {
-          cells.push({ col, row, x: col * CELL_W, y: row * CELL_H, xtVal: computeCellXt(col, row) });
+          cells.push({ col, row, x: col * CELL_W, y: row * CELL_H, xtVal: xtCell(col, row) });
         }
       }
       return cells;
@@ -624,7 +613,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
     const renderInertiaPlate = (x: number, y: number, over: boolean) => (
       <g transform={`translate(${x}, ${y})`}>
-        <rect x={over ? -12.5 : -8.5} y="-1.7" width={over ? 25 : 17} height="3.4" fill={over ? C.magenta : C.ink} stroke={over ? "none" : C.white} {...hair(0.5)} />
+        <rect x={over ? -12.5 : -8.5} y="-1.7" width={over ? 25 : 17} height="3.4" fill={over ? C.loss : C.ink} stroke={over ? "none" : C.white} {...hair(0.5)} />
         <text x="0" y="0.65" fontSize="1.7" fontWeight="700" letterSpacing="0.12" fill={C.white} textAnchor="middle">
           {over ? t("pitch.inertiaOver") : t("pitch.inertiaOk")}
         </text>
@@ -656,7 +645,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 onClick={() => setIsZoomed(zoomed)}
                 aria-pressed={isZoomed === zoomed}
                 title={label}
-                className={`flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[5px] px-2 text-xs transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-signal-green ${
+                className={`flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[5px] px-2 text-xs transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-signal-gain ${
                   isZoomed === zoomed ? "bg-white/[0.1] text-fg" : "text-fg-subtle hover:text-fg-muted"
                 }`}
               >
@@ -680,7 +669,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-[1px] ${active ? "bg-signal-green" : "border border-fg-subtle"}`}
+                    className={`h-1.5 w-1.5 rounded-[1px] ${active ? "bg-signal-gain" : "border border-fg-subtle"}`}
                   />
                   {t(label)}
                 </button>
@@ -710,13 +699,13 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 <path d="M 0 1 L 10 5 L 0 9 z" fill={C.white} />
               </marker>
               <marker id="ghostArrowHeadOver" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2" markerHeight="2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.magenta} />
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.loss} />
               </marker>
               <marker id="ballArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2" markerHeight="2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
                 <path d="M 0 1 L 10 5 L 0 9 z" fill={C.white} />
               </marker>
               <marker id="optimalArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="2.2" markerHeight="2.2" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.green} />
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={C.gain} />
               </marker>
             </defs>
 
@@ -762,20 +751,20 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 {xtGridCells.map((cell) => {
                   const isOrigin = cell.col === originCell.col && cell.row === originCell.row;
                   const isDest = destCell && cell.col === destCell.col && cell.row === destCell.row;
-                  const cellFill = `rgba(0,255,133,${Math.min(0.24, cell.xtVal * 0.42).toFixed(3)})`;
+                  const cellFill = withAlpha(C.gain, Number(Math.min(0.24, cell.xtVal * 0.42).toFixed(3)));
 
                   return (
                     <g key={`xt-${cell.col}-${cell.row}`} onMouseEnter={() => setHoveredCellXt(cell.xtVal)} onMouseLeave={() => setHoveredCellXt(null)} className="cursor-crosshair">
                       <rect x={cell.x} y={cell.y} width={CELL_W} height={CELL_H}
                         fill={cellFill}
-                        stroke={isOrigin ? C.white : isDest ? C.green : "rgba(255,255,255,0.05)"}
+                        stroke={isOrigin ? C.white : isDest ? C.gain : "rgba(255,255,255,0.05)"}
                         {...hair(isOrigin || isDest ? 1 : 0.5)}
                       />
                       {isOrigin && (
                         <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.white} textAnchor="middle" pointerEvents="none">{t("pitch.origin")}</text>
                       )}
                       {isDest && (
-                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.green} textAnchor="middle" pointerEvents="none">{t("pitch.target")}</text>
+                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.gain} textAnchor="middle" pointerEvents="none">{t("pitch.target")}</text>
                       )}
                     </g>
                   );
@@ -820,7 +809,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                     <line
                       x1={actorPlayer ? actorPlayer.x : ballX} y1={actorPlayer ? actorPlayer.y : ballY}
                       x2={optimalTargetPlayer.x} y2={optimalTargetPlayer.y}
-                      stroke={C.green} markerEnd="url(#optimalArrowHead)" {...hair(1.5)}
+                      stroke={C.gain} markerEnd="url(#optimalArrowHead)" {...hair(1.5)}
                     />
                     {(() => {
                       const sx = actorPlayer ? actorPlayer.x : ballX;
@@ -829,7 +818,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                       const my = (sy + optimalTargetPlayer.y) / 2;
                       return (
                         <g transform={`translate(${mx}, ${my - 2.8})`}>
-                          <rect x="-9.5" y="-1.8" width="19" height="3.6" fill={C.green} />
+                          <rect x="-9.5" y="-1.8" width="19" height="3.6" fill={C.gain} />
                           <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">{t("pitch.bestOption")}</text>
                         </g>
                       );
@@ -882,7 +871,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   const midY = (origY + p.y) / 2;
                   const ringRadius = challenge ? challenge.maxRadius : INERTIA_RADIUS;
                   const isOverInertia = !challenge && distanceMeters > INERTIA_RADIUS;
-                  const accent = isOverInertia ? C.magenta : C.white;
+                  const accent = isOverInertia ? C.loss : C.white;
 
                   return (
                     <g key={`ghost-${p.player_id}`} pointerEvents="none">
@@ -923,18 +912,34 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 const isOver = !challenge && dist > INERTIA_RADIUS;
                 return (
                   <g key={`drag-ring-${p.player_id}`} pointerEvents="none">
-                    <circle cx={origX} cy={origY} r={challenge ? challenge.maxRadius : INERTIA_RADIUS} fill="none" stroke={isOver ? C.magenta : C.white} strokeDasharray="4 3" opacity={0.85} {...hair(isOver ? 1 : 0.5)} />
+                    <circle cx={origX} cy={origY} r={challenge ? challenge.maxRadius : INERTIA_RADIUS} fill="none" stroke={isOver ? C.loss : C.white} strokeDasharray="4 3" opacity={0.85} {...hair(isOver ? 1 : 0.5)} />
                     {isOver && renderInertiaPlate(origX, origY - INERTIA_RADIUS - 1.6, true)}
                   </g>
                 );
               })}
 
+            {/* REVEAL: the optimum's pass, labelled when the moves send the ball to a new receiver */}
+            {challenge?.optimumPass && (() => {
+              const pass = challenge.optimumPass;
+              const label = t(pass.changed ? "pitch.newPass" : "pitch.bestOption");
+              const w = label.length * 1.15 + 2;
+              return (
+                <g id="optimumPassLine" pointerEvents="none" data-changed={pass.changed ? "true" : "false"}>
+                  <line x1={pass.fromX} y1={pass.fromY} x2={pass.toX} y2={pass.toY} stroke={C.gain} markerEnd="url(#optimalArrowHead)" {...hair(1.5)} />
+                  <g transform={`translate(${(pass.fromX + pass.toX) / 2}, ${(pass.fromY + pass.toY) / 2 - 2.8})`}>
+                    <rect x={-w / 2} y="-1.8" width={w} height="3.6" fill={C.gain} />
+                    <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">{label}</text>
+                  </g>
+                </g>
+              );
+            })()}
+
             {/* REVEAL: optimum moves (green arrow from the original spot to the best spot) */}
             {challenge?.optimum?.map((m) => (
               <g key={`opt-${m.player_id}`} pointerEvents="none" data-optimum-for={m.player_id}>
-                <line x1={m.fromX} y1={m.fromY} x2={m.x} y2={m.y} stroke={C.green} strokeDasharray="1.6 1" {...hair(2)} />
-                <circle cx={m.x} cy={m.y} r={PLAYER_R + 1.1} fill={C.green} fillOpacity={0.18} stroke={C.green} {...hair(2)} />
-                <circle cx={m.x} cy={m.y} r={0.45} fill={C.green} />
+                <line x1={m.fromX} y1={m.fromY} x2={m.x} y2={m.y} stroke={C.gain} strokeDasharray="1.6 1" {...hair(2)} />
+                <circle cx={m.x} cy={m.y} r={PLAYER_R + 1.1} fill={C.gain} fillOpacity={0.18} stroke={C.gain} {...hair(2)} />
+                <circle cx={m.x} cy={m.y} r={0.45} fill={C.gain} />
               </g>
             ))}
 
@@ -969,10 +974,10 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   <circle r={PLAYER_R + 1.1} fill="transparent" />
                   {isSelected && <circle r={PLAYER_R + 1.7} fill="none" stroke={C.white} strokeDasharray="1.5 1.5" {...hair(0.5)} />}
                   {isHighlighted && <circle r={PLAYER_R + 1.3} fill="none" stroke={C.white} {...hair(1.5)} />}
-                  {isActor && <circle r={PLAYER_R + 0.85} fill="none" stroke={C.green} {...hair(1.5)} />}
+                  {isActor && <circle r={PLAYER_R + 0.85} fill="none" stroke={C.gain} {...hair(1.5)} />}
                   {p.is_modified && !isActor && <circle r={PLAYER_R + 0.85} fill="none" stroke={C.white} strokeDasharray="1.5 1" {...hair(1)} />}
                   {isMovable && !p.is_modified && (
-                    <circle r={PLAYER_R + 0.7} fill="none" stroke={C.green} strokeDasharray="1.2 0.9" opacity={0.85} {...hair(1)} />
+                    <circle r={PLAYER_R + 0.7} fill="none" stroke={C.gain} strokeDasharray="1.2 0.9" opacity={0.85} {...hair(1)} />
                   )}
                   {/* A broken rule is a red ring; the reason is in the challenge card (and the tooltip). */}
                   {violation && (
@@ -1017,12 +1022,12 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />{teamShortNames.home}</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />{teamShortNames.away}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-green" />{t("pitch.onBall")}</span>
-              <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-green" />{t("pitch.bestPass")}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-magenta" />{t("pitch.inertia")}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-gain" />{t("pitch.onBall")}</span>
+              <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-gain" />{t("pitch.bestPass")}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-loss" />{t("pitch.inertia")}</span>
             </div>
             {hoveredCellXt != null && (
-              <span className="font-mono text-[10px] text-fg-muted">{t("pitch.cellXt")} <span className="text-signal-green">{hoveredCellXt.toFixed(3)}</span></span>
+              <span className="font-mono text-[10px] text-fg-muted">{t("pitch.cellXt")} <span className="text-signal-gain">{hoveredCellXt.toFixed(3)}</span></span>
             )}
             {hoveredZone && (
               <span className="font-mono text-[10px] text-fg-muted">{t("pitch.zone")} <span className="text-fg">{t(`zone.${hoveredZone}`)}</span></span>

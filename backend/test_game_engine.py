@@ -31,7 +31,7 @@ from app.services.game_engine import (
 )
 from app.services.match_loader import loader
 from app.services.synthetic_generator import DEFAULT_MATCH_ID
-from app.services.tactical_math import calculate_pass_probability_cone, get_xt_at_point
+from app.services.tactical_math import calculate_pass_probability_cone, find_optimal_pass_target, get_xt_at_point
 
 FRAMES = [MatchFramePayload(**f) for f in loader.fetch_match_360_frames(DEFAULT_MATCH_ID)]
 OPTIMA = {f.event_uuid: analyse_moment(f) for f in FRAMES}
@@ -54,10 +54,32 @@ class ActionValueTest(unittest.TestCase):
                 calculate_pass_probability_cone(f.ball_x, f.ball_y, p.x, p.y, opponents) / 100.0 * get_xt_at_point(p.x, p.y)
                 for p in f.players
                 if p.team == f.possession_team and not p.is_keeper and p.player_id != carrier.player_id
+                and p.x <= offside_line(f) + 0.05
             )
             v = frame_value(f)
             self.assertAlmostEqual(v.value, expected, places=9)
             self.assertIsNotNone(v.target_id)
+
+    def test_offside_teammate_cannot_receive(self):
+        for f in FRAMES:
+            target = frame_value(f).target_id
+            if target is None:
+                continue
+            p = next(q for q in f.players if q.player_id == target)
+            # Past the line of the untouched frame (no rule check here: only the value)
+            v = frame_value(f, [(target, round(offside_line(f) + 3.0, 1), p.y)])
+            self.assertNotEqual(v.target_id, target, f.moment_label)
+
+    def test_sandbox_best_receiver_is_never_the_keeper_or_offside(self):
+        # The sandbox's pick (tactical_math) follows the same rules as the game's (action_value).
+        f = FRAMES[0]
+        line = offside_line(f)
+        actor = next(p for p in f.players if p.is_actor)
+        mates = [p for p in f.players if p.team == f.possession_team]
+        opponents = [p for p in f.players if p.team != f.possession_team]
+        keeper_and_offside = [p if p.is_keeper or p.player_id == actor.player_id
+                              else p.model_copy(update={"x": line + 3.0}) for p in mates]
+        self.assertIsNone(find_optimal_pass_target(actor, keeper_and_offside, opponents, line)[0])
 
     def test_both_teams_change_the_value(self):
         """The legacy metric ignored attackers; V must move with attackers and defenders alike."""
@@ -74,7 +96,7 @@ class ActionValueTest(unittest.TestCase):
         defender = min(movable_players(f, "defend"), key=lambda p: math.hypot(p.x - mid[0], p.y - mid[1]))
         players = [p.model_copy(update={"x": mid[0], "y": mid[1]}) if p.player_id == defender.player_id else p
                    for p in f.players]
-        self.assertLess(action_value(players, f.possession_team, f.ball_x, f.ball_y).value, v.value)
+        self.assertLess(action_value(players, f.possession_team, f.ball_x, f.ball_y, offside_line(f)).value, v.value)
 
 
 class RulesTest(unittest.TestCase):
@@ -132,7 +154,7 @@ class RulesTest(unittest.TestCase):
                 if p.x <= line:
                     self.assertIn("offside", rules, (f.moment_label, p.name))
                 else:
-                    # Drawn beyond the line at the reception point: exempt.
+                    # Already beyond the line: may move, but cannot receive until back onside.
                     self.assertNotIn("offside", rules, (f.moment_label, p.name))
 
     def test_offside_does_not_apply_to_defenders(self):

@@ -90,7 +90,7 @@ export interface CounterfactualRequest {
   audience?: "casual" | "analyst" | "coach" | "audio_description";
 }
 
-/** POST /api/v1/cloud/stress-burst (backend/app/main.py · execute_stress_burst). */
+/** POST /api/v1/cloud/stress-burst (StressBurstResponse in backend/app/schemas/match_contract.py). */
 export interface StressBurstResponse {
   status: string;
   benchmark: string;
@@ -100,4 +100,11 @@ export interface StressBurstResponse {
   throughput_simulations_per_sec: number;
   kd_tree_lookups: number;
   engine: string;
+  active_instance_id: string;
+  aca_gateway_replicas: number;
+  /** A number, or a text label while the chaos test has the AKS workers unreachable. */
+  aks_worker_pods: number | string;
+  estimated_cpu_utilization_pct: number;
+  sampled_simulated_xt: number[];
+  metrics: Record<string, unknown>;
 }

@@ -70,7 +70,7 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
   </div>
 );
 
-const deltaClass = (delta: number) => (delta >= 0 ? "text-signal-green" : "text-signal-magenta");
+const deltaClass = (delta: number) => (delta >= 0 ? "text-signal-gain" : "text-signal-loss");
 const signed = (n: number, digits = 3) => `${n > 0 ? "+" : ""}${n.toFixed(digits)}`;
 
 export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = ({

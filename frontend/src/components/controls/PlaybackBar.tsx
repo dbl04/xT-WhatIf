@@ -120,7 +120,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         <button
           type="button"
           onClick={handlePlayToggle}
-          className="flex h-8 w-8 items-center justify-center rounded-md bg-fg text-ink transition-colors hover:bg-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-green"
+          className="flex h-8 w-8 items-center justify-center rounded-md bg-fg text-ink transition-colors hover:bg-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-gain"
           title={isPlaying ? t("playback.pause") : t("playback.play")}
           aria-label={isPlaying ? t("playback.pause") : t("playback.play")}
         >

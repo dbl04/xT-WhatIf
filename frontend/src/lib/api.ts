@@ -1,10 +1,11 @@
 /**
  * Backend addresses, read when the page loads rather than when the bundle is built.
  *
- * In Azure the frontend is deployed before anyone knows the backend's final URL, so the
- * root layout writes `window.__XT_CONFIG__` from the container's runtime environment
- * (API_URL, WS_URL, LIVE_API_URL, LIVE_WS_URL). Local development falls back to the
- * NEXT_PUBLIC_* build-time values and then to localhost.
+ * In Azure the frontend is deployed before anyone knows the backend's final URL, so
+ * `/runtime-config.js` (app/runtime-config.js/route.ts) writes `window.__XT_CONFIG__` from
+ * the container's runtime environment (API_URL, WS_URL, LIVE_API_URL, LIVE_WS_URL). The root
+ * layout loads it with `beforeInteractive`, so it has run before this module is evaluated.
+ * Local development falls back to the NEXT_PUBLIC_* build-time values and then to localhost.
  *
  * Every URL is an origin without a trailing slash; callers add the path
  * (`${WS_BASE_URL}/ws/match/<id>`, `${LIVE_WS_URL}/ws/live`).

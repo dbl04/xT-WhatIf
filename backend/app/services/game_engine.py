@@ -7,7 +7,7 @@ belongs to the team they support (attack) or to lower it when it belongs to the 
 geometric engine in tactical_math.py:
 
 1. Action value V: expected value of the ball carrier's best pass,
-       V = max_k P_pass(ball -> k) * xT(k)
+       V = max_k P_pass(ball -> k) * xT(k), over teammates k who are onside
    Unlike the legacy "simulated xT" (fixed pass destination), V responds to both teams:
    an attacker who finds space raises it, a defender who closes a lane lowers it.
 2. Movement rules (hard limits): who may move, how many, how far, spacing, offside.
@@ -27,7 +27,12 @@ from itertools import combinations
 from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 from app.schemas.match_contract import MatchFramePayload, PlayerNode, TeamSide
-from app.services.tactical_math import calculate_pass_probability_cone, get_xt_at_point
+from app.services.tactical_math import (
+    calculate_pass_probability_cone,
+    get_xt_at_point,
+    is_offside,
+    offside_line_x,
+)
 
 GameMode = Literal["attack", "defend"]
 
@@ -95,13 +100,18 @@ class MomentReport:
 # ---------------------------------------------------------------------------
 # 1. Action value
 # ---------------------------------------------------------------------------
-def action_value(players: Sequence[PlayerNode], possession: TeamSide, ball_x: float, ball_y: float) -> ActionValue:
-    """Expected value of the best pass from the ball: max over teammates of P(pass) * xT(receiver)."""
+def action_value(players: Sequence[PlayerNode], possession: TeamSide, ball_x: float, ball_y: float,
+                 offside_x: float) -> ActionValue:
+    """
+    Expected value of the best pass from the ball: max over onside teammates of P(pass) * xT(receiver).
+    `offside_x` is the line of the untouched frame (offside_line): moved players never redraw it.
+    """
     carrier = _carrier(players, possession, ball_x, ball_y)
     opponents = [p for p in players if p.team != possession]
     best = ActionValue(0.0, None, 0.0)
     for mate in players:
-        if mate.team != possession or mate.player_id == carrier.player_id or mate.is_keeper:
+        if (mate.team != possession or mate.player_id == carrier.player_id or mate.is_keeper
+                or is_offside(mate, offside_x)):
             continue
         prob = calculate_pass_probability_cone(ball_x, ball_y, mate.x, mate.y, opponents)
         value = prob / 100.0 * get_xt_at_point(mate.x, mate.y)
@@ -111,7 +121,9 @@ def action_value(players: Sequence[PlayerNode], possession: TeamSide, ball_x: fl
 
 
 def frame_value(frame: MatchFramePayload, moves: Iterable[Move] = ()) -> ActionValue:
-    return action_value(apply_moves(frame.players, moves), frame.possession_team, frame.ball_x, frame.ball_y)
+    """V after the moves, with the offside line of the untouched frame: stepping up plays nobody offside."""
+    return action_value(apply_moves(frame.players, moves), frame.possession_team, frame.ball_x, frame.ball_y,
+                        offside_line(frame))
 
 
 def apply_moves(players: Sequence[PlayerNode], moves: Iterable[Move]) -> List[PlayerNode]:
@@ -159,12 +171,10 @@ def movable_players(frame: MatchFramePayload, mode: GameMode) -> List[PlayerNode
 def offside_line(frame: MatchFramePayload) -> float:
     """
     Attackers who start onside may not cross the second-last defender, the ball or halfway,
-    whichever is furthest. A player already beyond it is exempt: freeze-frames draw the
-    intended receiver at the reception point, after the pass was played.
+    whichever is furthest. A player already beyond it may move, but cannot receive (see
+    action_value) until back onside.
     """
-    defenders_x = sorted((p.x for p in frame.players if p.team != frame.possession_team), reverse=True)
-    second_last = defenders_x[1] if len(defenders_x) >= 2 else PITCH_LENGTH
-    return max(second_last, frame.ball_x, PITCH_LENGTH / 2.0)
+    return offside_line_x(frame.players, frame.possession_team, frame.ball_x)
 
 
 def validate_moves(frame: MatchFramePayload, mode: GameMode, moves: Sequence[Move]) -> List[RuleViolation]:

@@ -63,9 +63,9 @@ export const TeamSelectScreen: React.FC<{
               onClick={() => setSelected(side)}
               className={cn(
                 "group relative flex flex-col items-center overflow-hidden rounded-lg border bg-ink-900 px-4 pb-5 pt-6 text-center transition-colors",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-green",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-gain",
                 isSelected
-                  ? "border-signal-green shadow-[0_0_0_1px_rgba(0,255,133,0.5),0_16px_48px_rgba(0,0,0,0.45)]"
+                  ? "border-signal-gain shadow-[0_0_0_1px_rgba(200,240,49,0.5),0_16px_48px_rgba(0,0,0,0.45)]"
                   : "border-line-strong hover:border-fg-subtle hover:bg-ink-800"
               )}
             >

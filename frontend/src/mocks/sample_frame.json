@@ -299,12 +299,12 @@
     }
   ],
   "metrics": {
-    "original_xt": 0.1,
-    "simulated_xt": 0.1,
+    "original_xt": 0.41,
+    "simulated_xt": 0.41,
     "xt_delta": 0.0,
     "space_control_home_pct": 49.9,
-    "optimal_pass_target_id": 206,
-    "pass_completion_prob": 11.7
+    "optimal_pass_target_id": 209,
+    "pass_completion_prob": 96.0
   },
   "agent_debate": [
     {
@@ -313,12 +313,12 @@
       "agent_name": "Dr. Voronoi (Data Scientist)",
       "avatar_badge": "AI-QUANT",
       "timestamp_label": "5:03",
-      "headline": "Shot from the edge of the box: 0.10 xT in play",
-      "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.10 xT, with a 11.7% chance of completing the action and 49.9% local space control in the final third. The highest-value option is N. Haldorsen.",
-      "referenced_metric": "xT: 0.10 | Pass prob.: 11.7%",
+      "headline": "Shot from the edge of the box: 0.41 xT in play",
+      "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.41 xT, with a 96.0% chance of completing the action and 49.9% local space control in the final third. The highest-value option is Z. Ombrell.",
+      "referenced_metric": "xT: 0.41 | Pass prob.: 96.0%",
       "highlighted_player_ids": [
         210,
-        206
+        209
       ]
     },
     {

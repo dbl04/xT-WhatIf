@@ -14,20 +14,22 @@ import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentato
 import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
 import { OnboardingGate, useFanSession } from "@/components/onboarding/OnboardingGate";
 import { FanBadge } from "@/components/onboarding/FanBadge";
-import { ChallengeCard, ChallengeStrip, PlayMomentCard } from "@/components/challenge/ChallengeCards";
+import { ChallengeCard, ChallengeStrip, PlayMomentCard, type LiveDelivery } from "@/components/challenge/ChallengeCards";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useChallenge } from "@/hooks/useChallenge";
 import { LIVE_API_URL } from "@/lib/api";
-import { liveClockSeconds, useLiveMatch } from "@/hooks/useLiveMatch";
+import { liveClockSeconds, useLiveMatch, type MomentReveal } from "@/hooks/useLiveMatch";
+import { useRevealReplay } from "@/hooks/useRevealReplay";
 import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/components/live/LiveCards";
 import { modeFor } from "@/lib/challenge";
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
+import { sfx } from "@/lib/sfx";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
 import { useI18n } from "@/lib/i18n";
-import { PlayerNode } from "@/types/match";
+import { MatchFramePayload, PlayerNode } from "@/types/match";
 import {
   Download,
   Columns2,
@@ -46,6 +48,22 @@ export default function HomePage() {
       <DashboardPage />
     </OnboardingGate>
   );
+}
+
+/** Reveal: the pass the optimum opens, from the ball to its receiver where the optimum leaves them. */
+function revealPass(frame: MatchFramePayload, reveal: MomentReveal): PitchChallenge["optimumPass"] {
+  const target = reveal.optimum_target_id;
+  if (target == null) return undefined;
+  const moved = reveal.optimum_moves.find((m) => m.player_id === target);
+  const player = frame.players.find((p) => p.player_id === target);
+  if (!moved && !player) return undefined;
+  return {
+    fromX: frame.ball_x,
+    fromY: frame.ball_y,
+    toX: moved?.x ?? player!.x,
+    toY: moved?.y ?? player!.y,
+    changed: reveal.base_target_id != null && reveal.base_target_id !== target,
+  };
 }
 
 function DashboardPage() {
@@ -180,6 +198,8 @@ function DashboardPage() {
 
   const challenge = useChallenge({
     onSubmit: (submission) => {
+      if (submission.auto) sfx.whistle();
+      else sfx.confirm();
       const moment = liveState.moment;
       if (!moment || moment.frame.event_uuid !== submission.eventUuid) return; // practice: nothing to send
       // Only legal moves are sent: a player breaking a rule stays in place (the server would
@@ -190,6 +210,11 @@ function DashboardPage() {
   });
   const challengeState = challenge.state;
   const inChallenge = challengeState !== null;
+  // Delivery of the moves only matters on the live moment's board, not in practice.
+  const liveDelivery: LiveDelivery | undefined =
+    challengeState && liveState.moment?.frame.event_uuid === challengeState.baseFrame.event_uuid
+      ? { status: liveState.delivery, reason: liveState.lastAck?.reason, reconnecting: liveState.reconnecting }
+      : undefined;
 
   // MOMENT_OPEN → open the challenge on the server's moment (once per moment).
   const openedMomentRef = useRef<string | null>(null);
@@ -202,6 +227,7 @@ function DashboardPage() {
     tts.stop();
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
+    sfx.whistle();
     openChallenge({
       frame: moment.frame,
       team: supportedSide,
@@ -219,6 +245,12 @@ function DashboardPage() {
       submitChallenge(true);
     }
   }, [isLiveView, challengeState?.status, liveState.momentDeadline, submitChallenge]);
+
+  // Countdown ticks over the last seconds of an open challenge.
+  const secondsLeft = challenge.secondsLeft;
+  useEffect(() => {
+    if (challengeState?.status === "open" && secondsLeft > 0 && secondsLeft <= 10) sfx.tick(secondsLeft);
+  }, [challengeState?.status, secondsLeft]);
 
   const continueAfterReveal = () => {
     live.dismissReveal();
@@ -243,12 +275,38 @@ function DashboardPage() {
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
     setIsHudDrawerOpen(true);
+    sfx.whistle();
     challenge.open({ frame: currentFrame, team: supportedSide });
   };
 
   const { flashNotice } = challenge;
   const reveal =
     isLiveView && liveState.reveal && liveState.reveal.moment_id === liveState.moment?.moment_id ? liveState.reveal : null;
+  // One sound per reveal: rising when the fan found (nearly) the best move.
+  const revealSoundRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!reveal || revealSoundRef.current === reveal.moment_id) return;
+    revealSoundRef.current = reveal.moment_id;
+    sfx.reveal(reveal.beat_machine || (reveal.your_score ?? 0) >= 900);
+  }, [reveal]);
+  const { drop: dropOnBoard } = challenge;
+  // The drop sound only for a player who really left their spot (a plain tap moves nobody).
+  const dropInChallenge = useCallback(
+    (playerId: number) => {
+      const dropped = challengeState?.players.find((p) => p.player_id === playerId);
+      if (challengeState?.status === "open" && dropped?.is_modified) sfx.drop();
+      dropOnBoard();
+    },
+    [challengeState, dropOnBoard]
+  );
+  const replay = useRevealReplay(reveal, challengeState?.baseFrame ?? null, challengeState?.players ?? null);
+  const replayPassing = !!reveal && replay.passing;
+  const endReplayPass = replay.endPass;
+  const handleAnimationEnd = useCallback(() => {
+    if (replayPassing) endReplayPass();
+    else setIsPlaying(false);
+  }, [replayPassing, endReplayPass]);
+
   // What the pitch shows: the live action, the challenge board, or the key moment being practised.
   const pitchFrame = challengeState ? challengeState.baseFrame : isLiveView && liveState.frame ? liveState.frame : currentFrame;
   const liveMatchInfo = liveState.matchInfo ?? getMatchInfo(currentFrame);
@@ -265,13 +323,17 @@ function DashboardPage() {
       offsideLineX: challengeState.rules.offside_line_x,
       locked: challengeState.status !== "open",
       violationLabels,
-      onBlocked: (_id, reason) => flashNotice(reason),
+      onBlocked: (_id, reason) => {
+        sfx.blocked();
+        flashNotice(reason);
+      },
       optimum: reveal
         ? reveal.optimum_moves.map((m) => {
             const from = challengeState.baseFrame.players.find((p) => p.player_id === m.player_id);
             return { ...m, fromX: from?.x ?? m.x, fromY: from?.y ?? m.y };
           })
         : undefined,
+      optimumPass: reveal ? revealPass(challengeState.baseFrame, reveal) : undefined,
     };
   }, [challengeState, t, flashNotice, reveal]);
 
@@ -282,14 +344,17 @@ function DashboardPage() {
   const isLive = connectionMode === "live";
 
   return (
-    <main className="relative flex h-screen w-screen select-none flex-col overflow-hidden bg-ink text-fg">
+    <main className="relative flex min-h-screen w-full select-none flex-col bg-ink text-fg lg:h-screen lg:overflow-hidden">
+      {/* Below lg the floating broadcast panels would cover most of the pitch, so the stage turns
+          into a scrolling column: pitch, transport, dock, pundits. lg and up keep the overlay. */}
+
       {/* 1. Top Broadcast Bar */}
-      <header className="z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4 sm:px-5">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-4">
           {/* Wordmark */}
           <div className="flex items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight">
             <span className="text-fg">xT</span>
-            <span className="text-signal-green">/</span>
+            <span className="text-signal-gain">/</span>
             <span className="text-fg">WhatIf</span>
           </div>
 
@@ -320,7 +385,7 @@ function DashboardPage() {
             <span className="truncate text-xs text-fg-muted">
               {fixture.venue ? `${fixture.venue} · ` : ""}
               {fixture.home.name} v {fixture.away.name} ·{" "}
-              <span className={currentFrame.is_counterfactual_mode ? "text-signal-green" : "text-fg"}>
+              <span className={currentFrame.is_counterfactual_mode ? "text-signal-gain" : "text-fg"}>
                 {currentFrame.is_counterfactual_mode ? t("header.simulated") : t("header.original")}
               </span>
             </span>
@@ -385,7 +450,7 @@ function DashboardPage() {
             className="mr-2 hidden items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted sm:inline-flex"
             title={isLive ? t("nav.liveTitle") : t("nav.offlineTitle")}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-green" : "bg-fg-subtle"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-gain" : "bg-fg-subtle"}`} />
             {isLive ? "Live" : "Offline"}
           </span>
 
@@ -397,25 +462,25 @@ function DashboardPage() {
       </header>
 
       {/* 2. Main Stadium Viewport */}
-      <div className="relative z-10 flex h-full w-full flex-1 items-center justify-center overflow-hidden p-2 sm:p-4">
+      <div className="relative z-10 flex w-full flex-1 flex-col gap-3 p-2 sm:p-4 lg:h-full lg:flex-row lg:items-center lg:justify-center lg:overflow-hidden">
         {/* Width capped so the 3:2 pitch fits the viewport height. 10.5rem = header (56px)
             + stage padding (32px) + pitch top bar (45px) + footer (33px) + frame border (2px);
             those bars have fixed heights and never wrap. */}
         <div
-          className="flex h-full w-full items-center justify-center"
+          className="order-1 flex w-full items-center justify-center self-center lg:h-full"
           style={{ maxWidth: "min(1720px, calc((100vh - 10.5rem) * 1.5))" }}
         >
           <TacticalPitch2D
             ref={pitchRef}
             teamShortNames={teamShortNames}
-            players={challengeState ? challengeState.players : pitchFrame.players}
+            players={replay.players ?? (challengeState ? challengeState.players : pitchFrame.players)}
             ballX={pitchFrame.ball_x}
             ballY={pitchFrame.ball_y}
-            ballEndX={pitchFrame.ball_end_x}
-            ballEndY={pitchFrame.ball_end_y}
+            ballEndX={replayPassing ? replay.passTo?.x : pitchFrame.ball_end_x}
+            ballEndY={replayPassing ? replay.passTo?.y : pitchFrame.ball_end_y}
             metrics={pitchFrame.metrics}
             isCounterfactualMode={!inChallenge && !isLiveView && currentFrame.is_counterfactual_mode}
-            isPlaying={isPlaying && !inChallenge}
+            isPlaying={(isPlaying && !inChallenge) || replayPassing}
             challenge={pitchChallenge}
             playbackSpeed={playbackSpeed}
             highlightedPlayerIds={highlightedPlayerIds}
@@ -427,14 +492,14 @@ function DashboardPage() {
             // In a challenge the board belongs to useChallenge: no counterfactual simulation
             // or debate on drop (that is the reveal's job), only the preview arrow.
             onPlayerMove={inChallenge ? challenge.move : isLiveView ? () => {} : updatePlayerPosition}
-            onSimulationTrigger={inChallenge ? challenge.drop : isLiveView ? () => {} : onPlayerDrop}
-            onAnimationEnd={() => setIsPlaying(false)}
+            onSimulationTrigger={inChallenge ? dropInChallenge : isLiveView ? () => {} : onPlayerDrop}
+            onAnimationEnd={handleAnimationEnd}
             onDragStart={handleDragStart}
           />
         </div>
 
         {/* 3. Tactical Dock (Top-Left) */}
-        <div className="pointer-events-none absolute left-4 top-4 z-30 flex w-full max-w-[340px] flex-col">
+        <div className="pointer-events-none order-3 flex w-full flex-col lg:absolute lg:left-4 lg:top-4 lg:z-30 lg:max-w-[340px]">
           {challengeState ? (
             /* Challenge open: only the challenge card, always visible on large screens (the
                compact strip replaces the transport dock below lg). Auto-Coach, quick scenarios
@@ -444,11 +509,17 @@ function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
               aria-label={t("challenge.kicker")}
-              className={`pointer-events-auto max-h-[calc(100vh-7rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex ${reveal ? "flex" : "hidden"}`}
+              className={`pointer-events-auto flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex ${reveal ? "flex" : "hidden"}`}
             >
               {reveal ? (
                 <div className="p-3">
-                  <RevealCard reveal={reveal} onContinue={continueAfterReveal} />
+                  <RevealCard
+                    reveal={reveal}
+                    onContinue={continueAfterReveal}
+                    view={replay.view}
+                    onView={replay.setView}
+                    onReplay={replay.replay}
+                  />
                 </div>
               ) : (
                 <ChallengeCard
@@ -460,6 +531,7 @@ function DashboardPage() {
                   onReset={challenge.reset}
                   onLeave={challenge.close}
                   onHighlightPlayer={setHoveredPlayerId}
+                  delivery={liveDelivery}
                 />
               )}
             </motion.aside>
@@ -469,7 +541,7 @@ function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
               aria-label={t("live.kicker")}
-              className="pointer-events-auto flex max-h-[calc(100vh-7rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+              className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
             >
               <section className="border-b border-line p-3">
                 {liveState.matchEnd ? (
@@ -499,7 +571,7 @@ function DashboardPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -12 }}
                 transition={{ duration: 0.16, ease: "easeOut" }}
-                className="pointer-events-auto flex max-h-[calc(100vh-15rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+                className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
                 {liveAvailable && practising && (
                   <section className="border-b border-line p-3">
@@ -535,7 +607,7 @@ function DashboardPage() {
                           className="group flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg"
                         >
                           <span className="truncate">{preset.label}</span>
-                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-colors group-hover:text-signal-green" />
+                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-colors group-hover:text-signal-gain" />
                         </button>
                       </li>
                     ))}
@@ -571,7 +643,7 @@ function DashboardPage() {
 
         {/* 4. Lower-Third (hidden during a challenge: the pundits discuss the answer and the
             card would cover the challenge card on short screens) */}
-        {!inChallenge && !isLiveView && <BroadcastCommentatorCard
+        {!inChallenge && !isLiveView && <div className="order-4 lg:contents"><BroadcastCommentatorCard
           messages={currentFrame.agent_debate}
           activeSpeakingRole={tts.activeSpeaker}
           isSpeaking={tts.isPlaying}
@@ -583,10 +655,10 @@ function DashboardPage() {
           onStopAudio={tts.stop}
           clockLabel={clock}
           eventType={currentFrame.event_type}
-        />}
+        /></div>}
 
         {/* 5. Transport Dock */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 mx-auto flex justify-center px-4">
+        <div className="pointer-events-none order-2 flex w-full flex-col items-center gap-3 lg:absolute lg:inset-x-0 lg:bottom-3 lg:z-30 lg:mx-auto lg:flex-row lg:justify-center lg:px-4">
           {challengeState && !reveal && (
             <div className="pointer-events-auto w-full max-w-xl lg:hidden">
               <ChallengeStrip
@@ -597,6 +669,7 @@ function DashboardPage() {
                 onConfirm={() => challenge.submit(false)}
                 onReset={challenge.reset}
                 onLeave={challenge.close}
+                delivery={liveDelivery}
               />
             </div>
           )}

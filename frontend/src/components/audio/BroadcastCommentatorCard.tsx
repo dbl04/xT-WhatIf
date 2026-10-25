@@ -80,7 +80,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   const strapContext = [clockLabel, eventType].filter(Boolean).join(" · ");
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[5.25rem] z-40 flex flex-col items-center px-4">
+    <div className="pointer-events-none relative z-40 flex w-full flex-col items-center lg:fixed lg:inset-x-0 lg:bottom-[5.25rem] lg:px-4">
       <AnimatePresence mode="wait">
         {isSimulating ? (
           /* RECALCULATING STRAP */
@@ -93,14 +93,14 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
             className="pointer-events-auto w-full max-w-5xl overflow-hidden rounded-[3px] border border-line-strong bg-ink-900/95 backdrop-blur-sm"
           >
             <div className="flex items-center gap-4 px-4 py-3">
-              <span className="font-display text-sm font-bold uppercase tracking-[0.14em] text-signal-green">
+              <span className="font-display text-sm font-bold uppercase tracking-[0.14em] text-signal-gain">
                 {t("card.programme")}
               </span>
               <span className="h-4 w-px bg-line-strong" />
               <span className="text-[13px] text-fg-muted">{t("card.recalculating")}</span>
             </div>
             <div className="relative h-px w-full overflow-hidden bg-line">
-              <div className="absolute inset-y-0 left-0 w-1/3 animate-progress-indeterminate bg-signal-green" />
+              <div className="absolute inset-y-0 left-0 w-1/3 animate-progress-indeterminate bg-signal-gain" />
             </div>
           </motion.div>
         ) : isMinimized ? (
@@ -146,13 +146,13 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
           >
             {/* Top strap: programme ident + pundit switcher + controls */}
             <div className="flex items-stretch">
-              <div className="flex items-center gap-2 bg-signal-green px-3 py-1">
+              <div className="flex items-center gap-2 bg-signal-gain px-3 py-1">
                 <span className="font-display text-[13px] font-extrabold uppercase leading-none tracking-[0.14em] text-ink">
                   {t("card.programme")}
                 </span>
               </div>
               {strapContext && (
-                <div className="flex items-center bg-ink px-3 font-display text-[13px] font-semibold uppercase leading-none tracking-[0.08em] text-fg-muted">
+                <div className="hidden items-center bg-ink px-3 font-display text-[13px] sm:flex font-semibold uppercase leading-none tracking-[0.08em] text-fg-muted">
                   {strapContext}
                 </div>
               )}
@@ -226,9 +226,9 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
             </div>
 
             {/* Main plate */}
-            <div className="flex items-stretch overflow-hidden rounded-b-[3px] rounded-tr-[3px] border border-line-strong bg-ink-900/95 backdrop-blur-sm">
+            <div className="flex flex-col items-stretch overflow-hidden rounded-b-[3px] rounded-tr-[3px] border sm:flex-row border-line-strong bg-ink-900/95 backdrop-blur-sm">
               {/* Name plate */}
-              <div className="flex w-[220px] shrink-0 flex-col justify-between bg-fg px-4 py-3 text-ink">
+              <div className="flex w-full shrink-0 items-end justify-between gap-3 bg-fg px-4 py-3 text-ink sm:w-[220px] sm:flex-col sm:items-stretch">
                 <div>
                   <div className="font-display text-[26px] font-extrabold uppercase leading-[0.95] tracking-tight">
                     {plateName(currentMessage.agent_name)}
@@ -237,7 +237,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
                     {roleTitle}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 sm:mt-3">
                   <span className="inline-flex h-5 items-center rounded-[2px] bg-ink px-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-fg">
                     {currentMessage.avatar_badge}
                   </span>
@@ -251,8 +251,8 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
               </div>
 
               {/* Analysis */}
-              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-5 py-3">
-                <h4 className="truncate font-display text-[22px] font-bold leading-tight text-fg">
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-3 sm:px-5">
+                <h4 className="font-display text-lg sm:truncate sm:text-[22px] font-bold leading-tight text-fg">
                   {currentMessage.headline}
                 </h4>
                 <p className="line-clamp-3 text-[13px] leading-relaxed text-fg-muted">

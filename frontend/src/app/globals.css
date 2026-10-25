@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #0b0214;
-  --foreground: #f4f0f8;
+  --background: theme("colors.ink.DEFAULT");
+  --foreground: theme("colors.fg.DEFAULT");
   color-scheme: dark;
 }
 
@@ -17,8 +17,8 @@ body {
 }
 
 ::selection {
-  background: #00ff85;
-  color: #0b0214;
+  background: theme("colors.signal.gain");
+  color: theme("colors.ink.DEFAULT");
 }
 
 /* Pitch SVG: page fonts in-app, attribute fallbacks survive the PNG export */
@@ -48,8 +48,8 @@ body {
   height: 2px;
   background: linear-gradient(
     to right,
-    #f4f0f8 0%,
-    #f4f0f8 var(--pct, 0%),
+    theme("colors.fg.DEFAULT") 0%,
+    theme("colors.fg.DEFAULT") var(--pct, 0%),
     rgba(255, 255, 255, 0.14) var(--pct, 0%)
   );
 }
@@ -59,7 +59,7 @@ body {
 }
 .pl-range::-moz-range-progress {
   height: 2px;
-  background: #f4f0f8;
+  background: theme("colors.fg.DEFAULT");
 }
 .pl-range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -67,17 +67,17 @@ body {
   height: 10px;
   margin-top: -4px;
   border-radius: 9999px;
-  background: #f4f0f8;
-  border: 2px solid #0b0214;
+  background: theme("colors.fg.DEFAULT");
+  border: 2px solid theme("colors.ink.DEFAULT");
 }
 .pl-range::-moz-range-thumb {
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  background: #f4f0f8;
-  border: 2px solid #0b0214;
+  background: theme("colors.fg.DEFAULT");
+  border: 2px solid theme("colors.ink.DEFAULT");
 }
 .pl-range:focus-visible::-webkit-slider-thumb {
-  outline: 1px solid #00ff85;
+  outline: 1px solid theme("colors.signal.gain");
   outline-offset: 2px;
 }

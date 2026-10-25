@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.rate_limit import WS_SIMULATE_BUCKET, allow, client_key, rate_limit_middleware
 from app.schemas.match_contract import (
-    MatchFramePayload, CounterfactualRequest, PlayerNode
+    MatchFramePayload, CounterfactualRequest, PlayerNode, StressBurstResponse
 )
 from app.services.match_loader import loader
 from app.services.synthetic_generator import DEFAULT_MATCH_ID
@@ -417,7 +417,7 @@ async def toggle_chaos_mode(force: Optional[bool] = None):
     }
 
 
-@app.post("/api/v1/cloud/stress-burst", tags=["Cloud Telemetry"])
+@app.post("/api/v1/cloud/stress-burst", response_model=StressBurstResponse, tags=["Cloud Telemetry"])
 async def execute_stress_burst():
     """Runs a burst of 25 parallel geometric simulations (Voronoi + xT 16x12) via asyncio.gather."""
     frames = loader.fetch_match_360_frames(DEFAULT_MATCH_ID)

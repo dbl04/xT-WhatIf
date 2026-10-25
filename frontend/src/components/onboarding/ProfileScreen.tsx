@@ -79,15 +79,15 @@ export const ProfileScreen: React.FC<{
             aria-describedby={`${ids}-nick-hint${showError ? ` ${ids}-nick-err` : ""}`}
             className={cn(
               "h-11 w-full rounded-md border bg-ink-800 px-3 text-[15px] text-fg placeholder:text-fg-subtle",
-              "outline-none transition-colors focus-visible:border-signal-green focus-visible:ring-1 focus-visible:ring-signal-green",
-              showError ? "border-signal-magenta" : "border-line-strong hover:border-fg-subtle"
+              "outline-none transition-colors focus-visible:border-signal-gain focus-visible:ring-1 focus-visible:ring-signal-gain",
+              showError ? "border-signal-loss" : "border-line-strong hover:border-fg-subtle"
             )}
           />
           <p id={`${ids}-nick-hint`} className="text-[12px] text-fg-subtle">
             {t("fanProfile.nicknameHint")}
           </p>
           {showError && (
-            <p id={`${ids}-nick-err`} role="alert" className="text-[12px] text-signal-magenta">
+            <p id={`${ids}-nick-err`} role="alert" className="text-[12px] text-signal-loss">
               {errorText}
             </p>
           )}
@@ -108,9 +108,9 @@ export const ProfileScreen: React.FC<{
                 onClick={() => setLanguage(lang)}
                 className={cn(
                   "flex h-10 flex-1 items-center justify-center gap-2 rounded-md border text-[14px] font-medium transition-colors sm:flex-none sm:px-5",
-                  "focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-green",
+                  "focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-gain",
                   language === lang
-                    ? "border-signal-green bg-signal-green/10 text-fg"
+                    ? "border-signal-gain bg-signal-gain/10 text-fg"
                     : "border-line-strong bg-ink-800 text-fg-muted hover:text-fg"
                 )}
               >
@@ -136,9 +136,9 @@ export const ProfileScreen: React.FC<{
                 key={a}
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
-                  "has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-signal-green",
+                  "has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-signal-gain",
                   audience === a
-                    ? "border-signal-green bg-signal-green/10"
+                    ? "border-signal-gain bg-signal-gain/10"
                     : "border-line-strong bg-ink-800 hover:border-fg-subtle"
                 )}
               >
@@ -148,7 +148,7 @@ export const ProfileScreen: React.FC<{
                   value={a}
                   checked={audience === a}
                   onChange={() => setAudience(a as Audience)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-signal-green"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-signal-gain"
                 />
                 <span className="flex min-w-0 flex-col">
                   <span className="text-[14px] font-medium text-fg">{t(`audience.${a}`)}</span>

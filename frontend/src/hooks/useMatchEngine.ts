@@ -12,6 +12,8 @@ import { DEFAULT_MATCH_ID } from "@/lib/match";
 import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
 import { Audience, DEFAULT_AUDIENCE, DEFAULT_LANGUAGE, Language } from "@/lib/i18n";
 import { localizeOfflineFrame, offlineCounterfactualDebate } from "@/lib/offlineNarration";
+import { offsideLine } from "@/lib/challenge";
+import { xtAt } from "@/lib/xt";
 
 // Key moments of the synthetic match; same file the backend generates
 // (backend/app/data/cache/match_900001_frames.json, see synthetic_generator.py)
@@ -30,6 +32,37 @@ export interface UseMatchEngineOptions {
 export type ConnectionMode = "live" | "offline";
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+
+/** Pass completion 0-1 with the backend's interception cone (calculate_pass_probability_cone). */
+function offlinePassProb(sx: number, sy: number, ex: number, ey: number, opponents: PlayerNode[]): number {
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const length = Math.hypot(dx, dy);
+  if (length < 1) return 0.96;
+  let prob = Math.max(35, 96 - 0.72 * length);
+  for (const o of opponents) {
+    const t = ((o.x - sx) * dx + (o.y - sy) * dy) / length ** 2;
+    if (t <= 0.05 || t >= 0.98) continue;
+    const dPerp = Math.abs(dy * o.x - dx * o.y + ex * sy - ey * sx) / length;
+    const sigma = 1.2 + 1.8 * t;
+    const shadow = Math.exp(-(dPerp ** 2) / (2 * sigma ** 2));
+    if (shadow >= 0.05) prob *= 1 - 0.65 * shadow;
+  }
+  return Math.max(5, Math.min(98, prob)) / 100;
+}
+
+/** Offline copy of the engine's best receiver: max P(pass) * xT over onside teammates. */
+function offlineBestReceiver(frame: MatchFramePayload): number | null {
+  const line = offsideLine(frame);
+  const opponents = frame.players.filter((p) => p.team !== frame.possession_team);
+  let best: { id: number; ev: number } | null = null;
+  for (const p of frame.players) {
+    if (p.team !== frame.possession_team || p.is_actor || p.is_keeper || p.x > line + 0.05) continue;
+    const ev = offlinePassProb(frame.ball_x, frame.ball_y, p.x, p.y, opponents) * xtAt(p.x, p.y);
+    if (!best || ev > best.ev) best = { id: p.player_id, ev };
+  }
+  return best?.id ?? null;
+}
 
 /**
  * New base frames for a profile change. Moments the user has already edited keep their
@@ -337,11 +370,7 @@ export function useMatchEngine({
           );
 
           // Alternative best target
-          const potentialTargets = frame.players.filter(
-            (p) => p.team === actor.team && p.player_id !== actor.player_id && !p.is_keeper
-          );
-          const optimalTarget =
-            potentialTargets.length > 0 ? potentialTargets[0].player_id : frame.metrics.optimal_pass_target_id;
+          const optimalTarget = offlineBestReceiver(frame) ?? frame.metrics.optimal_pass_target_id;
 
           frame.is_counterfactual_mode = true;
           frame.metrics = {

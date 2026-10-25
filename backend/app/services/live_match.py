@@ -265,6 +265,7 @@ class MatchRoom:
             "mode": opt.mode,
             "optimum_moves": [{"player_id": p, "x": x, "y": y} for p, x, y in opt.moves],
             "optimum_target_id": opt.best.target_id,
+            "base_target_id": opt.base.target_id,  # best receiver before any move
             "your_moves": [mv.model_dump() for mv in sub.moves] if sub else [],
             "your_score": sub.score if sub else None,
             "beat_machine": bool(sub and sub.beat_machine),

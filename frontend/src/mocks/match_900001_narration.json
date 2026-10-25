@@ -11,11 +11,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
             "headline": "Shot from the edge of the box",
-            "analysis_body": "I. Kowalin has the ball through the middle, about 25 metres from goal. Right now this attack has about a 10% chance of leading to a goal. The most dangerous option is a pass to N. Haldorsen.",
-            "referenced_metric": "Goal threat: 10%",
+            "analysis_body": "I. Kowalin has the ball through the middle, about 25 metres from goal. Right now this attack has about a 41% chance of leading to a goal. The most dangerous option is a pass to Z. Ombrell.",
+            "referenced_metric": "Goal threat: 41%",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -43,12 +43,12 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
-            "headline": "Shot from the edge of the box: 0.10 xT in play",
-            "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.10 xT, with a 11.7% chance of completing the action and 49.9% local space control in the final third. The highest-value option is N. Haldorsen.",
-            "referenced_metric": "xT: 0.10 | Pass prob.: 11.7%",
+            "headline": "Shot from the edge of the box: 0.41 xT in play",
+            "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.41 xT, with a 96.0% chance of completing the action and 49.9% local space control in the final third. The highest-value option is Z. Ombrell.",
+            "referenced_metric": "xT: 0.41 | Pass prob.: 96.0%",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -76,12 +76,12 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
-            "headline": "Shot from the edge of the box: baseline 0.10 xT",
-            "analysis_body": "Baseline before any adjustment: 0.10 xT, 11.7% pass completion and 49.9% space control. Highest-value receiver: N. Haldorsen.",
-            "referenced_metric": "Baseline xT: 0.10",
+            "headline": "Shot from the edge of the box: baseline 0.41 xT",
+            "analysis_body": "Baseline before any adjustment: 0.41 xT, 96.0% pass completion and 49.9% space control. Highest-value receiver: Z. Ombrell.",
+            "referenced_metric": "Baseline xT: 0.41",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -110,11 +110,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
             "headline": "Shot from the edge of the box",
-            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 25 metres from goal. The most dangerous pass is to N. Haldorsen, who is through the middle, about 40 metres from goal. The chance of a goal is about 10 percent.",
-            "referenced_metric": "Goal threat 10%",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 25 metres from goal. The most dangerous pass is to Z. Ombrell, who is through the middle, about 20 metres from goal. The chance of a goal is about 41 percent.",
+            "referenced_metric": "Goal threat 41%",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -145,11 +145,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
             "headline": "Disparo desde la frontal del área",
-            "analysis_body": "I. Kowalin lleva el balón por el centro, a unos 25 metros de la portería. Ahora mismo esta jugada tiene más o menos un 10% de acabar en gol. La opción más peligrosa es un pase a N. Haldorsen.",
-            "referenced_metric": "Peligro de gol: 10%",
+            "analysis_body": "I. Kowalin lleva el balón por el centro, a unos 25 metros de la portería. Ahora mismo esta jugada tiene más o menos un 41% de acabar en gol. La opción más peligrosa es un pase a Z. Ombrell.",
+            "referenced_metric": "Peligro de gol: 41%",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -177,12 +177,12 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
-            "headline": "Disparo desde la frontal del área: 0.10 xT en juego",
-            "analysis_body": "I. Kowalin inicia la acción en (97.0, 37.0). El valor de la jugada es 0.10 xT con un 11.7% de probabilidad de completar la acción y un control territorial local del 49.9% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
-            "referenced_metric": "xT: 0.10 | Prob. pase: 11.7%",
+            "headline": "Disparo desde la frontal del área: 0.41 xT en juego",
+            "analysis_body": "I. Kowalin inicia la acción en (97.0, 37.0). El valor de la jugada es 0.41 xT con un 96.0% de probabilidad de completar la acción y un control territorial local del 49.9% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
+            "referenced_metric": "xT: 0.41 | Prob. pase: 96.0%",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -210,12 +210,12 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
-            "headline": "Disparo desde la frontal del área: punto de partida 0.10 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.10 xT, 11.7% de acierto en el pase y 49.9% de control del espacio. Receptor de mayor valor: N. Haldorsen.",
-            "referenced_metric": "xT de partida: 0.10",
+            "headline": "Disparo desde la frontal del área: punto de partida 0.41 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.41 xT, 96.0% de acierto en el pase y 49.9% de control del espacio. Receptor de mayor valor: Z. Ombrell.",
+            "referenced_metric": "xT de partida: 0.41",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -244,11 +244,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "5:03",
             "headline": "Disparo desde la frontal del área",
-            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 25 metros de la portería. El pase más peligroso es hacia N. Haldorsen, que está por el centro, a unos 40 metros de la portería. La probabilidad de gol ronda el 10 por ciento.",
-            "referenced_metric": "Peligro de gol 10%",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 25 metros de la portería. El pase más peligroso es hacia Z. Ombrell, que está por el centro, a unos 20 metros de la portería. La probabilidad de gol ronda el 41 por ciento.",
+            "referenced_metric": "Peligro de gol 41%",
             "highlighted_player_ids": [
               210,
-              206
+              209
             ]
           },
           {
@@ -281,8 +281,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
             "headline": "One-on-one with the keeper",
-            "analysis_body": "Z. Ombrell has the ball inside the penalty area. Right now this attack has about a 11% chance of leading to a goal. The most dangerous option is a pass to N. Haldorsen.",
-            "referenced_metric": "Goal threat: 11%",
+            "analysis_body": "Z. Ombrell has the ball inside the penalty area. Right now this attack has about a 49% chance of leading to a goal. The most dangerous option is a pass to N. Haldorsen.",
+            "referenced_metric": "Goal threat: 49%",
             "highlighted_player_ids": [
               209,
               206
@@ -313,9 +313,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
-            "headline": "One-on-one with the keeper: 0.11 xT in play",
-            "analysis_body": "Z. Ombrell starts the action at (106.0, 44.0). The move is worth 0.11 xT, with a 13.2% chance of completing the action and 39.4% local space control in the final third. The highest-value option is N. Haldorsen.",
-            "referenced_metric": "xT: 0.11 | Pass prob.: 13.2%",
+            "headline": "One-on-one with the keeper: 0.49 xT in play",
+            "analysis_body": "Z. Ombrell starts the action at (106.0, 44.0). The move is worth 0.49 xT, with a 96.0% chance of completing the action and 39.4% local space control in the final third. The highest-value option is N. Haldorsen.",
+            "referenced_metric": "xT: 0.49 | Pass prob.: 96.0%",
             "highlighted_player_ids": [
               209,
               206
@@ -346,9 +346,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
-            "headline": "One-on-one with the keeper: baseline 0.11 xT",
-            "analysis_body": "Baseline before any adjustment: 0.11 xT, 13.2% pass completion and 39.4% space control. Highest-value receiver: N. Haldorsen.",
-            "referenced_metric": "Baseline xT: 0.11",
+            "headline": "One-on-one with the keeper: baseline 0.49 xT",
+            "analysis_body": "Baseline before any adjustment: 0.49 xT, 96.0% pass completion and 39.4% space control. Highest-value receiver: N. Haldorsen.",
+            "referenced_metric": "Baseline xT: 0.49",
             "highlighted_player_ids": [
               209,
               206
@@ -380,8 +380,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
             "headline": "One-on-one with the keeper",
-            "analysis_body": "Saltmarsh Rovers attack towards goal. Z. Ombrell has the ball inside the penalty area. The most dangerous pass is to N. Haldorsen, who is through the middle, about 35 metres from goal. The chance of a goal is about 11 percent.",
-            "referenced_metric": "Goal threat 11%",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. Z. Ombrell has the ball inside the penalty area. The most dangerous pass is to N. Haldorsen, who is through the middle, about 35 metres from goal. The chance of a goal is about 49 percent.",
+            "referenced_metric": "Goal threat 49%",
             "highlighted_player_ids": [
               209,
               206
@@ -415,8 +415,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
             "headline": "Mano a mano con el portero",
-            "analysis_body": "Z. Ombrell lleva el balón dentro del área. Ahora mismo esta jugada tiene más o menos un 11% de acabar en gol. La opción más peligrosa es un pase a N. Haldorsen.",
-            "referenced_metric": "Peligro de gol: 11%",
+            "analysis_body": "Z. Ombrell lleva el balón dentro del área. Ahora mismo esta jugada tiene más o menos un 49% de acabar en gol. La opción más peligrosa es un pase a N. Haldorsen.",
+            "referenced_metric": "Peligro de gol: 49%",
             "highlighted_player_ids": [
               209,
               206
@@ -447,9 +447,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
-            "headline": "Mano a mano con el portero: 0.11 xT en juego",
-            "analysis_body": "Z. Ombrell inicia la acción en (106.0, 44.0). El valor de la jugada es 0.11 xT con un 13.2% de probabilidad de completar la acción y un control territorial local del 39.4% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
-            "referenced_metric": "xT: 0.11 | Prob. pase: 13.2%",
+            "headline": "Mano a mano con el portero: 0.49 xT en juego",
+            "analysis_body": "Z. Ombrell inicia la acción en (106.0, 44.0). El valor de la jugada es 0.49 xT con un 96.0% de probabilidad de completar la acción y un control territorial local del 39.4% en el último tercio. La opción de mayor valor esperado es N. Haldorsen.",
+            "referenced_metric": "xT: 0.49 | Prob. pase: 96.0%",
             "highlighted_player_ids": [
               209,
               206
@@ -480,9 +480,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
-            "headline": "Mano a mano con el portero: punto de partida 0.11 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.11 xT, 13.2% de acierto en el pase y 39.4% de control del espacio. Receptor de mayor valor: N. Haldorsen.",
-            "referenced_metric": "xT de partida: 0.11",
+            "headline": "Mano a mano con el portero: punto de partida 0.49 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.49 xT, 96.0% de acierto en el pase y 39.4% de control del espacio. Receptor de mayor valor: N. Haldorsen.",
+            "referenced_metric": "xT de partida: 0.49",
             "highlighted_player_ids": [
               209,
               206
@@ -514,8 +514,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "19:10",
             "headline": "Mano a mano con el portero",
-            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. Z. Ombrell lleva el balón dentro del área. El pase más peligroso es hacia N. Haldorsen, que está por el centro, a unos 35 metros de la portería. La probabilidad de gol ronda el 11 por ciento.",
-            "referenced_metric": "Peligro de gol 11%",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. Z. Ombrell lleva el balón dentro del área. El pase más peligroso es hacia N. Haldorsen, que está por el centro, a unos 35 metros de la portería. La probabilidad de gol ronda el 49 por ciento.",
+            "referenced_metric": "Peligro de gol 49%",
             "highlighted_player_ids": [
               209,
               206
@@ -551,11 +551,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Switch of play to the far side",
-            "analysis_body": "D. Okonne has the ball on the right wing, about 55 metres from goal. Right now this attack has about a 9% chance of leading to a goal. The most dangerous option is a pass to M. Ferrant.",
-            "referenced_metric": "Goal threat: 9%",
+            "analysis_body": "D. Okonne has the ball on the right wing, about 55 metres from goal. Right now this attack has about a 11% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
+            "referenced_metric": "Goal threat: 11%",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -583,12 +583,12 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
-            "headline": "Switch of play to the far side: 0.09 xT in play",
-            "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.09 xT, with a 33.4% chance of completing the action and 28.1% local space control in the final third. The highest-value option is M. Ferrant.",
-            "referenced_metric": "xT: 0.09 | Pass prob.: 33.4%",
+            "headline": "Switch of play to the far side: 0.11 xT in play",
+            "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.11 xT, with a 45.2% chance of completing the action and 26.8% local space control in the final third. The highest-value option is O. Thornwell.",
+            "referenced_metric": "xT: 0.11 | Pass prob.: 45.2%",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -616,12 +616,12 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
-            "headline": "Switch of play to the far side: baseline 0.09 xT",
-            "analysis_body": "Baseline before any adjustment: 0.09 xT, 33.4% pass completion and 28.1% space control. Highest-value receiver: M. Ferrant.",
-            "referenced_metric": "Baseline xT: 0.09",
+            "headline": "Switch of play to the far side: baseline 0.11 xT",
+            "analysis_body": "Baseline before any adjustment: 0.11 xT, 45.2% pass completion and 26.8% space control. Highest-value receiver: O. Thornwell.",
+            "referenced_metric": "Baseline xT: 0.11",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -650,11 +650,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Switch of play to the far side",
-            "analysis_body": "Redmoor Albion attack towards goal. D. Okonne has the ball on the right wing, about 55 metres from goal. The most dangerous pass is to M. Ferrant, who is on the right wing, about 60 metres from goal. The chance of a goal is about 9 percent.",
-            "referenced_metric": "Goal threat 9%",
+            "analysis_body": "Redmoor Albion attack towards goal. D. Okonne has the ball on the right wing, about 55 metres from goal. The most dangerous pass is to O. Thornwell, who is in the right half-space, about 45 metres from goal. The chance of a goal is about 11 percent.",
+            "referenced_metric": "Goal threat 11%",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -685,11 +685,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Cambio de orientación a la banda contraria",
-            "analysis_body": "D. Okonne lleva el balón por la banda derecha, a unos 55 metros de la portería. Ahora mismo esta jugada tiene más o menos un 9% de acabar en gol. La opción más peligrosa es un pase a M. Ferrant.",
-            "referenced_metric": "Peligro de gol: 9%",
+            "analysis_body": "D. Okonne lleva el balón por la banda derecha, a unos 55 metros de la portería. Ahora mismo esta jugada tiene más o menos un 11% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
+            "referenced_metric": "Peligro de gol: 11%",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -717,12 +717,12 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
-            "headline": "Cambio de orientación a la banda contraria: 0.09 xT en juego",
-            "analysis_body": "D. Okonne inicia la acción en (71.0, 11.0). El valor de la jugada es 0.09 xT con un 33.4% de probabilidad de completar la acción y un control territorial local del 28.1% en el último tercio. La opción de mayor valor esperado es M. Ferrant.",
-            "referenced_metric": "xT: 0.09 | Prob. pase: 33.4%",
+            "headline": "Cambio de orientación a la banda contraria: 0.11 xT en juego",
+            "analysis_body": "D. Okonne inicia la acción en (71.0, 11.0). El valor de la jugada es 0.11 xT con un 45.2% de probabilidad de completar la acción y un control territorial local del 26.8% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "referenced_metric": "xT: 0.11 | Prob. pase: 45.2%",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -750,12 +750,12 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
-            "headline": "Cambio de orientación a la banda contraria: punto de partida 0.09 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.09 xT, 33.4% de acierto en el pase y 28.1% de control del espacio. Receptor de mayor valor: M. Ferrant.",
-            "referenced_metric": "xT de partida: 0.09",
+            "headline": "Cambio de orientación a la banda contraria: punto de partida 0.11 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.11 xT, 45.2% de acierto en el pase y 26.8% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "referenced_metric": "xT de partida: 0.11",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -784,11 +784,11 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "37:09",
             "headline": "Cambio de orientación a la banda contraria",
-            "analysis_body": "Redmoor Albion ataca hacia la portería. D. Okonne lleva el balón por la banda derecha, a unos 55 metros de la portería. El pase más peligroso es hacia M. Ferrant, que está por la banda derecha, a unos 60 metros de la portería. La probabilidad de gol ronda el 9 por ciento.",
-            "referenced_metric": "Peligro de gol 9%",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. D. Okonne lleva el balón por la banda derecha, a unos 55 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está en el carril interior derecho, a unos 45 metros de la portería. La probabilidad de gol ronda el 11 por ciento.",
+            "referenced_metric": "Peligro de gol 11%",
             "highlighted_player_ids": [
               102,
-              108
+              109
             ]
           },
           {
@@ -821,8 +821,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
             "headline": "Wide carry into the box",
-            "analysis_body": "E. Adeyo has the ball on the right wing, about 35 metres from goal. Right now this attack has about a 18% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
-            "referenced_metric": "Goal threat: 18%",
+            "analysis_body": "E. Adeyo has the ball on the right wing, about 35 metres from goal. Right now this attack has about a 28% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
+            "referenced_metric": "Goal threat: 28%",
             "highlighted_player_ids": [
               107,
               109
@@ -853,9 +853,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
-            "headline": "Wide carry into the box: 0.18 xT in play",
-            "analysis_body": "E. Adeyo starts the action at (97.0, 13.0). The move is worth 0.18 xT, with a 36.0% chance of completing the action and 46.9% local space control in the final third. The highest-value option is O. Thornwell.",
-            "referenced_metric": "xT: 0.18 | Pass prob.: 36.0%",
+            "headline": "Wide carry into the box: 0.28 xT in play",
+            "analysis_body": "E. Adeyo starts the action at (97.0, 13.0). The move is worth 0.28 xT, with a 62.5% chance of completing the action and 46.6% local space control in the final third. The highest-value option is O. Thornwell.",
+            "referenced_metric": "xT: 0.28 | Pass prob.: 62.5%",
             "highlighted_player_ids": [
               107,
               109
@@ -886,9 +886,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
-            "headline": "Wide carry into the box: baseline 0.18 xT",
-            "analysis_body": "Baseline before any adjustment: 0.18 xT, 36.0% pass completion and 46.9% space control. Highest-value receiver: O. Thornwell.",
-            "referenced_metric": "Baseline xT: 0.18",
+            "headline": "Wide carry into the box: baseline 0.28 xT",
+            "analysis_body": "Baseline before any adjustment: 0.28 xT, 62.5% pass completion and 46.6% space control. Highest-value receiver: O. Thornwell.",
+            "referenced_metric": "Baseline xT: 0.28",
             "highlighted_player_ids": [
               107,
               109
@@ -920,8 +920,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
             "headline": "Wide carry into the box",
-            "analysis_body": "Redmoor Albion attack towards goal. E. Adeyo has the ball on the right wing, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is inside the penalty area. The chance of a goal is about 18 percent.",
-            "referenced_metric": "Goal threat 18%",
+            "analysis_body": "Redmoor Albion attack towards goal. E. Adeyo has the ball on the right wing, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is inside the penalty area. The chance of a goal is about 28 percent.",
+            "referenced_metric": "Goal threat 28%",
             "highlighted_player_ids": [
               107,
               109
@@ -955,8 +955,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
             "headline": "Conducción por banda hacia el área",
-            "analysis_body": "E. Adeyo lleva el balón por la banda derecha, a unos 35 metros de la portería. Ahora mismo esta jugada tiene más o menos un 18% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
-            "referenced_metric": "Peligro de gol: 18%",
+            "analysis_body": "E. Adeyo lleva el balón por la banda derecha, a unos 35 metros de la portería. Ahora mismo esta jugada tiene más o menos un 28% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
+            "referenced_metric": "Peligro de gol: 28%",
             "highlighted_player_ids": [
               107,
               109
@@ -987,9 +987,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
-            "headline": "Conducción por banda hacia el área: 0.18 xT en juego",
-            "analysis_body": "E. Adeyo inicia la acción en (97.0, 13.0). El valor de la jugada es 0.18 xT con un 36.0% de probabilidad de completar la acción y un control territorial local del 46.9% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
-            "referenced_metric": "xT: 0.18 | Prob. pase: 36.0%",
+            "headline": "Conducción por banda hacia el área: 0.28 xT en juego",
+            "analysis_body": "E. Adeyo inicia la acción en (97.0, 13.0). El valor de la jugada es 0.28 xT con un 62.5% de probabilidad de completar la acción y un control territorial local del 46.6% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "referenced_metric": "xT: 0.28 | Prob. pase: 62.5%",
             "highlighted_player_ids": [
               107,
               109
@@ -1020,9 +1020,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
-            "headline": "Conducción por banda hacia el área: punto de partida 0.18 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.18 xT, 36.0% de acierto en el pase y 46.9% de control del espacio. Receptor de mayor valor: O. Thornwell.",
-            "referenced_metric": "xT de partida: 0.18",
+            "headline": "Conducción por banda hacia el área: punto de partida 0.28 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.28 xT, 62.5% de acierto en el pase y 46.6% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "referenced_metric": "xT de partida: 0.28",
             "highlighted_player_ids": [
               107,
               109
@@ -1054,8 +1054,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "45:19",
             "headline": "Conducción por banda hacia el área",
-            "analysis_body": "Redmoor Albion ataca hacia la portería. E. Adeyo lleva el balón por la banda derecha, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está dentro del área. La probabilidad de gol ronda el 18 por ciento.",
-            "referenced_metric": "Peligro de gol 18%",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. E. Adeyo lleva el balón por la banda derecha, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está dentro del área. La probabilidad de gol ronda el 28 por ciento.",
+            "referenced_metric": "Peligro de gol 28%",
             "highlighted_player_ids": [
               107,
               109
@@ -1091,8 +1091,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Through ball into the half-space",
-            "analysis_body": "M. Ferrant has the ball in the right half-space, about 35 metres from goal. Right now this attack has about a 25% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
-            "referenced_metric": "Goal threat: 25%",
+            "analysis_body": "M. Ferrant has the ball in the right half-space, about 35 metres from goal. Right now this attack has about a 35% chance of leading to a goal. The most dangerous option is a pass to O. Thornwell.",
+            "referenced_metric": "Goal threat: 35%",
             "highlighted_player_ids": [
               108,
               109
@@ -1123,9 +1123,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
-            "headline": "Through ball into the half-space: 0.25 xT in play",
-            "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.25 xT, with a 49.9% chance of completing the action and 47.2% local space control in the final third. The highest-value option is O. Thornwell.",
-            "referenced_metric": "xT: 0.25 | Pass prob.: 49.9%",
+            "headline": "Through ball into the half-space: 0.35 xT in play",
+            "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.35 xT, with a 73.7% chance of completing the action and 43.3% local space control in the final third. The highest-value option is O. Thornwell.",
+            "referenced_metric": "xT: 0.35 | Pass prob.: 73.7%",
             "highlighted_player_ids": [
               108,
               109
@@ -1156,9 +1156,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
-            "headline": "Through ball into the half-space: baseline 0.25 xT",
-            "analysis_body": "Baseline before any adjustment: 0.25 xT, 49.9% pass completion and 47.2% space control. Highest-value receiver: O. Thornwell.",
-            "referenced_metric": "Baseline xT: 0.25",
+            "headline": "Through ball into the half-space: baseline 0.35 xT",
+            "analysis_body": "Baseline before any adjustment: 0.35 xT, 73.7% pass completion and 43.3% space control. Highest-value receiver: O. Thornwell.",
+            "referenced_metric": "Baseline xT: 0.35",
             "highlighted_player_ids": [
               108,
               109
@@ -1190,8 +1190,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Through ball into the half-space",
-            "analysis_body": "Redmoor Albion attack towards goal. M. Ferrant has the ball in the right half-space, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is inside the penalty area. The chance of a goal is about 25 percent.",
-            "referenced_metric": "Goal threat 25%",
+            "analysis_body": "Redmoor Albion attack towards goal. M. Ferrant has the ball in the right half-space, about 35 metres from goal. The most dangerous pass is to O. Thornwell, who is through the middle, about 30 metres from goal. The chance of a goal is about 35 percent.",
+            "referenced_metric": "Goal threat 35%",
             "highlighted_player_ids": [
               108,
               109
@@ -1225,8 +1225,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Pase filtrado al pasillo interior",
-            "analysis_body": "M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. Ahora mismo esta jugada tiene más o menos un 25% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
-            "referenced_metric": "Peligro de gol: 25%",
+            "analysis_body": "M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. Ahora mismo esta jugada tiene más o menos un 35% de acabar en gol. La opción más peligrosa es un pase a O. Thornwell.",
+            "referenced_metric": "Peligro de gol: 35%",
             "highlighted_player_ids": [
               108,
               109
@@ -1257,9 +1257,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
-            "headline": "Pase filtrado al pasillo interior: 0.25 xT en juego",
-            "analysis_body": "M. Ferrant inicia la acción en (87.0, 28.0). El valor de la jugada es 0.25 xT con un 49.9% de probabilidad de completar la acción y un control territorial local del 47.2% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
-            "referenced_metric": "xT: 0.25 | Prob. pase: 49.9%",
+            "headline": "Pase filtrado al pasillo interior: 0.35 xT en juego",
+            "analysis_body": "M. Ferrant inicia la acción en (87.0, 28.0). El valor de la jugada es 0.35 xT con un 73.7% de probabilidad de completar la acción y un control territorial local del 43.3% en el último tercio. La opción de mayor valor esperado es O. Thornwell.",
+            "referenced_metric": "xT: 0.35 | Prob. pase: 73.7%",
             "highlighted_player_ids": [
               108,
               109
@@ -1290,9 +1290,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
-            "headline": "Pase filtrado al pasillo interior: punto de partida 0.25 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.25 xT, 49.9% de acierto en el pase y 47.2% de control del espacio. Receptor de mayor valor: O. Thornwell.",
-            "referenced_metric": "xT de partida: 0.25",
+            "headline": "Pase filtrado al pasillo interior: punto de partida 0.35 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.35 xT, 73.7% de acierto en el pase y 43.3% de control del espacio. Receptor de mayor valor: O. Thornwell.",
+            "referenced_metric": "xT de partida: 0.35",
             "highlighted_player_ids": [
               108,
               109
@@ -1324,8 +1324,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "55:12",
             "headline": "Pase filtrado al pasillo interior",
-            "analysis_body": "Redmoor Albion ataca hacia la portería. M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está dentro del área. La probabilidad de gol ronda el 25 por ciento.",
-            "referenced_metric": "Peligro de gol 25%",
+            "analysis_body": "Redmoor Albion ataca hacia la portería. M. Ferrant lleva el balón en el carril interior derecho, a unos 35 metros de la portería. El pase más peligroso es hacia O. Thornwell, que está por el centro, a unos 30 metros de la portería. La probabilidad de gol ronda el 35 por ciento.",
+            "referenced_metric": "Peligro de gol 35%",
             "highlighted_player_ids": [
               108,
               109
@@ -1361,8 +1361,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Counter-attack: ball into space",
-            "analysis_body": "I. Kowalin has the ball through the middle, about 60 metres from goal. Right now this attack has about a 22% chance of leading to a goal. The most dangerous option is a pass to Z. Ombrell.",
-            "referenced_metric": "Goal threat: 22%",
+            "analysis_body": "I. Kowalin has the ball through the middle, about 60 metres from goal. Right now this attack has about a 25% chance of leading to a goal. The most dangerous option is a pass to Z. Ombrell.",
+            "referenced_metric": "Goal threat: 25%",
             "highlighted_player_ids": [
               210,
               209
@@ -1393,9 +1393,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
-            "headline": "Counter-attack: ball into space: 0.22 xT in play",
-            "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.22 xT, with a 57.1% chance of completing the action and 68.1% local space control in the final third. The highest-value option is Z. Ombrell.",
-            "referenced_metric": "xT: 0.22 | Pass prob.: 57.1%",
+            "headline": "Counter-attack: ball into space: 0.25 xT in play",
+            "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.25 xT, with a 67.0% chance of completing the action and 75.3% local space control in the final third. The highest-value option is Z. Ombrell.",
+            "referenced_metric": "xT: 0.25 | Pass prob.: 67.0%",
             "highlighted_player_ids": [
               210,
               209
@@ -1426,9 +1426,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
-            "headline": "Counter-attack: ball into space: baseline 0.22 xT",
-            "analysis_body": "Baseline before any adjustment: 0.22 xT, 57.1% pass completion and 68.1% space control. Highest-value receiver: Z. Ombrell.",
-            "referenced_metric": "Baseline xT: 0.22",
+            "headline": "Counter-attack: ball into space: baseline 0.25 xT",
+            "analysis_body": "Baseline before any adjustment: 0.25 xT, 67.0% pass completion and 75.3% space control. Highest-value receiver: Z. Ombrell.",
+            "referenced_metric": "Baseline xT: 0.25",
             "highlighted_player_ids": [
               210,
               209
@@ -1460,8 +1460,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Counter-attack: ball into space",
-            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 60 metres from goal. The most dangerous pass is to Z. Ombrell, who is through the middle, about 30 metres from goal. The chance of a goal is about 22 percent.",
-            "referenced_metric": "Goal threat 22%",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. I. Kowalin has the ball through the middle, about 60 metres from goal. The most dangerous pass is to Z. Ombrell, who is through the middle, about 40 metres from goal. The chance of a goal is about 25 percent.",
+            "referenced_metric": "Goal threat 25%",
             "highlighted_player_ids": [
               210,
               209
@@ -1495,8 +1495,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Contraataque: pase al espacio",
-            "analysis_body": "I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. Ahora mismo esta jugada tiene más o menos un 22% de acabar en gol. La opción más peligrosa es un pase a Z. Ombrell.",
-            "referenced_metric": "Peligro de gol: 22%",
+            "analysis_body": "I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. Ahora mismo esta jugada tiene más o menos un 25% de acabar en gol. La opción más peligrosa es un pase a Z. Ombrell.",
+            "referenced_metric": "Peligro de gol: 25%",
             "highlighted_player_ids": [
               210,
               209
@@ -1527,9 +1527,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
-            "headline": "Contraataque: pase al espacio: 0.22 xT en juego",
-            "analysis_body": "I. Kowalin inicia la acción en (60.0, 46.0). El valor de la jugada es 0.22 xT con un 57.1% de probabilidad de completar la acción y un control territorial local del 68.1% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
-            "referenced_metric": "xT: 0.22 | Prob. pase: 57.1%",
+            "headline": "Contraataque: pase al espacio: 0.25 xT en juego",
+            "analysis_body": "I. Kowalin inicia la acción en (60.0, 46.0). El valor de la jugada es 0.25 xT con un 67.0% de probabilidad de completar la acción y un control territorial local del 75.3% en el último tercio. La opción de mayor valor esperado es Z. Ombrell.",
+            "referenced_metric": "xT: 0.25 | Prob. pase: 67.0%",
             "highlighted_player_ids": [
               210,
               209
@@ -1560,9 +1560,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
-            "headline": "Contraataque: pase al espacio: punto de partida 0.22 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.22 xT, 57.1% de acierto en el pase y 68.1% de control del espacio. Receptor de mayor valor: Z. Ombrell.",
-            "referenced_metric": "xT de partida: 0.22",
+            "headline": "Contraataque: pase al espacio: punto de partida 0.25 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.25 xT, 67.0% de acierto en el pase y 75.3% de control del espacio. Receptor de mayor valor: Z. Ombrell.",
+            "referenced_metric": "xT de partida: 0.25",
             "highlighted_player_ids": [
               210,
               209
@@ -1594,8 +1594,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "71:48",
             "headline": "Contraataque: pase al espacio",
-            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. El pase más peligroso es hacia Z. Ombrell, que está por el centro, a unos 30 metros de la portería. La probabilidad de gol ronda el 22 por ciento.",
-            "referenced_metric": "Peligro de gol 22%",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. I. Kowalin lleva el balón por el centro, a unos 60 metros de la portería. El pase más peligroso es hacia Z. Ombrell, que está por el centro, a unos 40 metros de la portería. La probabilidad de gol ronda el 25 por ciento.",
+            "referenced_metric": "Peligro de gol 25%",
             "highlighted_player_ids": [
               210,
               209
@@ -1631,8 +1631,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
             "headline": "Cut-back from the byline",
-            "analysis_body": "Y. Belcourt has the ball on the left wing, about 30 metres from goal. Right now this attack has about a 17% chance of leading to a goal. The most dangerous option is a pass to I. Kowalin.",
-            "referenced_metric": "Goal threat: 17%",
+            "analysis_body": "Y. Belcourt has the ball on the left wing, about 30 metres from goal. Right now this attack has about a 28% chance of leading to a goal. The most dangerous option is a pass to I. Kowalin.",
+            "referenced_metric": "Goal threat: 28%",
             "highlighted_player_ids": [
               211,
               210
@@ -1663,9 +1663,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
-            "headline": "Cut-back from the byline: 0.17 xT in play",
-            "analysis_body": "Y. Belcourt starts the action at (113.0, 71.0). The move is worth 0.17 xT, with a 30.9% chance of completing the action and 47.3% local space control in the final third. The highest-value option is I. Kowalin.",
-            "referenced_metric": "xT: 0.17 | Pass prob.: 30.9%",
+            "headline": "Cut-back from the byline: 0.28 xT in play",
+            "analysis_body": "Y. Belcourt starts the action at (113.0, 71.0). The move is worth 0.28 xT, with a 56.3% chance of completing the action and 47.5% local space control in the final third. The highest-value option is I. Kowalin.",
+            "referenced_metric": "xT: 0.28 | Pass prob.: 56.3%",
             "highlighted_player_ids": [
               211,
               210
@@ -1696,9 +1696,9 @@
             "agent_name": "Dr. Voronoi (Data Scientist)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
-            "headline": "Cut-back from the byline: baseline 0.17 xT",
-            "analysis_body": "Baseline before any adjustment: 0.17 xT, 30.9% pass completion and 47.3% space control. Highest-value receiver: I. Kowalin.",
-            "referenced_metric": "Baseline xT: 0.17",
+            "headline": "Cut-back from the byline: baseline 0.28 xT",
+            "analysis_body": "Baseline before any adjustment: 0.28 xT, 56.3% pass completion and 47.5% space control. Highest-value receiver: I. Kowalin.",
+            "referenced_metric": "Baseline xT: 0.28",
             "highlighted_player_ids": [
               211,
               210
@@ -1730,8 +1730,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
             "headline": "Cut-back from the byline",
-            "analysis_body": "Saltmarsh Rovers attack towards goal. Y. Belcourt has the ball on the left wing, about 30 metres from goal. The most dangerous pass is to I. Kowalin, who is on the left wing, about 30 metres from goal. The chance of a goal is about 17 percent.",
-            "referenced_metric": "Goal threat 17%",
+            "analysis_body": "Saltmarsh Rovers attack towards goal. Y. Belcourt has the ball on the left wing, about 30 metres from goal. The most dangerous pass is to I. Kowalin, who is on the left wing, about 30 metres from goal. The chance of a goal is about 28 percent.",
+            "referenced_metric": "Goal threat 28%",
             "highlighted_player_ids": [
               211,
               210
@@ -1765,8 +1765,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
             "headline": "Pase atrás desde la línea de fondo",
-            "analysis_body": "Y. Belcourt lleva el balón por la banda izquierda, a unos 30 metros de la portería. Ahora mismo esta jugada tiene más o menos un 17% de acabar en gol. La opción más peligrosa es un pase a I. Kowalin.",
-            "referenced_metric": "Peligro de gol: 17%",
+            "analysis_body": "Y. Belcourt lleva el balón por la banda izquierda, a unos 30 metros de la portería. Ahora mismo esta jugada tiene más o menos un 28% de acabar en gol. La opción más peligrosa es un pase a I. Kowalin.",
+            "referenced_metric": "Peligro de gol: 28%",
             "highlighted_player_ids": [
               211,
               210
@@ -1797,9 +1797,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
-            "headline": "Pase atrás desde la línea de fondo: 0.17 xT en juego",
-            "analysis_body": "Y. Belcourt inicia la acción en (113.0, 71.0). El valor de la jugada es 0.17 xT con un 30.9% de probabilidad de completar la acción y un control territorial local del 47.3% en el último tercio. La opción de mayor valor esperado es I. Kowalin.",
-            "referenced_metric": "xT: 0.17 | Prob. pase: 30.9%",
+            "headline": "Pase atrás desde la línea de fondo: 0.28 xT en juego",
+            "analysis_body": "Y. Belcourt inicia la acción en (113.0, 71.0). El valor de la jugada es 0.28 xT con un 56.3% de probabilidad de completar la acción y un control territorial local del 47.5% en el último tercio. La opción de mayor valor esperado es I. Kowalin.",
+            "referenced_metric": "xT: 0.28 | Prob. pase: 56.3%",
             "highlighted_player_ids": [
               211,
               210
@@ -1830,9 +1830,9 @@
             "agent_name": "Dr. Voronoi (Científico de datos)",
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
-            "headline": "Pase atrás desde la línea de fondo: punto de partida 0.17 xT",
-            "analysis_body": "Punto de partida antes de ajustar: 0.17 xT, 30.9% de acierto en el pase y 47.3% de control del espacio. Receptor de mayor valor: I. Kowalin.",
-            "referenced_metric": "xT de partida: 0.17",
+            "headline": "Pase atrás desde la línea de fondo: punto de partida 0.28 xT",
+            "analysis_body": "Punto de partida antes de ajustar: 0.28 xT, 56.3% de acierto en el pase y 47.5% de control del espacio. Receptor de mayor valor: I. Kowalin.",
+            "referenced_metric": "xT de partida: 0.28",
             "highlighted_player_ids": [
               211,
               210
@@ -1864,8 +1864,8 @@
             "avatar_badge": "AI-QUANT",
             "timestamp_label": "86:56",
             "headline": "Pase atrás desde la línea de fondo",
-            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. Y. Belcourt lleva el balón por la banda izquierda, a unos 30 metros de la portería. El pase más peligroso es hacia I. Kowalin, que está por la banda izquierda, a unos 30 metros de la portería. La probabilidad de gol ronda el 17 por ciento.",
-            "referenced_metric": "Peligro de gol 17%",
+            "analysis_body": "Saltmarsh Rovers ataca hacia la portería. Y. Belcourt lleva el balón por la banda izquierda, a unos 30 metros de la portería. El pase más peligroso es hacia I. Kowalin, que está por la banda izquierda, a unos 30 metros de la portería. La probabilidad de gol ronda el 28 por ciento.",
+            "referenced_metric": "Peligro de gol 28%",
             "highlighted_player_ids": [
               211,
               210

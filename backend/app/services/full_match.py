@@ -65,11 +65,14 @@ def _moment_key(event_type: str, start: Tuple[float, float], end: Tuple[float, f
 
 
 def is_candidate(event: LiveEvent) -> bool:
-    """Detector pre-filter (rules): shots and actions that reach the box area or switch the play."""
+    """
+    Detector pre-filter (rules): shots and actions that reach the last 35 m or switch the play.
+    Attackers stand onside, so passes ending short of the box still give both sides room to play.
+    """
     f = event.frame
     return (
         f.event_type == "Shot"
-        or (f.ball_end_x or 0) >= 95
+        or (f.ball_end_x or 0) >= 85
         or f.moment_key in ("switch", "cutback", "wide_carry")
     )
 
@@ -117,7 +120,7 @@ def generate_full_match(seed: int, match_id: Optional[int] = None) -> List[LiveE
         receiver = None if kind in ("Shot", "Dribble") else _role_for(*end, exclude=actor)
         scenario = Scenario(
             key, kind, ball=start, ball_end=end, actor_role=actor, receiver_role=receiver,
-            press_distance_m=rng.uniform(2.0, 3.5), lane_clearance_m=3.5 if kind == "Shot" else 4.5,
+            press_distance_m=rng.uniform(2.0, 3.5), lane_clearance_m=2.0 if kind == "Shot" else 2.5,
         )
         frame = MatchFramePayload(
             match_id=match_id,

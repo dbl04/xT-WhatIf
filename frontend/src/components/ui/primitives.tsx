@@ -37,7 +37,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       type={type}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-md font-medium transition-colors",
-        "focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-green",
+        "focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-signal-gain",
         "disabled:pointer-events-none disabled:opacity-40",
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
@@ -87,8 +87,8 @@ export const Tag: React.FC<{
 }> = ({ children, tone = "neutral", className }) => {
   const tones = {
     neutral: "border-line-strong text-fg-muted",
-    green: "border-signal-green/40 text-signal-green",
-    magenta: "border-signal-magenta/50 text-signal-magenta",
+    green: "border-signal-gain/40 text-signal-gain",
+    magenta: "border-signal-loss/50 text-signal-loss",
     solid: "border-fg bg-fg text-ink",
   } as const;
   return (
@@ -177,7 +177,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div className="min-w-0">
-            {kicker && <Kicker className="text-signal-green">{kicker}</Kicker>}
+            {kicker && <Kicker className="text-signal-gain">{kicker}</Kicker>}
             <h2 className="font-display text-2xl font-bold uppercase leading-none tracking-tight text-fg">
               {title}
             </h2>

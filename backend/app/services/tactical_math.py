@@ -12,7 +12,7 @@ Features:
 import math
 import numpy as np
 from scipy.spatial import cKDTree as KDTree
-from typing import List, Tuple, Optional
+from typing import Iterable, List, Tuple, Optional
 
 from app.schemas.match_contract import (
     MatchFramePayload, PlayerNode, TacticalMetrics, TeamSide
@@ -23,6 +23,7 @@ from app.schemas.match_contract import (
 # -----------------------------------------------------------------------------
 XT_GRID_COLS = 16
 XT_GRID_ROWS = 12
+PITCH_LENGTH = 120.0
 
 
 def _generate_canonical_xt_grid() -> np.ndarray:
@@ -212,37 +213,96 @@ def calculate_pass_probability_cone(
     if pass_length < 1.0:
         return 96.0
 
-    unit_x = dx / pass_length
-    unit_y = dy / pass_length
-
     # Base probability decays with distance (longer passes have higher flight time)
     base_prob = max(35.0, 96.0 - 0.72 * pass_length)
-    interception_multiplier = 1.0
-
-    for opp in opponents:
-        # Vector from passer to opponent
-        opp_dx = opp.x - start_x
-        opp_dy = opp.y - start_y
-
-        # Orthogonal projection along the pass line: t in [0.0, 1.0]
-        t = (opp_dx * unit_x + opp_dy * unit_y) / pass_length
-
-        # Check if defender is positioned along the pass corridor
-        if 0.05 < t < 0.98:
-            # Perpendicular distance to pass segment
-            d_perp = abs(dy * opp.x - dx * opp.y + end_x * start_y - end_y * start_x) / pass_length
-
-            # Interception cone widens as the pass travels (uncertainty cone)
-            sigma = 1.6 + 3.2 * t
-
-            # Gaussian shadow
-            shadow = math.exp(-(d_perp ** 2) / (2.0 * (sigma ** 2)))
-
-            # Maximum obstruction if defender is directly on the vector
-            interception_multiplier *= max(0.12, 1.0 - 0.88 * shadow)
-
-    final_prob = base_prob * interception_multiplier
+    final_prob = base_prob * _lane_multiplier(
+        start_x, start_y, end_x, end_y, opponents, PASS_SIGMA, PASS_MAX_INTERCEPTION
+    )
     return round(max(5.0, min(98.0, final_prob)), 1)
+
+
+# Calibrated on 22-player frames. The first cone (sigma 1.6-4.8 m, each defender able to
+# take 88 % off) was fitted on 5-10 player plays: against a full defensive block it put a
+# third of all passing options at the 5 % floor. A defender now reaches about 1-3 m either
+# side of the lane, and one defender on the line leaves 35 % of the base probability.
+PASS_SIGMA = (1.2, 1.8)  # sigma = a + b * t, t in [0, 1] along the pass
+PASS_MAX_INTERCEPTION = 0.65
+# A shot is struck far harder than a pass: only a body almost on the line blocks it, and the
+# goalkeeper is left out (saving is part of the xT of the shooting position).
+SHOT_SIGMA = (0.6, 0.6)
+SHOT_MAX_BLOCK = 0.7
+# Shadows below this are noise from defenders well wide of the lane.
+_MIN_SHADOW = 0.05
+
+
+def _lane_multiplier(
+    start_x: float,
+    start_y: float,
+    end_x: float,
+    end_y: float,
+    opponents: List[PlayerNode],
+    sigma: Tuple[float, float],
+    max_interception: float,
+) -> float:
+    """Share of the ball's chances left after every opponent in the corridor had a go at it."""
+    dx = end_x - start_x
+    dy = end_y - start_y
+    length = math.hypot(dx, dy)
+    multiplier = 1.0
+    for opp in opponents:
+        # Orthogonal projection along the line: t in [0.0, 1.0]
+        t = ((opp.x - start_x) * dx + (opp.y - start_y) * dy) / (length ** 2)
+        if not 0.05 < t < 0.98:
+            continue
+        d_perp = abs(dy * opp.x - dx * opp.y + end_x * start_y - end_y * start_x) / length
+        # The cone widens as the ball travels (more time to react further down the lane)
+        s = sigma[0] + sigma[1] * t
+        shadow = math.exp(-(d_perp ** 2) / (2.0 * (s ** 2)))
+        if shadow >= _MIN_SHADOW:
+            multiplier *= 1.0 - max_interception * shadow
+    return multiplier
+
+
+def calculate_shot_probability(
+    start_x: float,
+    start_y: float,
+    end_x: float,
+    end_y: float,
+    opponents: List[PlayerNode],
+) -> float:
+    """
+    Chance that a shot (start) -> (end) gets through to goal without being blocked.
+    Distance is not penalised here: it is already in the xT of the shooting position.
+    """
+    if math.hypot(end_x - start_x, end_y - start_y) < 1.0:
+        return 96.0
+    outfield = [p for p in opponents if not p.is_keeper]
+    final_prob = 96.0 * _lane_multiplier(
+        start_x, start_y, end_x, end_y, outfield, SHOT_SIGMA, SHOT_MAX_BLOCK
+    )
+    return round(max(5.0, min(98.0, final_prob)), 1)
+
+
+# -----------------------------------------------------------------------------
+# Offside
+# -----------------------------------------------------------------------------
+# Tolerance for positions rounded to 0.1 m by the client.
+OFFSIDE_EPS = 0.05
+
+
+def offside_line_from(defenders_x: Iterable[float], ball_x: float) -> float:
+    """Second-last defender (keeper included), the ball or halfway, whichever is furthest forward."""
+    xs = sorted(defenders_x, reverse=True)
+    second_last = xs[1] if len(xs) >= 2 else PITCH_LENGTH
+    return max(second_last, ball_x, PITCH_LENGTH / 2.0)
+
+
+def offside_line_x(players: List[PlayerNode], possession: TeamSide, ball_x: float) -> float:
+    return offside_line_from((p.x for p in players if p.team != possession), ball_x)
+
+
+def is_offside(player: PlayerNode, line_x: Optional[float]) -> bool:
+    return line_x is not None and player.x > line_x + OFFSIDE_EPS
 
 
 # -----------------------------------------------------------------------------
@@ -251,10 +311,12 @@ def calculate_pass_probability_cone(
 def find_optimal_pass_target(
     actor: PlayerNode,
     teammates: List[PlayerNode],
-    opponents: List[PlayerNode]
+    opponents: List[PlayerNode],
+    offside_x: Optional[float] = None,
 ) -> Tuple[Optional[int], float]:
     """
     Evaluates all teammates to find the highest Expected Value (EV = prob * xT).
+    The keeper and teammates beyond `offside_x` cannot receive (as in game_engine.action_value).
     Returns (optimal_player_id, pass_completion_prob_to_optimal).
     """
     best_id: Optional[int] = None
@@ -262,7 +324,7 @@ def find_optimal_pass_target(
     best_prob = 50.0
 
     for mate in teammates:
-        if mate.player_id == actor.player_id:
+        if mate.player_id == actor.player_id or mate.is_keeper or is_offside(mate, offside_x):
             continue
 
         prob = calculate_pass_probability_cone(
@@ -325,8 +387,10 @@ def simulate_counterfactual(
     dest_x = base_frame.ball_end_x if base_frame.ball_end_x is not None else actor.x
     dest_y = base_frame.ball_end_y if base_frame.ball_end_y is not None else actor.y
 
-    # 1. Recalculate pass completion probability for the primary pass
-    primary_pass_prob = calculate_pass_probability_cone(
+    # 1. Recalculate the success probability of the primary action: a shot is judged as a
+    #    shot (blocks only), every other event as a pass
+    evaluate = calculate_shot_probability if base_frame.event_type == "Shot" else calculate_pass_probability_cone
+    primary_pass_prob = evaluate(
         start_x=base_frame.ball_x,
         start_y=base_frame.ball_y,
         end_x=dest_x,
@@ -334,12 +398,11 @@ def simulate_counterfactual(
         opponents=opponents
     )
 
-    # 2. Recalculate optimal pass target across all teammates
-    optimal_id, _ = find_optimal_pass_target(actor, teammates, opponents)
-    if optimal_id is None and len(teammates) > 1:
-        other_mates = [m for m in teammates if m.player_id != actor.player_id]
-        if other_mates:
-            optimal_id = other_mates[0].player_id
+    # 2. Recalculate optimal pass target across all onside teammates. The line is the one of
+    #    the untouched frame: a defender stepping up does not play anyone offside
+    line = offside_line_x(base_frame.players, possession_team, base_frame.ball_x)
+    # None when nobody can legally receive: no "best pass" is drawn then.
+    optimal_id, _ = find_optimal_pass_target(actor, teammates, opponents, line)
 
     # 3. Recalculate space control on 60x40 fine grid via scipy.spatial.cKDTree
     space_home_pct = calculate_space_control(
@@ -349,7 +412,11 @@ def simulate_counterfactual(
     )
 
     # 4. Compute Simulated Expected Threat (xT) via 2D Bilinear Interpolation with recovery penalty
-    base_target_xt = get_xt_at_point(dest_x, dest_y)
+    # A shot is worth the threat of where it is struck from, not of the goal mouth it aims at
+    if base_frame.event_type == "Shot":
+        base_target_xt = get_xt_at_point(base_frame.ball_x, base_frame.ball_y)
+    else:
+        base_target_xt = get_xt_at_point(dest_x, dest_y)
     recovery_xt_penalty = 0.03
     raw_simulated_xt = (
         base_target_xt * (primary_pass_prob / 100.0) + (1.0 - primary_pass_prob / 100.0) * recovery_xt_penalty

@@ -27,8 +27,8 @@ const config: Config = {
           subtle: PALETTE.fgSubtle,
         },
         signal: {
-          green: PALETTE.green,
-          magenta: PALETTE.magenta,
+          gain: PALETTE.gain,
+          loss: PALETTE.loss,
         },
         turf: {
           DEFAULT: PALETTE.turf,

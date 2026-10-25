@@ -300,12 +300,12 @@
       }
     ],
     "metrics": {
-      "original_xt": 0.1,
-      "simulated_xt": 0.1,
+      "original_xt": 0.41,
+      "simulated_xt": 0.41,
       "xt_delta": 0.0,
       "space_control_home_pct": 49.9,
-      "optimal_pass_target_id": 206,
-      "pass_completion_prob": 11.7
+      "optimal_pass_target_id": 209,
+      "pass_completion_prob": 96.0
     },
     "agent_debate": [
       {
@@ -314,12 +314,12 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "5:03",
-        "headline": "Shot from the edge of the box: 0.10 xT in play",
-        "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.10 xT, with a 11.7% chance of completing the action and 49.9% local space control in the final third. The highest-value option is N. Haldorsen.",
-        "referenced_metric": "xT: 0.10 | Pass prob.: 11.7%",
+        "headline": "Shot from the edge of the box: 0.41 xT in play",
+        "analysis_body": "I. Kowalin starts the action at (97.0, 37.0). The move is worth 0.41 xT, with a 96.0% chance of completing the action and 49.9% local space control in the final third. The highest-value option is Z. Ombrell.",
+        "referenced_metric": "xT: 0.41 | Pass prob.: 96.0%",
         "highlighted_player_ids": [
           210,
-          206
+          209
         ]
       },
       {
@@ -657,12 +657,12 @@
       }
     ],
     "metrics": {
-      "original_xt": 0.11,
-      "simulated_xt": 0.11,
+      "original_xt": 0.49,
+      "simulated_xt": 0.49,
       "xt_delta": 0.0,
       "space_control_home_pct": 39.4,
       "optimal_pass_target_id": 206,
-      "pass_completion_prob": 13.2
+      "pass_completion_prob": 96.0
     },
     "agent_debate": [
       {
@@ -671,9 +671,9 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "19:10",
-        "headline": "One-on-one with the keeper: 0.11 xT in play",
-        "analysis_body": "Z. Ombrell starts the action at (106.0, 44.0). The move is worth 0.11 xT, with a 13.2% chance of completing the action and 39.4% local space control in the final third. The highest-value option is N. Haldorsen.",
-        "referenced_metric": "xT: 0.11 | Pass prob.: 13.2%",
+        "headline": "One-on-one with the keeper: 0.49 xT in play",
+        "analysis_body": "Z. Ombrell starts the action at (106.0, 44.0). The move is worth 0.49 xT, with a 96.0% chance of completing the action and 39.4% local space control in the final third. The highest-value option is N. Haldorsen.",
+        "referenced_metric": "xT: 0.49 | Pass prob.: 96.0%",
         "highlighted_player_ids": [
           209,
           206
@@ -863,9 +863,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 87.0,
+        "x": 79.7,
         "y": 68.9,
-        "original_x": 87.0,
+        "original_x": 79.7,
         "original_y": 68.9,
         "is_modified": false
       },
@@ -889,10 +889,10 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 73.2,
-        "y": 43.1,
-        "original_x": 73.2,
-        "original_y": 43.1,
+        "x": 74.5,
+        "y": 42.7,
+        "original_x": 74.5,
+        "original_y": 42.7,
         "is_modified": false
       },
       {
@@ -915,9 +915,9 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 77.9,
+        "x": 77.8,
         "y": 18.3,
-        "original_x": 77.9,
+        "original_x": 77.8,
         "original_y": 18.3,
         "is_modified": false
       },
@@ -928,10 +928,10 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 82.5,
-        "y": 33.8,
-        "original_x": 82.5,
-        "original_y": 33.8,
+        "x": 81.2,
+        "y": 34.1,
+        "original_x": 81.2,
+        "original_y": 34.1,
         "is_modified": false
       },
       {
@@ -1014,12 +1014,12 @@
       }
     ],
     "metrics": {
-      "original_xt": 0.09,
-      "simulated_xt": 0.09,
+      "original_xt": 0.11,
+      "simulated_xt": 0.11,
       "xt_delta": 0.0,
-      "space_control_home_pct": 28.1,
-      "optimal_pass_target_id": 108,
-      "pass_completion_prob": 33.4
+      "space_control_home_pct": 26.8,
+      "optimal_pass_target_id": 109,
+      "pass_completion_prob": 45.2
     },
     "agent_debate": [
       {
@@ -1028,12 +1028,12 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "37:09",
-        "headline": "Switch of play to the far side: 0.09 xT in play",
-        "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.09 xT, with a 33.4% chance of completing the action and 28.1% local space control in the final third. The highest-value option is M. Ferrant.",
-        "referenced_metric": "xT: 0.09 | Pass prob.: 33.4%",
+        "headline": "Switch of play to the far side: 0.11 xT in play",
+        "analysis_body": "D. Okonne starts the action at (71.0, 11.0). The move is worth 0.11 xT, with a 45.2% chance of completing the action and 26.8% local space control in the final third. The highest-value option is O. Thornwell.",
+        "referenced_metric": "xT: 0.11 | Pass prob.: 45.2%",
         "highlighted_player_ids": [
           102,
-          108
+          109
         ]
       },
       {
@@ -1272,10 +1272,10 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 106.6,
-        "y": 15.5,
-        "original_x": 106.6,
-        "original_y": 15.5,
+        "x": 105.5,
+        "y": 16.4,
+        "original_x": 105.5,
+        "original_y": 16.4,
         "is_modified": false
       },
       {
@@ -1371,12 +1371,12 @@
       }
     ],
     "metrics": {
-      "original_xt": 0.18,
-      "simulated_xt": 0.18,
+      "original_xt": 0.28,
+      "simulated_xt": 0.28,
       "xt_delta": 0.0,
-      "space_control_home_pct": 46.9,
+      "space_control_home_pct": 46.6,
       "optimal_pass_target_id": 109,
-      "pass_completion_prob": 36.0
+      "pass_completion_prob": 62.5
     },
     "agent_debate": [
       {
@@ -1385,9 +1385,9 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "45:19",
-        "headline": "Wide carry into the box: 0.18 xT in play",
-        "analysis_body": "E. Adeyo starts the action at (97.0, 13.0). The move is worth 0.18 xT, with a 36.0% chance of completing the action and 46.9% local space control in the final third. The highest-value option is O. Thornwell.",
-        "referenced_metric": "xT: 0.18 | Pass prob.: 36.0%",
+        "headline": "Wide carry into the box: 0.28 xT in play",
+        "analysis_body": "E. Adeyo starts the action at (97.0, 13.0). The move is worth 0.28 xT, with a 62.5% chance of completing the action and 46.6% local space control in the final third. The highest-value option is O. Thornwell.",
+        "referenced_metric": "xT: 0.28 | Pass prob.: 62.5%",
         "highlighted_player_ids": [
           107,
           109
@@ -1551,9 +1551,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 102.0,
+        "x": 92.9,
         "y": 33.2,
-        "original_x": 102.0,
+        "original_x": 92.9,
         "original_y": 33.2,
         "is_modified": false
       },
@@ -1577,9 +1577,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 93.4,
+        "x": 92.9,
         "y": 73.2,
-        "original_x": 93.4,
+        "original_x": 92.9,
         "original_y": 73.2,
         "is_modified": false
       },
@@ -1629,10 +1629,10 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 93.6,
-        "y": 24.5,
-        "original_x": 93.6,
-        "original_y": 24.5,
+        "x": 93.3,
+        "y": 25.6,
+        "original_x": 93.3,
+        "original_y": 25.6,
         "is_modified": false
       },
       {
@@ -1728,12 +1728,12 @@
       }
     ],
     "metrics": {
-      "original_xt": 0.25,
-      "simulated_xt": 0.25,
+      "original_xt": 0.35,
+      "simulated_xt": 0.35,
       "xt_delta": 0.0,
-      "space_control_home_pct": 47.2,
+      "space_control_home_pct": 43.3,
       "optimal_pass_target_id": 109,
-      "pass_completion_prob": 49.9
+      "pass_completion_prob": 73.7
     },
     "agent_debate": [
       {
@@ -1742,9 +1742,9 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "55:12",
-        "headline": "Through ball into the half-space: 0.25 xT in play",
-        "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.25 xT, with a 49.9% chance of completing the action and 47.2% local space control in the final third. The highest-value option is O. Thornwell.",
-        "referenced_metric": "xT: 0.25 | Pass prob.: 49.9%",
+        "headline": "Through ball into the half-space: 0.35 xT in play",
+        "analysis_body": "M. Ferrant starts the action at (87.0, 28.0). The move is worth 0.35 xT, with a 73.7% chance of completing the action and 43.3% local space control in the final third. The highest-value option is O. Thornwell.",
+        "referenced_metric": "xT: 0.35 | Pass prob.: 73.7%",
         "highlighted_player_ids": [
           108,
           109
@@ -1817,9 +1817,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 73.1,
+        "x": 77.1,
         "y": 63.0,
-        "original_x": 73.1,
+        "original_x": 77.1,
         "original_y": 63.0,
         "is_modified": false
       },
@@ -1830,9 +1830,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 74.0,
+        "x": 78.0,
         "y": 26.6,
-        "original_x": 74.0,
+        "original_x": 78.0,
         "original_y": 26.6,
         "is_modified": false
       },
@@ -1843,9 +1843,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 71.9,
+        "x": 75.9,
         "y": 48.3,
-        "original_x": 71.9,
+        "original_x": 75.9,
         "original_y": 48.3,
         "is_modified": false
       },
@@ -1856,10 +1856,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 74.2,
-        "y": 33.7,
-        "original_x": 74.2,
-        "original_y": 33.7,
+        "x": 81.8,
+        "y": 42.9,
+        "original_x": 81.8,
+        "original_y": 42.9,
         "is_modified": false
       },
       {
@@ -1869,10 +1869,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 64.1,
-        "y": 38.5,
-        "original_x": 64.1,
-        "original_y": 38.5,
+        "x": 68.0,
+        "y": 38.1,
+        "original_x": 68.0,
+        "original_y": 38.1,
         "is_modified": false
       },
       {
@@ -1882,9 +1882,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 60.6,
+        "x": 64.6,
         "y": 62.1,
-        "original_x": 60.6,
+        "original_x": 64.6,
         "original_y": 62.1,
         "is_modified": false
       },
@@ -1908,9 +1908,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 44.1,
+        "x": 48.1,
         "y": 42.4,
-        "original_x": 44.1,
+        "original_x": 48.1,
         "original_y": 42.4,
         "is_modified": false
       },
@@ -1921,9 +1921,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 64.5,
+        "x": 68.5,
         "y": 33.4,
-        "original_x": 64.5,
+        "original_x": 68.5,
         "original_y": 33.4,
         "is_modified": false
       },
@@ -1934,9 +1934,9 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 59.5,
+        "x": 63.5,
         "y": 23.1,
-        "original_x": 59.5,
+        "original_x": 63.5,
         "original_y": 23.1,
         "is_modified": false
       },
@@ -2025,9 +2025,9 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 66.1,
+        "x": 70.1,
         "y": 6.4,
-        "original_x": 66.1,
+        "original_x": 70.1,
         "original_y": 6.4,
         "is_modified": false
       },
@@ -2051,9 +2051,9 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 91.3,
+        "x": 80.3,
         "y": 34.6,
-        "original_x": 91.3,
+        "original_x": 80.3,
         "original_y": 34.6,
         "is_modified": false
       },
@@ -2077,20 +2077,20 @@
         "team": "away",
         "is_actor": false,
         "is_keeper": false,
-        "x": 69.9,
+        "x": 73.9,
         "y": 74.1,
-        "original_x": 69.9,
+        "original_x": 73.9,
         "original_y": 74.1,
         "is_modified": false
       }
     ],
     "metrics": {
-      "original_xt": 0.22,
-      "simulated_xt": 0.22,
+      "original_xt": 0.25,
+      "simulated_xt": 0.25,
       "xt_delta": 0.0,
-      "space_control_home_pct": 68.1,
+      "space_control_home_pct": 75.3,
       "optimal_pass_target_id": 209,
-      "pass_completion_prob": 57.1
+      "pass_completion_prob": 67.0
     },
     "agent_debate": [
       {
@@ -2099,9 +2099,9 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "71:48",
-        "headline": "Counter-attack: ball into space: 0.22 xT in play",
-        "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.22 xT, with a 57.1% chance of completing the action and 68.1% local space control in the final third. The highest-value option is Z. Ombrell.",
-        "referenced_metric": "xT: 0.22 | Pass prob.: 57.1%",
+        "headline": "Counter-attack: ball into space: 0.25 xT in play",
+        "analysis_body": "I. Kowalin starts the action at (60.0, 46.0). The move is worth 0.25 xT, with a 67.0% chance of completing the action and 75.3% local space control in the final third. The highest-value option is Z. Ombrell.",
+        "referenced_metric": "xT: 0.25 | Pass prob.: 67.0%",
         "highlighted_player_ids": [
           210,
           209
@@ -2200,10 +2200,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 114.8,
-        "y": 61.1,
-        "original_x": 114.8,
-        "original_y": 61.1,
+        "x": 113.7,
+        "y": 61.6,
+        "original_x": 113.7,
+        "original_y": 61.6,
         "is_modified": false
       },
       {
@@ -2226,10 +2226,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 101.7,
-        "y": 58.1,
-        "original_x": 101.7,
-        "original_y": 58.1,
+        "x": 103.1,
+        "y": 57.6,
+        "original_x": 103.1,
+        "original_y": 57.6,
         "is_modified": false
       },
       {
@@ -2278,10 +2278,10 @@
         "team": "home",
         "is_actor": false,
         "is_keeper": false,
-        "x": 97.4,
-        "y": 49.4,
-        "original_x": 97.4,
-        "original_y": 49.4,
+        "x": 99.1,
+        "y": 48.7,
+        "original_x": 99.1,
+        "original_y": 48.7,
         "is_modified": false
       },
       {
@@ -2442,12 +2442,12 @@
       }
     ],
     "metrics": {
-      "original_xt": 0.17,
-      "simulated_xt": 0.17,
+      "original_xt": 0.28,
+      "simulated_xt": 0.28,
       "xt_delta": 0.0,
-      "space_control_home_pct": 47.3,
+      "space_control_home_pct": 47.5,
       "optimal_pass_target_id": 210,
-      "pass_completion_prob": 30.9
+      "pass_completion_prob": 56.3
     },
     "agent_debate": [
       {
@@ -2456,9 +2456,9 @@
         "agent_name": "Dr. Voronoi (Data Scientist)",
         "avatar_badge": "AI-QUANT",
         "timestamp_label": "86:56",
-        "headline": "Cut-back from the byline: 0.17 xT in play",
-        "analysis_body": "Y. Belcourt starts the action at (113.0, 71.0). The move is worth 0.17 xT, with a 30.9% chance of completing the action and 47.3% local space control in the final third. The highest-value option is I. Kowalin.",
-        "referenced_metric": "xT: 0.17 | Pass prob.: 30.9%",
+        "headline": "Cut-back from the byline: 0.28 xT in play",
+        "analysis_body": "Y. Belcourt starts the action at (113.0, 71.0). The move is worth 0.28 xT, with a 56.3% chance of completing the action and 47.5% local space control in the final third. The highest-value option is I. Kowalin.",
+        "referenced_metric": "xT: 0.28 | Pass prob.: 56.3%",
         "highlighted_player_ids": [
           211,
           210
