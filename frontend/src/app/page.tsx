@@ -20,6 +20,7 @@ import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useChallenge } from "@/hooks/useChallenge";
 import { LIVE_API_URL } from "@/lib/api";
 import { liveClockSeconds, useLiveMatch, type MomentReveal } from "@/hooks/useLiveMatch";
+import { useRevealReplay } from "@/hooks/useRevealReplay";
 import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/components/live/LiveCards";
 import { modeFor } from "@/lib/challenge";
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
@@ -298,6 +299,13 @@ function DashboardPage() {
     },
     [challengeState, dropOnBoard]
   );
+  const replay = useRevealReplay(reveal, challengeState?.baseFrame ?? null, challengeState?.players ?? null);
+  const replayPassing = !!reveal && replay.passing;
+  const endReplayPass = replay.endPass;
+  const handleAnimationEnd = useCallback(() => {
+    if (replayPassing) endReplayPass();
+    else setIsPlaying(false);
+  }, [replayPassing, endReplayPass]);
 
   // What the pitch shows: the live action, the challenge board, or the key moment being practised.
   const pitchFrame = challengeState ? challengeState.baseFrame : isLiveView && liveState.frame ? liveState.frame : currentFrame;
@@ -465,14 +473,14 @@ function DashboardPage() {
           <TacticalPitch2D
             ref={pitchRef}
             teamShortNames={teamShortNames}
-            players={challengeState ? challengeState.players : pitchFrame.players}
+            players={replay.players ?? (challengeState ? challengeState.players : pitchFrame.players)}
             ballX={pitchFrame.ball_x}
             ballY={pitchFrame.ball_y}
-            ballEndX={pitchFrame.ball_end_x}
-            ballEndY={pitchFrame.ball_end_y}
+            ballEndX={replayPassing ? replay.passTo?.x : pitchFrame.ball_end_x}
+            ballEndY={replayPassing ? replay.passTo?.y : pitchFrame.ball_end_y}
             metrics={pitchFrame.metrics}
             isCounterfactualMode={!inChallenge && !isLiveView && currentFrame.is_counterfactual_mode}
-            isPlaying={isPlaying && !inChallenge}
+            isPlaying={(isPlaying && !inChallenge) || replayPassing}
             challenge={pitchChallenge}
             playbackSpeed={playbackSpeed}
             highlightedPlayerIds={highlightedPlayerIds}
@@ -485,7 +493,7 @@ function DashboardPage() {
             // or debate on drop (that is the reveal's job), only the preview arrow.
             onPlayerMove={inChallenge ? challenge.move : isLiveView ? () => {} : updatePlayerPosition}
             onSimulationTrigger={inChallenge ? dropInChallenge : isLiveView ? () => {} : onPlayerDrop}
-            onAnimationEnd={() => setIsPlaying(false)}
+            onAnimationEnd={handleAnimationEnd}
             onDragStart={handleDragStart}
           />
         </div>
@@ -505,7 +513,13 @@ function DashboardPage() {
             >
               {reveal ? (
                 <div className="p-3">
-                  <RevealCard reveal={reveal} onContinue={continueAfterReveal} />
+                  <RevealCard
+                    reveal={reveal}
+                    onContinue={continueAfterReveal}
+                    view={replay.view}
+                    onView={replay.setView}
+                    onReplay={replay.replay}
+                  />
                 </div>
               ) : (
                 <ChallengeCard

@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Award, Radio, Trophy, Users } from "lucide-react";
+import { Award, Radio, RotateCcw, Trophy, Users } from "lucide-react";
 import { Button, Kicker, Tag } from "@/components/ui/primitives";
 import { MessageKey, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { MatchInfo, TeamSide } from "@/types/match";
 import type { Leaderboard, LiveEventSummary, LiveState, MatchEnd, MomentReveal } from "@/hooks/useLiveMatch";
+import type { ReplayView } from "@/hooks/useRevealReplay";
 
 const BADGE_KEYS: Record<string, MessageKey> = {
   beat_machine: "badge.beat_machine",
@@ -120,7 +121,14 @@ const TickerRow: React.FC<{ event: LiveEventSummary; matchInfo: MatchInfo; langu
 // ======================================================================
 // REVEAL — the optimum, your score and the explanation
 // ======================================================================
-export const RevealCard: React.FC<{ reveal: MomentReveal; onContinue: () => void }> = ({ reveal, onContinue }) => {
+export const RevealCard: React.FC<{
+  reveal: MomentReveal;
+  onContinue: () => void;
+  /** Replay on the pitch: which shape is shown, and the controls to switch or replay it. */
+  view?: ReplayView;
+  onView?: (view: ReplayView) => void;
+  onReplay?: () => void;
+}> = ({ reveal, onContinue, view, onView, onReplay }) => {
   const { t } = useI18n();
   const scored = reveal.your_score != null;
   return (
@@ -147,6 +155,38 @@ export const RevealCard: React.FC<{ reveal: MomentReveal; onContinue: () => void
           </dl>
         </div>
       </div>
+
+      {view && onView && (
+        <div className="flex items-center gap-1.5">
+          <div className="flex h-8 flex-1 items-center rounded-md border border-line bg-ink-800 p-0.5" role="group" aria-label={t("reveal.replay")}>
+            {(["yours", "best"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onView(v)}
+                aria-pressed={view === v}
+                className={cn(
+                  "h-full flex-1 rounded-[4px] px-2 text-[12px] font-medium transition-colors",
+                  view === v ? (v === "best" ? "bg-signal-gain/20 text-signal-gain" : "bg-white/[0.1] text-fg") : "text-fg-subtle hover:text-fg"
+                )}
+              >
+                {t(v === "best" ? "reveal.view.best" : "reveal.view.yours")}
+              </button>
+            ))}
+          </div>
+          {onReplay && (
+            <button
+              type="button"
+              onClick={onReplay}
+              title={t("reveal.replayAgain")}
+              aria-label={t("reveal.replayAgain")}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-ink-800 text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          )}
+        </div>
+      )}
 
       {reveal.beat_machine && (
         <div className="flex items-center gap-2 rounded-md border border-signal-gain/50 bg-signal-gain/10 px-2.5 py-1.5 text-[12px] text-fg">
