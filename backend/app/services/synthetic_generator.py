@@ -56,7 +56,7 @@ from app.services.narration import (
     localize_frame,
     moment_label,
 )
-from app.services.tactical_math import simulate_counterfactual
+from app.services.tactical_math import offside_line_from, simulate_counterfactual
 
 PITCH_LENGTH = 120.0
 PITCH_WIDTH = 80.0
@@ -322,8 +322,8 @@ def _build_players(scenario: Scenario, possession: TeamSide, rng: random.Random)
     attackers = [pid for pid in points if meta[pid][2] == attacking_side and pid != actor_id]
 
     def hold_onside() -> None:
-        defenders_x = sorted((points[pid][0] for pid in points if meta[pid][2] == defending_side), reverse=True)
-        line = max(defenders_x[1], bx, PITCH_LENGTH / 2.0) - ONSIDE_MARGIN_M
+        defenders_x = (points[pid][0] for pid in points if meta[pid][2] == defending_side)
+        line = offside_line_from(defenders_x, bx) - ONSIDE_MARGIN_M
         for pid in attackers:
             points[pid][0] = min(points[pid][0], line)
 

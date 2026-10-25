@@ -101,15 +101,13 @@ class MomentReport:
 # 1. Action value
 # ---------------------------------------------------------------------------
 def action_value(players: Sequence[PlayerNode], possession: TeamSide, ball_x: float, ball_y: float,
-                 offside_x: Optional[float] = None) -> ActionValue:
+                 offside_x: float) -> ActionValue:
     """
     Expected value of the best pass from the ball: max over onside teammates of P(pass) * xT(receiver).
-    `offside_x` defaults to the line drawn by these same players.
+    `offside_x` is the line of the untouched frame (offside_line): moved players never redraw it.
     """
     carrier = _carrier(players, possession, ball_x, ball_y)
     opponents = [p for p in players if p.team != possession]
-    if offside_x is None:
-        offside_x = offside_line_x(list(players), possession, ball_x)
     best = ActionValue(0.0, None, 0.0)
     for mate in players:
         if (mate.team != possession or mate.player_id == carrier.player_id or mate.is_keeper

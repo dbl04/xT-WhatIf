@@ -289,12 +289,14 @@ function DashboardPage() {
     sfx.reveal(reveal.beat_machine || (reveal.your_score ?? 0) >= 900);
   }, [reveal]);
   const { drop: dropOnBoard } = challenge;
+  // The drop sound only for a player who really left their spot (a plain tap moves nobody).
   const dropInChallenge = useCallback(
-    (_playerId: number) => {
-      if (challengeState?.status === "open") sfx.drop();
+    (playerId: number) => {
+      const dropped = challengeState?.players.find((p) => p.player_id === playerId);
+      if (challengeState?.status === "open" && dropped?.is_modified) sfx.drop();
       dropOnBoard();
     },
-    [challengeState?.status, dropOnBoard]
+    [challengeState, dropOnBoard]
   );
 
   // What the pitch shows: the live action, the challenge board, or the key moment being practised.

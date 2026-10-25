@@ -13,6 +13,7 @@ import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
 import { Audience, DEFAULT_AUDIENCE, DEFAULT_LANGUAGE, Language } from "@/lib/i18n";
 import { localizeOfflineFrame, offlineCounterfactualDebate } from "@/lib/offlineNarration";
 import { offsideLine } from "@/lib/challenge";
+import { xtAt } from "@/lib/xt";
 
 // Key moments of the synthetic match; same file the backend generates
 // (backend/app/data/cache/match_900001_frames.json, see synthetic_generator.py)
@@ -31,14 +32,6 @@ export interface UseMatchEngineOptions {
 export type ConnectionMode = "live" | "offline";
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-
-/** Cell value of the backend's 16x12 xT grid (tactical_math._generate_canonical_xt_grid). */
-function offlineXt(x: number, y: number): number {
-  const col = Math.min(15, Math.max(0, Math.floor(x / 7.5)));
-  const row = Math.min(11, Math.max(0, Math.floor(y / (80 / 12))));
-  const yFactor = 1 - (Math.abs(row - 5.5) / 5.5) * 0.45;
-  return 0.01 + 0.65 * (col / 15) ** 2.2 * Math.max(0.18, yFactor);
-}
 
 /** Pass completion 0-1 with the backend's interception cone (calculate_pass_probability_cone). */
 function offlinePassProb(sx: number, sy: number, ex: number, ey: number, opponents: PlayerNode[]): number {
@@ -65,7 +58,7 @@ function offlineBestReceiver(frame: MatchFramePayload): number | null {
   let best: { id: number; ev: number } | null = null;
   for (const p of frame.players) {
     if (p.team !== frame.possession_team || p.is_actor || p.is_keeper || p.x > line + 0.05) continue;
-    const ev = offlinePassProb(frame.ball_x, frame.ball_y, p.x, p.y, opponents) * offlineXt(p.x, p.y);
+    const ev = offlinePassProb(frame.ball_x, frame.ball_y, p.x, p.y, opponents) * xtAt(p.x, p.y);
     if (!best || ev > best.ev) best = { id: p.player_id, ev };
   }
   return best?.id ?? null;

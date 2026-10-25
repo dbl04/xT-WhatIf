@@ -22,12 +22,11 @@ import { Move, Lock, ZoomIn, Maximize2 } from "lucide-react";
 import { Kicker } from "@/components/ui/primitives";
 import { PALETTE, hair, withAlpha } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
+import { XT_GRID_COLS, XT_GRID_ROWS, xtCell } from "@/lib/xt";
 
 // ======================================================================
 // ARCHITECTURE CONSTANTS
 // ======================================================================
-const XT_GRID_COLS = 16;
-const XT_GRID_ROWS = 12;
 const CELL_W = STATSBOMB_PITCH_LENGTH / XT_GRID_COLS; // 7.5m
 const CELL_H = STATSBOMB_PITCH_WIDTH / XT_GRID_ROWS; // 6.6667m
 
@@ -128,18 +127,6 @@ const FULL_VIEW: ViewBox = { x: 0, y: 0, w: STATSBOMB_PITCH_LENGTH, h: STATSBOMB
 
 export interface TacticalPitch2DHandle {
   getSvgElement: () => SVGSVGElement | null;
-}
-
-// ======================================================================
-// xT HEATMAP UTILITIES
-// ======================================================================
-function computeCellXt(col: number, row: number): number {
-  const xProgress = col / (XT_GRID_COLS - 1);
-  const yDist = Math.abs(row - 5.5) / 5.5;
-  const centralFactor = 1 - yDist * 0.45;
-  let val = Math.pow(xProgress, 2.2) * 0.48 * centralFactor + 0.015;
-  if (col >= 11 && row >= 3 && row <= 8) val += 0.08;
-  return Number(Math.min(0.65, Math.max(0.01, val)).toFixed(3));
 }
 
 // ======================================================================
@@ -421,7 +408,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       const cells = [];
       for (let col = 0; col < XT_GRID_COLS; col++) {
         for (let row = 0; row < XT_GRID_ROWS; row++) {
-          cells.push({ col, row, x: col * CELL_W, y: row * CELL_H, xtVal: computeCellXt(col, row) });
+          cells.push({ col, row, x: col * CELL_W, y: row * CELL_H, xtVal: xtCell(col, row) });
         }
       }
       return cells;

@@ -138,13 +138,13 @@ const MAX_TICKER = 8;
 
 /**
  * Deadline of a moment that was already open when the fan joined or reconnected: what is
- * left of it, from the server's epoch times. A clock too far off to give a plausible
- * remainder falls back to the whole window.
+ * left of it from the server's epoch times, kept within [0, window] so a skewed clock can
+ * neither reopen a closing moment nor stretch it past its length.
  */
 function joinedMomentDeadline(m: MomentOpen, now: number): number {
-  const window = Math.max(0, m.closes_at_ms - m.opened_at_ms);
-  const left = m.closes_at_ms - now;
-  return now + (left >= 0 && left <= window ? left : window) - LATENCY_ALLOWANCE_MS;
+  const windowMs = Math.max(0, m.closes_at_ms - m.opened_at_ms);
+  const left = Math.min(windowMs, Math.max(0, m.closes_at_ms - now));
+  return now + left - LATENCY_ALLOWANCE_MS;
 }
 
 function send(ws: WebSocket, momentId: string, moves: ChallengeMove[]) {
