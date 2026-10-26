@@ -34,7 +34,7 @@ param azureOpenAiTtsApiVersion string = '2025-03-01-preview'
 @description('Azure Container Registry Name')
 param acrName string = replace(toLower('${environmentName}acr'), '-', '')
 
-@description('Whether to create the AcrPull role assignment in Bicep (requires Role Based Access Control Administrator or Owner permissions on the deployer)')
+@description('Whether to create the AcrPull and Monitoring Reader role assignments in Bicep (requires Role Based Access Control Administrator or Owner permissions on the deployer)')
 param createRoleAssignment bool = true
 var backendImage = '${containerRegistry.properties.loginServer}/xt-whatif-backend:${imageTag}'
 var frontendImage = '${containerRegistry.properties.loginServer}/xt-whatif-frontend:${imageTag}'
@@ -233,6 +233,25 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
               name: 'BACKEND_CORS_ORIGINS'
               value: corsOrigins
             }
+            // The telemetry endpoint reads this app's ReplicaCount metric from Azure Monitor
+            // (backend/app/services/cloud_telemetry.py) with the managed identity.
+            {
+              name: 'AZURE_SUBSCRIPTION_ID'
+              value: subscription().subscriptionId
+            }
+            {
+              name: 'AZURE_RESOURCE_GROUP'
+              value: resourceGroup().name
+            }
+            {
+              name: 'ACA_GATEWAY_NAME'
+              value: 'xt-whatif-aca-gateway'
+            }
+            {
+              // A user-assigned identity must be named for DefaultAzureCredential to use it.
+              name: 'AZURE_CLIENT_ID'
+              value: containerAppIdentity.properties.clientId
+            }
           ], openAiEnv)
           probes: healthProbes
         }
@@ -252,6 +271,21 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
         ]
       }
     }
+  }
+}
+
+// Built-in Monitoring Reader role definition ID: 43d0d8ad-25c7-4714-9337-8ba259a9fe05
+var monitoringReaderRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '43d0d8ad-25c7-4714-9337-8ba259a9fe05')
+
+// Lets the gateway read its own replica count. Until the role propagates (a few minutes after
+// the first deploy) the telemetry endpoint keeps returning estimated figures.
+resource gatewayMonitoringReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createRoleAssignment) {
+  name: guid(gatewayApp.id, containerAppIdentity.id, monitoringReaderRoleDefinitionId)
+  scope: gatewayApp
+  properties: {
+    roleDefinitionId: monitoringReaderRoleDefinitionId
+    principalId: containerAppIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 

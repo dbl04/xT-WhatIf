@@ -14,6 +14,7 @@ ticked. That keeps the demo private until we choose to publish it.
 | AKS (optional) | `xt-whatif-aks-worker` | Geometry workers behind the gateway's circuit breaker. | 3–12 (HPA) |
 | Container Registry | `xtwhatifprodacr` | Images tagged with the commit SHA. | — |
 | Log Analytics | `xtwhatif-prod-logs` | Container logs. | — |
+| Managed identity | `xtwhatif-prod-identity` | Shared by the Container Apps: `AcrPull` on the registry (image pulls without a password) and `Monitoring Reader` on the gateway (the telemetry endpoint reads its real replica count). | — |
 
 Why a separate live app with one replica: every fan must see the same match and the same key
 moment. If the gateway ran the match, each of its replicas would play a different one.
@@ -28,12 +29,18 @@ front, so CORS on both APIs only allows the frontend's origin.
    repository variable to match).
    ```bash
    az group create --name rg-xtwhatif-hackathon --location westeurope
-   az acr create --resource-group rg-xtwhatif-hackathon --name xtwhatifprodacr --sku Basic --admin-enabled true
+   az acr create --resource-group rg-xtwhatif-hackathon --name xtwhatifprodacr --sku Basic
    ```
 2. **Service principal for GitHub Actions**, scoped to the resource group:
    ```bash
    az ad sp create-for-rbac --name xtwhatif-github --role contributor \
      --scopes /subscriptions/<subscription-id>/resourceGroups/rg-xtwhatif-hackathon --json-auth
+   ```
+   Bicep also creates two role assignments (`AcrPull`, `Monitoring Reader`), which Contributor
+   cannot do. Give the same service principal permission to assign roles in the resource group
+   (`<app-id>` is the `clientId` in the JSON above):
+   ```bash
+   az role assignment create --assignee <app-id> --role "Role Based Access Control Administrator" \n     --scope /subscriptions/<subscription-id>/resourceGroups/rg-xtwhatif-hackathon
    ```
 3. **Repository secrets** (Settings → Secrets and variables → Actions):
    | Secret | Value |
@@ -90,6 +97,5 @@ az group delete --name rg-xtwhatif-hackathon --yes --no-wait
 - One live-match replica holds every WebSocket. For far larger crowds the next step is
   Azure Web PubSub for the fan-out, with the match room publishing to it.
 - The leaderboard lives in memory; a restart of `xt-whatif-live` starts a new match.
-- The registry uses the admin user. A managed identity with `AcrPull` would be better.
 - The Bicep template could not be compiled on the authoring machine (no Azure CLI). Run
   `az bicep build --file infra/main.bicep` once before delivery day.
