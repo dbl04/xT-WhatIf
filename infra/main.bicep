@@ -9,8 +9,12 @@ param environmentName string = 'xtwhatif-prod'
 @description('Image tag to deploy (the commit SHA from CI, so every deploy creates a new revision)')
 param imageTag string = 'latest'
 
-@description('Optional internal URL for AKS distributed computation worker')
+@description('Optional URL for AKS distributed computation worker')
 param aksWorkerUrl string = ''
+
+@description('Shared token for authenticating requests to the AKS worker')
+@secure()
+param aksWorkerToken string = ''
 
 @description('Simulated fans on the live leaderboard (real load comes from backend/scripts/live_load_test.py)')
 param liveBots int = 200
@@ -123,6 +127,10 @@ var backendSecrets = [
     name: 'openai-api-key'
     value: azureOpenAiKey
   }
+  {
+    name: 'aks-worker-token'
+    value: aksWorkerToken
+  }
 ]
 var openAiEnv = [
   {
@@ -226,6 +234,10 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: aksWorkerUrl
             }
             {
+              name: 'AKS_WORKER_TOKEN'
+              secretRef: 'aks-worker-token'
+            }
+            {
               name: 'ENVIRONMENT'
               value: 'production'
             }
@@ -293,7 +305,8 @@ resource gatewayMonitoringReaderRoleAssignment 'Microsoft.Authorization/roleAssi
 // 4. Azure Container App: xt-whatif-live (the one live match: exactly one replica)
 // ============================================================================
 // Every fan must see the same match and the same key moment, so the match room lives in
-// a single replica. It serves /ws/live and the preview of live moments.
+// a single replica. It serves /ws/live and the preview of live moments, and offloads
+// moment Validator searches to the AKS worker pool when AKS_WORKER_URL is set.
 resource liveApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'xt-whatif-live'
   location: location
@@ -343,6 +356,14 @@ resource liveApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'LIVE_MATCH_DURATION_S'
               value: string(liveMatchDurationSeconds)
+            }
+            {
+              name: 'AKS_WORKER_URL'
+              value: aksWorkerUrl
+            }
+            {
+              name: 'AKS_WORKER_TOKEN'
+              secretRef: 'aks-worker-token'
             }
             {
               name: 'ENVIRONMENT'

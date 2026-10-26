@@ -24,7 +24,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 from app.schemas.match_contract import MatchFramePayload, PlayerNode, TeamSide
 from app.services.tactical_math import (
@@ -60,6 +60,22 @@ class ActionValue:
     target_id: Optional[int]
     pass_prob: float  # 0-100, to the best target
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "value": float(self.value),
+            "target_id": int(self.target_id) if self.target_id is not None else None,
+            "pass_prob": float(self.pass_prob),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ActionValue:
+        target = data.get("target_id")
+        return cls(
+            value=float(data["value"]),
+            target_id=int(target) if target is not None else None,
+            pass_prob=float(data["pass_prob"]),
+        )
+
 
 @dataclass(frozen=True)
 class RuleViolation:
@@ -81,6 +97,48 @@ class Optimum:
     def margin(self) -> float:
         """How much the best legal move changes V, in the mode's favourable direction."""
         return _gain(self.mode, self.base.value, self.best.value)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "base": self.base.to_dict(),
+            "best": self.best.to_dict(),
+            "moves": [[int(pid), float(x), float(y)] for pid, x, y in self.moves],
+            "evaluations": int(self.evaluations),
+            "compute_ms": float(self.compute_ms),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Optimum:
+        mode = data["mode"]
+        if mode not in ("attack", "defend"):
+            raise ValueError(f"Invalid game mode: {mode!r}")
+        raw_moves = data.get("moves")
+        if not isinstance(raw_moves, list):
+            raise ValueError("moves must be a list")
+        moves: List[Move] = []
+        for item in raw_moves:
+            if not isinstance(item, (list, tuple)) or len(item) != 3:
+                raise ValueError(f"Invalid move entry: {item!r}")
+            moves.append((int(item[0]), float(item[1]), float(item[2])))
+        return cls(
+            mode=mode,
+            base=ActionValue.from_dict(data["base"]),
+            best=ActionValue.from_dict(data["best"]),
+            moves=moves,
+            evaluations=int(data["evaluations"]),
+            compute_ms=float(data["compute_ms"]),
+        )
+
+
+def optimum_to_dict(opt: Optimum) -> Dict[str, Any]:
+    """Serialises an Optimum to a JSON-compatible dict."""
+    return opt.to_dict()
+
+
+def optimum_from_dict(data: Dict[str, Any]) -> Optimum:
+    """Deserialises an Optimum from a JSON dict."""
+    return Optimum.from_dict(data)
 
 
 @dataclass
@@ -326,8 +384,12 @@ def score_submission(mode: GameMode, base_value: float, optimum_value: float, us
 # ---------------------------------------------------------------------------
 # 5. Margin report
 # ---------------------------------------------------------------------------
-def analyse_moment(frame: MatchFramePayload, min_margin: float = MIN_MARGIN) -> MomentReport:
-    attack, defend = optimize(frame, "attack"), optimize(frame, "defend")
+def build_moment_report(
+    frame: MatchFramePayload,
+    attack: Optimum,
+    defend: Optimum,
+    min_margin: float = MIN_MARGIN,
+) -> MomentReport:
     return MomentReport(
         event_uuid=frame.event_uuid,
         label=frame.moment_label,
@@ -335,6 +397,10 @@ def analyse_moment(frame: MatchFramePayload, min_margin: float = MIN_MARGIN) -> 
         defend=defend,
         playable={"attack": attack.margin >= min_margin, "defend": defend.margin >= min_margin},
     )
+
+
+def analyse_moment(frame: MatchFramePayload, min_margin: float = MIN_MARGIN) -> MomentReport:
+    return build_moment_report(frame, optimize(frame, "attack"), optimize(frame, "defend"), min_margin=min_margin)
 
 
 def main() -> None:

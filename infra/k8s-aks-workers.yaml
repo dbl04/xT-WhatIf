@@ -70,6 +70,12 @@ spec:
               value: "gpt-4o-mini"
             - name: BACKEND_CORS_ORIGINS
               value: '["*"]'
+            - name: AKS_WORKER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aks-worker-token
+                  key: token
+                  optional: true
             - name: AZURE_OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -118,7 +124,7 @@ spec:
           emptyDir: {}
 ---
 # =============================================================================
-# 2. Service: xt-whatif-aks-worker-svc (Internal ClusterIP for ACA Ingress / VPC)
+# 2. Service: xt-whatif-aks-worker-svc (LoadBalancer for ACA -> AKS delegation)
 # =============================================================================
 apiVersion: v1
 kind: Service
@@ -128,7 +134,11 @@ metadata:
   labels:
     app: xt-whatif-aks-worker
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  # Optional IP allowlist: restrict inbound traffic to the Container Apps environment outbound IPs
+  # (obtain with: az containerapp env show -g rg-xt-whatif -n xtwhatif-prod-env --query properties.outboundAddresses -o tsv)
+  # loadBalancerSourceRanges:
+  #   - "20.x.x.x/32"
   selector:
     app: xt-whatif-aks-worker
   ports:

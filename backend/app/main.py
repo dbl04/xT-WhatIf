@@ -38,7 +38,19 @@ from app.services.tts_service import router as tts_router
 from app.services.tactical_optimizer import router as optimizer_router
 from app.services.game_api import router as game_router
 from app.services.live_match import router as live_router, runner as live_runner
-from app.services.cloud_telemetry import get_aca_gateway_replicas
+from app.services.cloud_telemetry import (
+    _chaos_enabled_at,
+    _expire_chaos_if_due,
+    _recent_simulation_timestamps,
+    chaos_seconds_remaining,
+    cloud_metrics_store,
+    cloud_telemetry_state,
+    compute_dynamic_cluster_scaling,
+    get_aca_gateway_replicas,
+    get_active_instance_id,
+    record_simulation_activity,
+    set_chaos_mode,
+)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -152,114 +164,6 @@ async def get_match_frames(match_id: int, lang: str = LanguageQuery, audience: s
     return frames
 
 
-# Cloud Telemetry state & Chaos Engineering store for Microsoft Hackathon Demo
-active_instance_env = os.getenv("CONTAINER_APP_REPLICA_NAME") or os.getenv("HOSTNAME", "local-dev-node")
-
-cloud_metrics_store: Dict[str, Any] = {
-    "service_role": settings.SERVICE_ROLE if settings.SERVICE_ROLE != "standalone" else "aca-gateway",
-    "compute_mode": "aks-distributed" if settings.AKS_WORKER_URL else "local-in-process",
-    "active_instance_id": active_instance_env,
-    "total_simulations": 142,
-    "cache_hits": 98,
-    "aks_delegated_calls": 44,
-    "circuit_breaker_trips": 0,
-    "last_compute_latency_ms": 14.2,
-    "chaos_force_aks_failure": False,
-    "aca_gateway_replicas": 3,
-    "aks_worker_pods": 6,
-    "estimated_cpu_utilization_pct": 28.5,
-    "keda_active": True,
-}
-cloud_telemetry_state = cloud_metrics_store  # Backward compatibility alias
-
-# Sliding window of recent simulation timestamps to calculate dynamic cluster load
-_recent_simulation_timestamps: List[float] = [time.time() - 6.0, time.time() - 2.0]
-
-
-def get_active_instance_id() -> str:
-    """Returns active container/pod replica identifier from environment."""
-    return os.getenv("CONTAINER_APP_REPLICA_NAME") or os.getenv("HOSTNAME", "local-dev-node")
-
-
-_chaos_enabled_at: Optional[float] = None
-
-
-def _expire_chaos_if_due() -> None:
-    """Chaos mode is shared by every visitor of the demo: switch it off automatically."""
-    global _chaos_enabled_at
-    if not cloud_metrics_store["chaos_force_aks_failure"]:
-        _chaos_enabled_at = None
-        return
-    if _chaos_enabled_at is None:
-        _chaos_enabled_at = time.time()
-    elif time.time() - _chaos_enabled_at >= settings.CHAOS_AUTO_RESET_SECONDS:
-        cloud_metrics_store["chaos_force_aks_failure"] = False
-        _chaos_enabled_at = None
-        logger.info("Chaos mode auto-reset after %ss.", settings.CHAOS_AUTO_RESET_SECONDS)
-
-
-def chaos_seconds_remaining() -> Optional[int]:
-    if _chaos_enabled_at is None or not cloud_metrics_store["chaos_force_aks_failure"]:
-        return None
-    return max(0, int(settings.CHAOS_AUTO_RESET_SECONDS - (time.time() - _chaos_enabled_at)))
-
-
-def compute_dynamic_cluster_scaling() -> Dict[str, Any]:
-    """
-    Dynamically computes KEDA ACA Gateway replicas (1..10) and AKS Worker pods (3..12)
-    based on real-time simulation throughput, estimated CPU utilization, and circuit breaker state.
-    """
-    _expire_chaos_if_due()
-    now = time.time()
-    # Prune timestamps older than 20 seconds
-    cutoff = now - 20.0
-    while _recent_simulation_timestamps and _recent_simulation_timestamps[0] < cutoff:
-        _recent_simulation_timestamps.pop(0)
-
-    recent_activity_count = len(_recent_simulation_timestamps)
-
-    # Dynamic CPU estimation: baseline idle 22%, increasing with concurrent throughput
-    cpu_utilization = min(96.0, round(22.0 + (recent_activity_count * 2.5), 1))
-
-    # KEDA Auto-scaling logic (1 to 10 replicas based on incoming HTTP request bursts)
-    if recent_activity_count <= 2:
-        aca_replicas = 3
-    else:
-        aca_replicas = min(10, max(3, int(2 + (recent_activity_count / 3.0))))
-
-    # AKS Worker HPA logic (3 to 12 pods, target 65% CPU)
-    is_chaos_broken = bool(cloud_metrics_store.get("chaos_force_aks_failure", False))
-
-    if is_chaos_broken:
-        # Worker is completely unreachable; circuit breaker handles compute locally
-        aks_pods = "0 (Unreachable - Circuit Breaker Active)"
-        aks_numeric_pods = 0
-    else:
-        if cpu_utilization > 65.0:
-            scale_ratio = cpu_utilization / 65.0
-            aks_numeric_pods = min(12, max(3, int(round(4 * scale_ratio))))
-        else:
-            aks_numeric_pods = min(12, max(3, 3 + int(recent_activity_count / 5.0)))
-        aks_pods = aks_numeric_pods
-
-    active_id = get_active_instance_id()
-
-    # Update cloud_metrics_store synchronized state
-    cloud_metrics_store["active_instance_id"] = active_id
-    cloud_metrics_store["aca_gateway_replicas"] = aca_replicas
-    cloud_metrics_store["aks_worker_pods"] = aks_pods
-    cloud_metrics_store["estimated_cpu_utilization_pct"] = cpu_utilization
-
-    return {
-        "active_instance_id": active_id,
-        "aca_gateway_replicas": aca_replicas,
-        "aks_worker_pods": aks_pods,
-        "aks_numeric_worker_pods": aks_numeric_pods,
-        "estimated_cpu_utilization_pct": cpu_utilization,
-        "recent_activity_count": recent_activity_count,
-    }
-
-
 async def execute_simulation(request: CounterfactualRequest, base_frame: MatchFramePayload) -> MatchFramePayload:
     """
     Executes simulation with Cloud-Native Dual-Role support (ACA Gateway <-> AKS Worker):
@@ -268,7 +172,7 @@ async def execute_simulation(request: CounterfactualRequest, base_frame: MatchFr
     """
     _expire_chaos_if_due()
     cloud_metrics_store["total_simulations"] += 1
-    _recent_simulation_timestamps.append(time.time())
+    record_simulation_activity()
 
     # Check Chaos injection for Microsoft Demo
     if cloud_metrics_store["chaos_force_aks_failure"]:
@@ -379,19 +283,7 @@ async def toggle_chaos_mode(force: Optional[bool] = None):
 
     The failure is simulated and global; it switches itself off after CHAOS_AUTO_RESET_SECONDS.
     """
-    global _chaos_enabled_at
-    _expire_chaos_if_due()
-    if force is not None:
-        cloud_metrics_store["chaos_force_aks_failure"] = force
-    else:
-        cloud_metrics_store["chaos_force_aks_failure"] = not cloud_metrics_store["chaos_force_aks_failure"]
-
-    if cloud_metrics_store["chaos_force_aks_failure"]:
-        cloud_metrics_store["circuit_breaker_trips"] += 1
-        _chaos_enabled_at = time.time()
-    else:
-        _chaos_enabled_at = None
-
+    set_chaos_mode(force)
     scaling = compute_dynamic_cluster_scaling()
 
     return {
@@ -442,7 +334,7 @@ async def execute_stress_burst():
     elapsed_ms = (time.perf_counter() - start_t) * 1000
 
     cloud_metrics_store["total_simulations"] += 25
-    _recent_simulation_timestamps.extend([time.time()] * 25)
+    record_simulation_activity(25)
     scaling = compute_dynamic_cluster_scaling()
 
     avg_latency = round(elapsed_ms / 25, 2)

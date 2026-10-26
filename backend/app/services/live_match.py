@@ -39,6 +39,7 @@ from pydantic import ValidationError
 from app.core.config import settings
 from app.schemas.live import LiveEvent, MoveIn, Profile, Submission, SubmitIn
 from app.schemas.match_contract import TeamSide
+from app.services.aks_client import analyse_moment_distributed
 from app.services.full_match import MATCH_SECONDS, generate_full_match
 from app.services.game_engine import (
     GameMode,
@@ -470,7 +471,7 @@ class LiveMatchRunner:
             await self.broadcast({"type": "MATCH_EVENT", "payload": {"event": _event_summary(event),
                                                                       "frame": event.frame.model_dump(mode="json")}})
             if room.can_open(event, now):
-                report = await asyncio.to_thread(analyse_moment, event.frame)  # Validator: ~0.3 s
+                report = await analyse_moment_distributed(event.frame)  # Validator: AKS parallel or in-process fallback
                 moment = room.open_moment(event, report, now)
                 if moment:
                     await self.broadcast({"type": "MOMENT_OPEN", "payload": moment.open_payload()})

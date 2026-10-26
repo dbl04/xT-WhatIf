@@ -4,22 +4,32 @@ HTTP API of the xT Live Challenge game.
 POST /api/v1/game/preview — while a user moves players on a key moment: which players they
 may move, which rules the current moves break, and an arrow (better / worse / same) for the
 user's side. The value V itself and the optimum stay on the server until the reveal.
+
+POST /api/v1/game/optimize — internal AKS worker endpoint that computes the single-mode
+`Optimum` (`attack` or `defend`) for a frame. Served only when `SERVICE_ROLE` is `aks-worker`
+or `standalone` (404 on public gateway/live roles) and guarded by `X-Worker-Token`.
 """
 
-from typing import List, Literal, Optional
+import asyncio
+import secrets
+from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.schemas.match_contract import MatchFramePayload, TeamSide
 from app.services.game_engine import (
     MAX_MOVED_PLAYERS,
     MAX_RADIUS_M,
     MIN_SPACING_M,
+    GameMode,
     frame_value,
     mode_for,
     movable_players,
     offside_line,
+    optimize,
+    optimum_to_dict,
     validate_moves,
 )
 from app.services.match_loader import loader
@@ -41,6 +51,11 @@ class PreviewRequest(BaseModel):
     event_uuid: str = Field(..., max_length=64)
     team: TeamSide  # the team the user supports
     moves: List[MoveIn] = Field(default_factory=list, max_length=11)
+
+
+class OptimizeRequest(BaseModel):
+    frame: MatchFramePayload
+    mode: GameMode
 
 
 class ViolationOut(BaseModel):
@@ -107,3 +122,27 @@ async def preview(request: PreviewRequest) -> PreviewResponse:
         violations=[ViolationOut(player_id=v.player_id, rule=v.rule, detail=v.detail) for v in violations],
         trend=trend,
     )
+
+
+@router.post("/optimize")
+async def optimize_mode(
+    request: OptimizeRequest,
+    x_worker_token: Optional[str] = Header(default=None, alias="X-Worker-Token"),
+) -> Dict[str, Any]:
+    """
+    Computes the single-mode Optimum (`attack` or `defend`) on an AKS worker pod.
+    Hidden (404) on public roles (`aca-gateway`, `live`) so external callers cannot burn CPU.
+    """
+    if settings.SERVICE_ROLE not in ("aks-worker", "standalone"):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    expected_token = settings.AKS_WORKER_TOKEN
+    if settings.SERVICE_ROLE != "standalone" and not expected_token:
+        raise HTTPException(status_code=403, detail="AKS worker token is not configured")
+
+    if expected_token:
+        if not x_worker_token or not secrets.compare_digest(x_worker_token, expected_token):
+            raise HTTPException(status_code=401, detail="Invalid or missing X-Worker-Token")
+
+    opt = await asyncio.to_thread(optimize, request.frame, request.mode)
+    return optimum_to_dict(opt)
