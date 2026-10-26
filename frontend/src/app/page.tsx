@@ -352,6 +352,7 @@ function DashboardPage() {
   }, [challengeState?.status, secondsLeft]);
 
   const continueAfterReveal = () => {
+    tts.stop();
     live.dismissReveal();
     closeChallenge();
   };
@@ -392,35 +393,54 @@ function DashboardPage() {
   const { flashNotice } = challenge;
   const reveal =
     isLiveView && liveState.reveal && liveState.reveal.moment_id === liveState.moment?.moment_id ? liveState.reveal : null;
+
+  // Pundits read the resolved play out loud: Dr. Voronoi explains the bot's optimum & spatial comparison,
+  // Coach Bianchi delivers the tactical verdict contrasting the user's move vs the bot's move.
+  const playRevealVoice = useCallback(
+    (rev: MomentReveal) => {
+      const { headline, body, personal, voronoi_comparison, bianchi_headline } = rev.explanation;
+      const optIds = rev.optimum_moves.map((m) => m.player_id);
+      const userIds = rev.your_moves.map((m) => m.player_id);
+      const voronoiText = [headline, body, voronoi_comparison]
+        .filter((part) => part && part.trim())
+        .join(" ");
+      const spoken = (
+        role: AgentMessage["agent_role"],
+        title: string,
+        text: string,
+        ids: number[]
+      ): AgentMessage => ({
+        message_id: `${rev.moment_id}-${role}`,
+        agent_role: role,
+        agent_name: role === "data_scientist" ? "Dr. Voronoi" : "Coach Bianchi",
+        avatar_badge: role === "data_scientist" ? "AI-QUANT" : "PRO-COACH",
+        timestamp_label: "",
+        headline: title,
+        analysis_body: text,
+        referenced_metric: "",
+        highlighted_player_ids: ids,
+      });
+      const lines = [
+        spoken("data_scientist", headline, voronoiText, optIds),
+        spoken("classic_coach", bianchi_headline || headline, personal, userIds.length > 0 ? userIds : optIds),
+      ].filter((m) => m.analysis_body.trim());
+      // Audio the live service synthesised while the moment was open: ready as the reveal lands.
+      const voice = fetchRevealVoice(rev.moment_id, fanSession?.identity.userId ?? "");
+      tts.playMessages(
+        lines,
+        lines.map((m) => voice.then((v) => v?.find((l) => l.agent_role === m.agent_role)?.audio_base64 ?? null))
+      );
+    },
+    [fanSession?.identity.userId, tts]
+  );
+
   // One sound per reveal: rising when the fan found (nearly) the best move.
   const revealSoundRef = useRef<string | null>(null);
   useEffect(() => {
     if (!reveal || revealSoundRef.current === reveal.moment_id) return;
     revealSoundRef.current = reveal.moment_id;
     sfx.reveal(reveal.beat_machine || (reveal.your_score ?? 0) >= 900);
-    // The pundits read the resolved play out loud: Voronoi the optimum, Bianchi the fan's verdict.
-    const { headline, body, personal } = reveal.explanation;
-    const highlighted = reveal.optimum_moves.map((m) => m.player_id);
-    const spoken = (role: AgentMessage["agent_role"], text: string): AgentMessage => ({
-      message_id: `${reveal.moment_id}-${role}`,
-      agent_role: role,
-      agent_name: "",
-      avatar_badge: "",
-      timestamp_label: "",
-      headline,
-      analysis_body: text,
-      referenced_metric: "",
-      highlighted_player_ids: role === "data_scientist" ? highlighted : [],
-    });
-    const lines = [spoken("data_scientist", `${headline}. ${body}`), spoken("classic_coach", personal)].filter(
-      (m) => m.analysis_body.trim()
-    );
-    // Audio the live service synthesised while the moment was open: ready as the reveal lands.
-    const voice = fetchRevealVoice(reveal.moment_id, fanSession?.identity.userId ?? "");
-    tts.playMessages(
-      lines,
-      lines.map((m) => voice.then((v) => v?.find((l) => l.agent_role === m.agent_role)?.audio_base64 ?? null))
-    );
+    playRevealVoice(reveal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal]);
   const { drop: dropOnBoard } = challenge;
@@ -744,6 +764,10 @@ function DashboardPage() {
                     view={replay.view}
                     onView={replay.setView}
                     onReplay={replay.replay}
+                    activeSpeaker={tts.activeSpeaker}
+                    isSpeaking={tts.isPlaying}
+                    onPlayVoice={() => playRevealVoice(reveal)}
+                    onStopVoice={tts.stop}
                   />
                 </div>
               ) : (

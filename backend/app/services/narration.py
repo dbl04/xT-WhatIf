@@ -1023,3 +1023,294 @@ def reveal_explanation(frame: MatchFramePayload, mode: str, moves: List[tuple], 
             best=_pct(best_value),
         ),
     }
+
+
+
+def _describe_move_list(
+    by_id: Dict[int, object],
+    moves: List[Tuple[int, float, float]],
+    lang: Language,
+) -> Tuple[str, str, List[int]]:
+    """Returns (who_joined, short_moves_desc, moved_ids) for a list of (player_id, x, y) moves."""
+    if not moves:
+        return ("—", "0.0 m", [])
+    names: List[str] = []
+    short_parts: List[str] = []
+    ids: List[int] = []
+    for pid, x, y in moves:
+        p = by_id.get(pid)
+        if not p:
+            continue
+        ids.append(pid)
+        names.append(p.name)
+        dist = math.hypot(x - p.x, y - p.y)
+        spot = describe_spot(x, y, lang)
+        short_parts.append(f"{p.name} {dist:.1f} m ({spot})")
+    joiner = " + " if lang == "es" else " + "
+    return (
+        joiner.join(names) if names else "—",
+        ", ".join(short_parts) if short_parts else "0.0 m",
+        ids,
+    )
+
+
+def reveal_pundits_and_comparison(
+    frame: MatchFramePayload,
+    moment_id: str,
+    mode: str,
+    opt_moves: List[Tuple[int, float, float]],
+    base_value: float,
+    best_value: float,
+    best_target_id: Optional[int],
+    user_moves: Optional[List[Tuple[int, float, float]]],
+    user_value: Optional[float],
+    user_score: Optional[int],
+    beat_machine: bool,
+    lang: Language,
+) -> Dict[str, object]:
+    """
+    Builds the dialectical Live Match Reveal commentary for Dr. Voronoi (AI-QUANT) and
+    Coach Bianchi (PRO-COACH), explicitly contrasting the user's move against the bot's
+    (optimiser's) move while preserving each pundit's signature voice.
+    """
+    base_exp = reveal_explanation(frame, mode, opt_moves, base_value, best_value, best_target_id, lang)
+    by_id = {p.player_id: p for p in frame.players}
+    bot_who, bot_moves_short, bot_ids = _describe_move_list(by_id, opt_moves, lang)
+    base_pct = _pct(base_value)
+    best_pct = _pct(best_value)
+    yours_pct = _pct(user_value) if user_value is not None else None
+
+    opt_coords = {pid: (x, y) for pid, x, y in opt_moves}
+    user_who, user_moves_short, user_ids = (
+        _describe_move_list(by_id, user_moves, lang) if user_moves else ("—", "0.0 m", [])
+    )
+    same_players = bool(user_moves) and ({pid for pid, _, _ in user_moves} == {pid for pid, _, _ in opt_moves})
+
+    pos_diff_m = 0.0
+    if same_players and user_moves:
+        diffs = [
+            math.hypot(ux - opt_coords[pid][0], uy - opt_coords[pid][1])
+            for pid, ux, uy in user_moves
+            if pid in opt_coords
+        ]
+        pos_diff_m = sum(diffs) / len(diffs) if diffs else 0.0
+
+    gap_pct = abs(best_pct - yours_pct) if yours_pct is not None else abs(best_pct - base_pct)
+
+    # 1. Dr. Voronoi (Data Scientist): quantitative & spatial comparison between user and bot
+    if user_moves is None or yours_pct is None:
+        voronoi_comparison = ""
+        voronoi_metric = (
+            f"Óptimo bot: {base_pct}% → {best_pct}%" if lang == "es" else f"Bot optimum: {base_pct}% → {best_pct}%"
+        )
+    elif len(user_moves) == 0:
+        if lang == "es":
+            voronoi_comparison = (
+                f"Comparativa espacial: mantuviste la disposición inicial ({yours_pct}% de gol), "
+                f"mientras que el bot desplazó a {bot_who} para llevar la métrica al {best_pct}% "
+                f"(diferencia de {gap_pct} puntos porcentuales)."
+            )
+            voronoi_metric = f"Bot ({bot_who}): {best_pct}% | Tú (sin mover): {yours_pct}%"
+        else:
+            voronoi_comparison = (
+                f"Spatial comparison: you kept the initial shape ({yours_pct}% goal chance), "
+                f"whereas the bot shifted {bot_who} to take the metric to {best_pct}% "
+                f"(a {gap_pct}-point delta)."
+            )
+            voronoi_metric = f"Bot ({bot_who}): {best_pct}% | You (no move): {yours_pct}%"
+    elif same_players:
+        if lang == "es":
+            voronoi_comparison = (
+                f"Comparativa espacial: coincidiste con el bot moviendo a {user_who} ({user_moves_short}), "
+                f"quedando a {pos_diff_m:.1f} m de la coordenada óptima del algoritmo y dejando la probabilidad "
+                f"de gol en el {yours_pct}% frente al {best_pct}% del bot."
+            )
+            voronoi_metric = f"Bot: {best_pct}% vs Tú: {yours_pct}% (desviación {pos_diff_m:.1f} m)"
+        else:
+            voronoi_comparison = (
+                f"Spatial comparison: you matched the bot's player selection with {user_who} ({user_moves_short}), "
+                f"finishing {pos_diff_m:.1f} m from the algorithm's optimal coordinate for a {yours_pct}% goal "
+                f"chance versus the bot's {best_pct}%."
+            )
+            voronoi_metric = f"Bot: {best_pct}% vs You: {yours_pct}% ({pos_diff_m:.1f} m offset)"
+    else:
+        if lang == "es":
+            voronoi_comparison = (
+                f"Comparativa espacial: tu ajuste sobre {user_who} ({user_moves_short}) sitúa la probabilidad "
+                f"de gol en el {yours_pct}%, mientras que el modelo del bot optimizó con {bot_who} hasta el "
+                f"{best_pct}% (brecha de {gap_pct} puntos porcentuales)."
+            )
+            voronoi_metric = f"Bot ({bot_who}): {best_pct}% vs Tú ({user_who}): {yours_pct}%"
+        else:
+            voronoi_comparison = (
+                f"Spatial comparison: your adjustment with {user_who} ({user_moves_short}) puts goal probability "
+                f"at {yours_pct}%, whereas the bot's model optimised with {bot_who} to reach {best_pct}% "
+                f"(a {gap_pct}-point gap)."
+            )
+            voronoi_metric = f"Bot ({bot_who}): {best_pct}% vs You ({user_who}): {yours_pct}%"
+
+    # 2. Coach Bianchi (Tactical Coach): dressing-room contrast between user's move and bot's move
+    if user_moves is None or user_score is None or yours_pct is None:
+        if lang == "es":
+            bianchi_headline = "¡En la banda no te puedes quedar congelado!"
+            personal = (
+                f"Esta vez no enviaste ningún movimiento. ¡En el área técnica hay que decidir en segundos, míster! "
+                f"Mientras dudabas en la pizarra, el bot ajustó a {bot_who} para llevar la jugada del {base_pct}% al {best_pct}%."
+            )
+            bianchi_metric = f"Sin movimiento | Ajuste del bot: {bot_who}"
+        else:
+            bianchi_headline = "Cannot freeze on the touchline!"
+            personal = (
+                f"You did not submit a move this time. You have to decide in split seconds on the touchline! "
+                f"While you hesitated on the board, the bot adjusted {bot_who} to take the play from {base_pct}% to {best_pct}%."
+            )
+            bianchi_metric = f"No move sent | Bot shift: {bot_who}"
+    elif beat_machine:
+        if lang == "es":
+            bianchi_headline = f"¡Tu pizarra con {user_who} supera al algoritmo!"
+            personal = (
+                f"Has superado a la máquina: tu movimiento era mejor que el del optimizador ({user_score} de 1000 puntos). "
+                f"¡Eso es puro colmillo de vestuario! Mientras el bot movía a {bot_who} ({best_pct}%), tu lectura con "
+                f"{user_who} ({user_moves_short}) llevó la jugada al {yours_pct}%. ¡El oficio gana a la calculadora!"
+            )
+            bianchi_metric = f"¡Superaste al bot! {user_score}/1000 pts ({yours_pct}% vs {best_pct}%)"
+        else:
+            bianchi_headline = f"Your board with {user_who} beats the algorithm!"
+            personal = (
+                f"You beat the machine: your move was better than the optimiser's ({user_score} of 1000 points). "
+                f"Pure dressing-room instinct! While the bot moved {bot_who} ({best_pct}%), your reading with "
+                f"{user_who} ({user_moves_short}) took the play to {yours_pct}%. Footballing craft beats the calculator!"
+            )
+            bianchi_metric = f"Beat the bot! {user_score}/1000 pts ({yours_pct}% vs {best_pct}%)"
+    elif len(user_moves) == 0:
+        if lang == "es":
+            bianchi_headline = f"Bloque estático frente al ajuste de {bot_who}"
+            personal = (
+                f"Has conseguido {user_score} de 1000 puntos. Dejaste al equipo clavado en su sitio ({yours_pct}%) "
+                f"mientras el bot corregía con {bot_who} ({bot_moves_short}) para llevar la jugada al {best_pct}%. "
+                f"¡En el fútbol de élite, quien no bascula a tiempo pierde el duelo!"
+            )
+            bianchi_metric = f"Puntuación: {user_score}/1000 | Sin desplazar jugadores"
+        else:
+            bianchi_headline = f"Static block against the bot's shift on {bot_who}"
+            personal = (
+                f"You reached {user_score} of 1000 points. You left the team standing still ({yours_pct}%) "
+                f"while the bot stepped in with {bot_who} ({bot_moves_short}) to take the play to {best_pct}%. "
+                f"At the top level, if you don't shift your shape in time, you lose the duel!"
+            )
+            bianchi_metric = f"Score: {user_score}/1000 | 0 players moved"
+    elif user_score >= 900:
+        if same_players:
+            if lang == "es":
+                action_coda = (
+                    "¡Cerraste la línea de pase como manda el manual!"
+                    if mode == "defend"
+                    else "¡Atacaste el espacio libre en el segundo exacto!"
+                )
+                bianchi_headline = f"¡Misma lectura que el bot con {user_who}!"
+                personal = (
+                    f"Has conseguido {user_score} de 1000 puntos. ¡Lectura de pizarra de primer nivel! "
+                    f"Igual que la máquina, viste enseguida que la llave era mover a {user_who} ({user_moves_short}), "
+                    f"clavando un {yours_pct}% frente al {best_pct}% del bot. {action_coda}"
+                )
+                bianchi_metric = f"Puntuación: {user_score}/1000 | Lectura óptima ({user_who})"
+            else:
+                action_coda = (
+                    "Shut the passing lane right by the book!"
+                    if mode == "defend"
+                    else "Attacked the open space right on cue!"
+                )
+                bianchi_headline = f"Same reading as the bot with {user_who}!"
+                personal = (
+                    f"You reached {user_score} of 1000 points. Top-drawer tactical reading! "
+                    f"Just like the machine, you immediately spotted that the key was moving {user_who} ({user_moves_short}), "
+                    f"hitting {yours_pct}% against the bot's {best_pct}%. {action_coda}"
+                )
+                bianchi_metric = f"Score: {user_score}/1000 | Optimal reading ({user_who})"
+        else:
+            if lang == "es":
+                bianchi_headline = f"Tu variante con {user_who} iguala al bot ({bot_who})"
+                personal = (
+                    f"Has conseguido {user_score} de 1000 puntos. ¡Qué gran oficio táctico! "
+                    f"Aunque el bot optó por mover a {bot_who} ({best_pct}%), tu alternativa con {user_who} "
+                    f"({user_moves_short}) logró un {yours_pct}% igual de contundente. ¡En el césped hay más de un camino para mandar!"
+                )
+                bianchi_metric = f"Puntuación: {user_score}/1000 | Variante eficaz ({user_who})"
+            else:
+                bianchi_headline = f"Your variant with {user_who} matches the bot ({bot_who})"
+                personal = (
+                    f"You reached {user_score} of 1000 points. Great tactical craft! "
+                    f"Even though the bot chose {bot_who} ({best_pct}%), your alternative with {user_who} "
+                    f"({user_moves_short}) delivered an equally effective {yours_pct}%. There is more than one way to boss the pitch!"
+                )
+                bianchi_metric = f"Score: {user_score}/1000 | Effective variant ({user_who})"
+    elif same_players:
+        if lang == "es":
+            bianchi_headline = f"Mismo jugador que el bot ({user_who}), distinto perfilaje"
+            personal = (
+                f"Has conseguido {user_score} de 1000 puntos. Tuviste buen ojo al elegir a {user_who} "
+                f"({user_moves_short}, {yours_pct}%), pero te quedaste a {pos_diff_m:.1f} m de donde lo colocó "
+                f"el bot ({bot_moves_short}, {best_pct}%). ¡En un partido cerrado, dos pasos más adentro deciden si cortas el pase o te rematan!"
+            )
+            bianchi_metric = f"Puntuación: {user_score}/1000 | A {pos_diff_m:.1f} m del ajuste del bot"
+        else:
+            bianchi_headline = f"Same player as the bot ({user_who}), different angle"
+            personal = (
+                f"You reached {user_score} of 1000 points. Good eye picking {user_who} "
+                f"({user_moves_short}, {yours_pct}%), but you stopped {pos_diff_m:.1f} m from where the bot placed "
+                f"them ({bot_moves_short}, {best_pct}%). In a tight game, two steps inside decide whether you cut the pass or concede!"
+            )
+            bianchi_metric = f"Score: {user_score}/1000 | {pos_diff_m:.1f} m off the bot's spot"
+    else:
+        if lang == "es":
+            bianchi_headline = f"Tu movimiento ({user_who}) vs el del bot ({bot_who})"
+            personal = (
+                f"Has conseguido {user_score} de 1000 puntos. Tú apostaste por desplazar a {user_who} "
+                f"({user_moves_short}) dejando un {yours_pct}%, pero el verdadero incendio táctico estaba donde "
+                f"intervino el bot con {bot_who} ({bot_moves_short}, {best_pct}%). ¡No mires solo la pelota, vigila la espalda y el carril interior!"
+            )
+            bianchi_metric = f"Puntuación: {user_score}/1000 | Tú: {user_who} vs Bot: {bot_who}"
+        else:
+            bianchi_headline = f"Your move ({user_who}) vs the bot's ({bot_who})"
+            personal = (
+                f"You reached {user_score} of 1000 points. You gambled on shifting {user_who} "
+                f"({user_moves_short}) for {yours_pct}%, but the real tactical fire was where the bot stepped in "
+                f"with {bot_who} ({bot_moves_short}, {best_pct}%). Don't just watch the ball—protect the inside lane!"
+            )
+            bianchi_metric = f"Score: {user_score}/1000 | You: {user_who} vs Bot: {bot_who}"
+
+    clock = f"{frame.minute:02d}:{frame.second:02d}"
+    voronoi_full_body = f"{base_exp['body']} {voronoi_comparison}".strip()
+    pundits = [
+        AgentMessage(
+            message_id=f"{moment_id}-voronoi",
+            agent_role=DS,
+            agent_name=AGENT_NAMES[lang][DS],
+            avatar_badge=BADGES[DS],
+            timestamp_label=clock,
+            headline=base_exp["headline"],
+            analysis_body=voronoi_full_body,
+            referenced_metric=voronoi_metric,
+            highlighted_player_ids=bot_ids,
+        ).model_dump(mode="json"),
+        AgentMessage(
+            message_id=f"{moment_id}-bianchi",
+            agent_role=CO,
+            agent_name=AGENT_NAMES[lang][CO],
+            avatar_badge=BADGES[CO],
+            timestamp_label=clock,
+            headline=bianchi_headline,
+            analysis_body=personal,
+            referenced_metric=bianchi_metric,
+            highlighted_player_ids=user_ids if user_ids else bot_ids,
+        ).model_dump(mode="json"),
+    ]
+
+    return {
+        "headline": base_exp["headline"],
+        "body": base_exp["body"],
+        "voronoi_comparison": voronoi_comparison,
+        "bianchi_headline": bianchi_headline,
+        "personal": personal,
+        "pundits": pundits,
+    }

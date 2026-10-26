@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MatchFramePayload, MatchInfo, TeamSide } from "@/types/match";
+import type { AgentMessage, MatchFramePayload, MatchInfo, TeamSide } from "@/types/match";
 import type { ChallengeMode, ChallengeMove } from "@/lib/challenge";
 import type { Audience, Language } from "@/lib/i18n";
 import { LIVE_WS_URL, WS_BASE_URL } from "@/lib/api";
@@ -55,7 +55,8 @@ export interface MomentReveal {
   your_score: number | null;
   beat_machine: boolean;
   goal_chance_pct: { before: number; best: number; yours: number | null };
-  explanation: { headline: string; body: string; personal: string; community: string };
+  explanation: { headline: string; body: string; voronoi_comparison?: string; bianchi_headline?: string; personal: string; community: string };
+  pundits?: AgentMessage[];
   community: { submissions: number; found_it_pct: number; avg_score: number };
 }
 

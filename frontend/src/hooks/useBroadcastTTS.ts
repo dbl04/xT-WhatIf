@@ -22,20 +22,44 @@ export interface UseBroadcastTTSOptions {
 const TTS_REQUEST_TIMEOUT_MS = 9000;
 
 /**
- * Best browser voice for a language: neural/"Natural"/"Online" voices (Edge, Chrome's Google
- * voices) sound far less robotic than the first local voice for the locale.
+ * Best browser voice for a language and pundit role: neural/"Natural"/"Online" voices (Edge,
+ * Chrome's Google voices) sound far less robotic than the first local voice for the locale, and
+ * when two or more matching voices exist we assign distinct voices to Dr. Voronoi and Coach Bianchi.
  */
-function pickVoice(voices: SpeechSynthesisVoice[], language: Language): SpeechSynthesisVoice | null {
+function pickVoice(
+  voices: SpeechSynthesisVoice[],
+  language: Language,
+  role: AgentMessage["agent_role"] = "data_scientist"
+): SpeechSynthesisVoice | null {
   const locale = LOCALES[language];
   const forLanguage = voices.filter((v) => v.lang.toLowerCase().startsWith(language));
   const isNeural = (v: SpeechSynthesisVoice) => /natural|neural|online|google/i.test(v.name);
-  return (
-    forLanguage.find((v) => v.lang === locale && isNeural(v)) ||
-    forLanguage.find(isNeural) ||
-    forLanguage.find((v) => v.lang === locale) ||
-    forLanguage[0] ||
-    null
-  );
+  const neuralLocale = forLanguage.filter((v) => v.lang === locale && isNeural(v));
+  const neuralAny = forLanguage.filter(isNeural);
+  const localePool = forLanguage.filter((v) => v.lang === locale);
+  const pool =
+    neuralLocale.length > 0
+      ? neuralLocale
+      : neuralAny.length > 0
+        ? neuralAny
+        : localePool.length > 0
+          ? localePool
+          : forLanguage;
+  if (pool.length === 0) return null;
+  if (role === "classic_coach" && pool.length > 1) {
+    return pool[1];
+  }
+  return pool[0];
+}
+
+function normalizeSpokenText(raw: string, language: Language): string {
+  const deltaWord = language === "es" ? "delta equis te" : "delta x T";
+  const xtWord = language === "es" ? "equis te" : "x T";
+  return raw
+    .replace(/ΔxT/g, deltaWord)
+    .replace(/\bxT\b/g, xtWord)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function useBroadcastTTS({
@@ -111,9 +135,10 @@ export function useBroadcastTTS({
         }
 
         const { language: lang, audience: aud } = profileRef.current;
-        const utterance = new SpeechSynthesisUtterance(msg.analysis_body || msg.headline);
+        const spokenText = normalizeSpokenText(msg.analysis_body || msg.headline, lang);
+        const utterance = new SpeechSynthesisUtterance(spokenText);
         utterance.lang = LOCALES[lang];
-        const voice = pickVoice(window.speechSynthesis.getVoices(), lang);
+        const voice = pickVoice(window.speechSynthesis.getVoices(), lang, msg.agent_role);
         if (voice) {
           utterance.voice = voice;
         }

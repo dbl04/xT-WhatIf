@@ -149,6 +149,34 @@ class MatchRoomTest(unittest.TestCase):
         self.assertIn("did not submit", en["explanation"]["personal"])
         self.assertEqual(en["mode"], m.mode(TeamSide.HOME))
 
+    def test_reveal_contrasts_user_move_vs_bot_move_between_voronoi_and_bianchi(self):
+        m = self._open()
+        opt = m.optimum(TeamSide.HOME)
+        opt_ids = {pid for pid, _, _ in opt.moves}
+        movable_ids = set(m.open_payload()["movable_player_ids"]["home"])
+        other = next(p for p in m.event.frame.players if p.player_id in (movable_ids - opt_ids))
+        bot_player = next(p for p in m.event.frame.players if p.player_id in opt_ids)
+        dy = 2.5 if other.y < 60 else -2.5
+        user_move = [MoveIn(player_id=other.player_id, x=other.x, y=other.y + dy)]
+        fan = _fan("carlos", TeamSide.HOME, "es")
+        ack = self.room.submit(fan, SubmitIn(moment_id=m.id, moves=user_move), self.at + 2)
+        self.assertTrue(ack["accepted"])
+        self.room.close_moment(m.closes_at)
+        rev = self.room.reveal_for(m, fan)
+        expl = rev["explanation"]
+        self.assertTrue(expl.get("voronoi_comparison"))
+        self.assertTrue(expl.get("bianchi_headline"))
+        self.assertIn(other.name, expl["voronoi_comparison"])
+        self.assertIn(bot_player.name, expl["voronoi_comparison"])
+        self.assertIn(other.name, expl["personal"])
+        self.assertIn(bot_player.name, expl["personal"])
+        pundits = rev.get("pundits", [])
+        self.assertEqual([p["agent_role"] for p in pundits], ["data_scientist", "classic_coach"])
+        self.assertEqual(pundits[0]["avatar_badge"], "AI-QUANT")
+        self.assertEqual(pundits[1]["avatar_badge"], "PRO-COACH")
+        self.assertIn(expl["voronoi_comparison"], pundits[0]["analysis_body"])
+        self.assertEqual(pundits[1]["analysis_body"], expl["personal"])
+
     def test_open_payload_tells_each_side_what_to_do(self):
         payload = self._open().open_payload()
         self.assertEqual({payload["modes"]["home"], payload["modes"]["away"]}, {"attack", "defend"})

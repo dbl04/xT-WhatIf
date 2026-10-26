@@ -55,7 +55,12 @@ from app.services.game_engine import (
     MAX_RADIUS_M,
     MIN_SPACING_M,
 )
-from app.services.narration import MOMENT_LABELS, REVEAL_TEXT, reveal_explanation
+from app.services.narration import (
+    MOMENT_LABELS,
+    REVEAL_TEXT,
+    reveal_explanation,
+    reveal_pundits_and_comparison,
+)
 from app.services.tts_service import TTSRequest, TTSResponse, azure_tts_configured, synthesize_speech
 
 logger = logging.getLogger("xtwhatif.live")
@@ -212,10 +217,14 @@ class MatchRoom:
         if violations:
             return {"accepted": False, "reason": "rules",
                     "violations": [{"player_id": v.player_id, "rule": v.rule, "detail": v.detail} for v in violations]}
+        val = frame_value(m.event.frame, moves).value
+        opt = m.optimum(profile.team)
+        score, beat_machine = score_submission(opt.mode, opt.base.value, opt.best.value, val)
         m.submissions[profile.user_id] = Submission(
             user_id=profile.user_id, team=profile.team,
             moves=[MoveIn(player_id=p, x=x, y=y) for p, x, y in moves],
-            value=frame_value(m.event.frame, moves).value, legal=True, submitted_at=now,
+            value=val, legal=True, submitted_at=now,
+            score=score, beat_machine=beat_machine,
         )
         self.standings.setdefault(profile.user_id, Standing(profile=profile)).profile = profile
         return {"accepted": True, "moment_id": m.id}
@@ -256,33 +265,55 @@ class MatchRoom:
         return reveal_explanation(m.event.frame, opt.mode, opt.moves, opt.base.value, opt.best.value,
                                   opt.best.target_id, lang)
 
-    @staticmethod
-    def personal_text(m: Moment, user_id: str, lang: str) -> str:
-        text = REVEAL_TEXT[lang]
-        sub = m.submissions.get(user_id)
-        if sub is None:
-            return text["you_missed"]
-        if sub.beat_machine:
-            return text["you_beat"]
-        return text["you_scored"].format(score=sub.score)
+    @classmethod
+    def pundit_pack(cls, m: Moment, team: TeamSide, user_id: Optional[str], lang: str) -> Dict[str, Any]:
+        opt = m.optimum(team)
+        sub = m.submissions.get(user_id) if user_id else None
+        user_moves = [(mv.player_id, mv.x, mv.y) for mv in sub.moves] if sub is not None else None
+        user_score = sub.score if sub is not None else None
+        beat_machine = bool(sub.beat_machine) if sub is not None else False
+        if sub is not None and user_score is None:
+            user_score, beat_machine = score_submission(opt.mode, opt.base.value, opt.best.value, sub.value)
+        return reveal_pundits_and_comparison(
+            frame=m.event.frame,
+            moment_id=m.id,
+            mode=opt.mode,
+            opt_moves=opt.moves,
+            base_value=opt.base.value,
+            best_value=opt.best.value,
+            best_target_id=opt.best.target_id,
+            user_moves=user_moves,
+            user_value=sub.value if sub is not None else None,
+            user_score=user_score,
+            beat_machine=beat_machine,
+            lang=lang,
+        )
+
+    @classmethod
+    def personal_text(cls, m: Moment, user_id: str, lang: str, team: Optional[TeamSide] = None) -> str:
+        sub = m.submissions.get(user_id) if user_id else None
+        side = team or (sub.team if sub is not None else TeamSide.HOME)
+        return str(cls.pundit_pack(m, side, user_id, lang)["personal"])
 
     @classmethod
     def voice_lines(cls, m: Moment, profile: Profile) -> List[Tuple[str, str]]:
-        """What the pundits read at the reveal: Voronoi the optimum, Bianchi the fan's verdict."""
-        e = cls.explanation(m, profile.team, profile.language)
-        return [("data_scientist", f"{e['headline']}. {e['body']}"),
-                ("classic_coach", cls.personal_text(m, profile.user_id, profile.language))]
+        """What the pundits read at the reveal: Voronoi the optimum + user comparison, Bianchi the fan's verdict."""
+        pack = cls.pundit_pack(m, profile.team, profile.user_id, profile.language)
+        voronoi_text = f"{pack['headline']}. {pack['body']}"
+        if pack.get("voronoi_comparison"):
+            voronoi_text = f"{voronoi_text} {pack['voronoi_comparison']}"
+        return [("data_scientist", voronoi_text),
+                ("classic_coach", str(pack["personal"]))]
 
     def reveal_for(self, m: Moment, profile: Profile) -> Dict[str, Any]:
         opt = m.optimum(profile.team)
         lang = profile.language
-        explanation = self.explanation(m, profile.team, lang)
+        pack = self.pundit_pack(m, profile.team, profile.user_id, lang)
         sub = m.submissions.get(profile.user_id)
         same_side = [s for s in m.submissions.values() if s.team == profile.team]
         found = sum(1 for s in same_side if (s.score or 0) >= FOUND_IT_SCORE)
         share = round(100 * found / len(same_side)) if same_side else 0
         text = REVEAL_TEXT[lang]
-        personal = self.personal_text(m, profile.user_id, lang)
         return {
             "moment_id": m.id,
             "mode": opt.mode,
@@ -294,8 +325,15 @@ class MatchRoom:
             "beat_machine": bool(sub and sub.beat_machine),
             "goal_chance_pct": {"before": round(opt.base.value * 100), "best": round(opt.best.value * 100),
                                 "yours": round(sub.value * 100) if sub else None},
-            "explanation": {**explanation, "personal": personal,
-                            "community": text["community"].format(share=share)},
+            "explanation": {
+                "headline": pack["headline"],
+                "body": pack["body"],
+                "voronoi_comparison": pack["voronoi_comparison"],
+                "bianchi_headline": pack["bianchi_headline"],
+                "personal": pack["personal"],
+                "community": text["community"].format(share=share),
+            },
+            "pundits": pack["pundits"],
             "community": {"submissions": len(same_side), "found_it_pct": share,
                           "avg_score": round(sum(s.score or 0 for s in same_side) / len(same_side)) if same_side else 0},
         }
@@ -489,8 +527,9 @@ class LiveMatchRunner:
     def _prepare_voices(self, moment: Moment, closed: bool) -> None:
         """
         Starts the reveal audio early so it plays as soon as the moment closes. On open: the
-        optimum (Voronoi) and the fixed verdicts for every connected fan's side, language and
-        audience; on close: each fan's own score (Bianchi). Same texts share one synthesis.
+        optimum (Voronoi) and the no-move coaching verdict for every connected fan's side,
+        language and audience; on close: each fan's personalised Voronoi + Bianchi comparison.
+        Same texts share one synthesis.
         """
         if not closed:
             self._voices = {k: t for k, t in self._voices.items() if k[0] == moment.id}
@@ -498,13 +537,13 @@ class LiveMatchRunner:
             return
         for profile in list(self.clients.values()):
             if closed:
-                text = MatchRoom.personal_text(moment, profile.user_id, profile.language)
-                self._voice_task(moment, "classic_coach", text, profile)
+                for role, text in MatchRoom.voice_lines(moment, profile):
+                    self._voice_task(moment, role, text, profile)
                 continue
             e = MatchRoom.explanation(moment, profile.team, profile.language)
             self._voice_task(moment, "data_scientist", f"{e['headline']}. {e['body']}", profile)
-            for verdict in ("you_missed", "you_beat"):
-                self._voice_task(moment, "classic_coach", REVEAL_TEXT[profile.language][verdict], profile)
+            missed = MatchRoom.personal_text(moment, "", profile.language, team=profile.team)
+            self._voice_task(moment, "classic_coach", missed, profile)
 
     async def reveal_voice(self, moment_id: str, user_id: str) -> Optional[List[Dict[str, Any]]]:
         """The fan's reveal lines with their audio (None: browser voice); None if not revealed yet."""
@@ -564,7 +603,11 @@ class LiveMatchRunner:
     def submit(self, profile: Profile, data: SubmitIn) -> Dict[str, Any]:
         if self.room is None:
             return {"accepted": False, "reason": "closed"}
-        return self.room.submit(profile, data, time.time())
+        ack = self.room.submit(profile, data, time.time())
+        if ack.get("accepted") and not profile.is_bot and self.room.moment is not None and azure_tts_configured():
+            for role, text in MatchRoom.voice_lines(self.room.moment, profile):
+                self._voice_task(self.room.moment, role, text, profile)
+        return ack
 
 
 runner = LiveMatchRunner()
