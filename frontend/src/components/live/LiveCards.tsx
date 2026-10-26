@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Award, RotateCcw, Trophy, Users } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Award, Download, Dumbbell, RotateCcw, Trophy, Users } from "lucide-react";
 import { Button, Kicker, Tag } from "@/components/ui/primitives";
 import { MessageKey, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -79,13 +79,10 @@ export const LiveStatusCard: React.FC<{
       </div>
 
       <p className="text-[11px] leading-snug text-fg-muted">{t("live.waitingMoment")}</p>
-      <button
-        type="button"
-        onClick={onPractice}
-        className="self-start text-[11px] text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
-      >
+      <Button variant="secondary" onClick={onPractice} className="w-full">
+        <Dumbbell className="h-3.5 w-3.5" aria-hidden />
         {t("live.practice")}
-      </button>
+      </Button>
     </div>
   );
 };
@@ -224,18 +221,66 @@ export const LeaderboardCard: React.FC<{
   nickname: string;
   team: TeamSide;
   rows?: number;
-}> = ({ leaderboard, matchInfo, nickname, team, rows = 5 }) => {
+  /**
+   * Fill the parent's height with as many top rows as fit, keeping room for the fan's own row:
+   * "always" (its own column), or "stacked" (only from sm to lg, next to the match events).
+   * The list is absolutely positioned while filling, so it takes the height it is given and
+   * never pushes its parent taller.
+   */
+  fill?: "always" | "stacked";
+}> = ({ leaderboard, matchInfo, nickname, team, rows = 5, fill }) => {
   const { t } = useI18n();
-  const top = leaderboard?.top.slice(0, rows) ?? [];
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [fitRows, setFitRows] = useState(rows);
+  useEffect(() => {
+    const el = listRef.current;
+    const inner = innerRef.current;
+    if (!fill || !el || !inner || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      if (getComputedStyle(inner).position !== "absolute") {
+        setFitRows(rows);
+        return;
+      }
+      const rowPx = inner.querySelector("li")?.getBoundingClientRect().height || 25;
+      // List border, the "…" separator (16 px) and the fan's own row stay visible.
+      setFitRows(Math.max(3, Math.floor((el.clientHeight - 2 - 16 - rowPx) / rowPx)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fill, rows]);
+  const top = leaderboard?.top.slice(0, fill ? fitRows : rows) ?? [];
   const you = leaderboard?.you ?? null;
   // Ranks are unique, so the fan's row is found by rank (nicknames may repeat).
   const youInTop = !!you && top.some((r) => r.rank === you.rank);
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className={cn(
+        "flex flex-col gap-2",
+        fill === "always" && "h-full min-h-0",
+        fill === "stacked" && "sm:h-full sm:min-h-0 lg:h-auto"
+      )}
+    >
       <Kicker className="flex items-center gap-1.5">
         <Trophy className="h-3 w-3" aria-hidden />
         {t("board.kicker")}
       </Kicker>
+      <div
+        ref={listRef}
+        className={cn(
+          fill === "always" && "relative min-h-0 flex-1",
+          fill === "stacked" && "sm:relative sm:min-h-0 sm:flex-1 lg:static lg:flex-none"
+        )}
+      >
+      <div
+        ref={innerRef}
+        className={cn(
+          fill === "always" && "absolute inset-0 overflow-hidden",
+          fill === "stacked" && "sm:absolute sm:inset-0 sm:overflow-hidden lg:static lg:overflow-visible"
+        )}
+      >
       {top.length > 0 && (
         <ol className="flex flex-col rounded-md border border-line">
           {top.map((r) => (
@@ -264,6 +309,8 @@ export const LeaderboardCard: React.FC<{
           )}
         </ol>
       )}
+      </div>
+      </div>
       {leaderboard && (
         <div className="grid grid-cols-2 gap-1.5">
           {(["home", "away"] as TeamSide[]).map((side) => (
@@ -280,7 +327,7 @@ export const LeaderboardCard: React.FC<{
   );
 };
 
-const LeaderboardRow: React.FC<{ rank: number; nickname: string; total: number; color?: string; isYou: boolean }> = ({
+export const LeaderboardRow: React.FC<{ rank: number; nickname: string; total: number; color?: string; isYou: boolean }> = ({
   rank,
   nickname,
   total,
@@ -304,7 +351,11 @@ const LeaderboardRow: React.FC<{ rank: number; nickname: string; total: number; 
 // ======================================================================
 // FULL TIME
 // ======================================================================
-export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo }> = ({ end, matchInfo }) => {
+export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo; onExport?: () => void }> = ({
+  end,
+  matchInfo,
+  onExport,
+}) => {
   const { t } = useI18n();
   const [left, setLeft] = useState(end.next_kickoff_in_s);
   useEffect(() => {
@@ -331,6 +382,12 @@ export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo }> = (
             </li>
           ))}
         </ul>
+      )}
+      {onExport && (
+        <Button variant="primary" onClick={onExport} className="w-full">
+          <Download className="h-3.5 w-3.5" aria-hidden />
+          {t("end.export")}
+        </Button>
       )}
       <p className="font-mono text-[11px] text-fg-subtle">{t("end.next", { s: left })}</p>
     </div>

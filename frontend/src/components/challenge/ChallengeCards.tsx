@@ -402,7 +402,7 @@ export const ChallengeCard: React.FC<{
           </div>
 
           <div className="flex items-center gap-2 border-t border-line pt-3">
-            <Button variant="ghost" onClick={onReset} disabled={moved.length === 0}>
+            <Button variant="secondary" onClick={onReset} disabled={moved.length === 0}>
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               {t("challenge.reset")}
             </Button>
@@ -462,11 +462,15 @@ export const ChallengeCard: React.FC<{
           {delivery && <DeliveryNote delivery={delivery} />}
           {delivery?.status !== "failed" && <p className="text-[12px] text-fg-muted">{t("challenge.revealSoon")}</p>}
 
-          <div className="flex items-center border-t border-line pt-3">
-            <Button variant="secondary" onClick={onLeave} className="ml-auto">
-              {t("challenge.back")}
-            </Button>
-          </div>
+          {/* A live answer is final: the card waits for the reveal. Practice has no reveal, so it keeps a way out.
+              Only live challenges preview against the live service (previewBaseUrl). */}
+          {!state.previewBaseUrl && (
+            <div className="flex items-center border-t border-line pt-3">
+              <Button variant="secondary" onClick={onLeave} className="ml-auto">
+                {t("challenge.back")}
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -581,27 +585,29 @@ export const ChallengeStrip: React.FC<{
         </span>
 
         <span className="ml-auto flex items-center gap-1">
-          {isOpen ? (
+          {isOpen && (
             <>
-              <IconButton
+              <Button
+                variant="secondary"
                 onClick={onReset}
                 disabled={used === 0}
                 title={t("challenge.reset")}
                 aria-label={t("challenge.reset")}
+                className="px-2.5"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </IconButton>
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden min-[420px]:inline">{t("challenge.reset")}</span>
+              </Button>
               <Button variant="primary" onClick={onConfirm} className="px-3.5">
                 <Check className="h-3.5 w-3.5" aria-hidden />
                 {t("challenge.confirm")}
               </Button>
             </>
-          ) : (
-            <>
-              <Button variant="secondary" onClick={onLeave}>
-                {t("challenge.back")}
-              </Button>
-            </>
+          )}
+          {!isOpen && !state.previewBaseUrl && (
+            <Button variant="secondary" onClick={onLeave}>
+              {t("challenge.back")}
+            </Button>
           )}
         </span>
       </div>

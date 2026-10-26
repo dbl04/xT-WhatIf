@@ -217,14 +217,16 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           );
 
           // Mode tag
-          const modeText = matchInfo.isCounterfactual ? t("report.simulated") : t("report.original");
-          ctx.font = `600 13px ${MONO}`;
-          const modeW = ctx.measureText(modeText).width + 20;
-          ctx.strokeStyle = matchInfo.isCounterfactual ? R.gain : R.fg;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(width - M - modeW + 0.5, 150.5, modeW, 28);
-          ctx.fillStyle = matchInfo.isCounterfactual ? R.gain : R.fg;
-          ctx.fillText(modeText, width - M - modeW + 10, 169);
+          if (matchInfo.isCounterfactual) {
+            const modeText = t("report.simulated");
+            ctx.font = `600 13px ${MONO}`;
+            const modeW = ctx.measureText(modeText).width + 20;
+            ctx.strokeStyle = R.gain;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(width - M - modeW + 0.5, 150.5, modeW, 28);
+            ctx.fillStyle = R.gain;
+            ctx.fillText(modeText, width - M - modeW + 10, 169);
+          }
 
           hairline(M, 204, width - M, 204);
 

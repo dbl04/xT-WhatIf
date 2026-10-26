@@ -80,7 +80,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   const strapContext = [clockLabel, eventType].filter(Boolean).join(" · ");
 
   return (
-    <div className="pointer-events-none relative z-40 flex w-full flex-col items-center lg:fixed lg:inset-x-0 lg:bottom-[5.25rem] lg:px-4">
+    <div className="pointer-events-none relative z-40 flex w-full flex-col items-center">
       <AnimatePresence mode="wait">
         {isSimulating ? (
           /* RECALCULATING STRAP */

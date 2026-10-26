@@ -628,7 +628,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
             <Kicker className="text-fg">{t("pitch.title")}</Kicker>
-            <span className="font-mono text-[10px] text-fg-subtle">{t("pitch.subtitle")}</span>
           </div>
 
           {/* View: zoom on the action / full pitch */}
