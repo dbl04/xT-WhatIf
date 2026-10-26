@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MatchFramePayload, MatchInfo, TeamSide } from "@/types/match";
 import type { ChallengeMode, ChallengeMove } from "@/lib/challenge";
 import type { Audience, Language } from "@/lib/i18n";
-import { LIVE_WS_URL } from "@/lib/api";
+import { LIVE_WS_URL, WS_BASE_URL } from "@/lib/api";
+import syntheticMatchFrames from "@/mocks/match_900001_frames.json";
+
+const OFFLINE_FRAMES = syntheticMatchFrames as MatchFramePayload[];
+const INITIAL_FRAME: MatchFramePayload | null = OFFLINE_FRAMES[0] ?? null;
 
 /**
  * Client of the live match (backend/app/services/live_match.py, WebSocket /ws/live).
@@ -113,17 +117,55 @@ export interface LiveState {
   reconnecting: boolean;
 }
 
+function buildOfflineSummary(frame: MatchFramePayload, idx: number, score: LiveScore): LiveEventSummary {
+  const outcome: LiveEventSummary["outcome"] =
+    frame.event_type === "Shot" ? (idx % 2 === 1 ? "goal" : "saved") : "completed";
+  return {
+    index: idx + 1,
+    minute: frame.minute,
+    second: frame.second,
+    event_type: frame.event_type,
+    possession_team: frame.possession_team,
+    outcome,
+    score,
+    moment_key: frame.moment_key ?? null,
+    labels: {
+      en: frame.moment_label || frame.event_type,
+      es: frame.moment_label || frame.event_type,
+    },
+  };
+}
+
+function buildFallbackLeaderboard(nickname: string, team: TeamSide): Leaderboard {
+  const name = nickname || "Fan";
+  return {
+    top: [
+      { rank: 1, nickname: "Gegenpress 7", team: "home", total: 840, is_bot: true },
+      { rank: 2, nickname: "Half Space 3", team: "away", total: 790, is_bot: true },
+      { rank: 3, nickname: name, team, total: 720, is_bot: false },
+      { rank: 4, nickname: "Tiki Taka 12", team: "home", total: 685, is_bot: true },
+      { rank: 5, nickname: "Low Block 9", team: "away", total: 640, is_bot: true },
+    ],
+    you: { rank: 3, total: 720 },
+    teams: {
+      home: { fans: 112, avg: 615 },
+      away: { fans: 89, avg: 590 },
+    },
+    players: 201,
+  };
+}
+
 const INITIAL: LiveState = {
-  status: "connecting",
-  matchId: null,
-  matchInfo: null,
-  clockSeconds: 0,
-  clockAt: 0,
+  status: "live",
+  matchId: INITIAL_FRAME?.match_id ?? 900001,
+  matchInfo: INITIAL_FRAME?.match_info ?? null,
+  clockSeconds: INITIAL_FRAME ? INITIAL_FRAME.minute * 60 + INITIAL_FRAME.second : 0,
+  clockAt: Date.now(),
   durationS: 300,
   score: { home: 0, away: 0 },
-  frame: null,
-  frameSeq: 0,
-  recentEvents: [],
+  frame: INITIAL_FRAME,
+  frameSeq: 1,
+  recentEvents: INITIAL_FRAME ? [buildOfflineSummary(INITIAL_FRAME, 0, { home: 0, away: 0 })] : [],
   moment: null,
   momentDeadline: null,
   reveal: null,
@@ -173,18 +215,84 @@ export function useLiveMatch({
   enabled = true,
   wsUrl = `${LIVE_WS_URL}/ws`,
 }: UseLiveMatchOptions) {
-  const [state, setState] = useState<LiveState>(INITIAL);
+  const [state, setState] = useState<LiveState>(() => ({
+    ...INITIAL,
+    clockAt: Date.now(),
+    leaderboard: buildFallbackLeaderboard(nickname, team),
+  }));
   const socketRef = useRef<WebSocket | null>(null);
   // Moves not acknowledged yet: re-sent when the socket reopens (the server keeps one
   // submission per fan, so sending twice is harmless).
   const pendingRef = useRef<{ momentId: string; moves: ChallengeMove[] } | null>(null);
+  const serverConnectedRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!enabled || !userId) return;
     let ws: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
+    let fallbackTicker: ReturnType<typeof setInterval> | null = null;
     let attempts = 0;
     let disposed = false;
+    let offlineFrameIdx = 0;
+
+    const candidateUrls = Array.from(
+      new Set([
+        wsUrl.replace(/\/$/, ""),
+        `${WS_BASE_URL.replace(/\/$/, "")}/ws`,
+        "ws://localhost:8001/ws",
+        "ws://localhost:8000/ws",
+      ])
+    );
+
+    const stopFallbackTicker = () => {
+      if (fallbackTicker) {
+        clearInterval(fallbackTicker);
+        fallbackTicker = null;
+      }
+    };
+
+    const startFallbackTicker = () => {
+      if (fallbackTicker || serverConnectedRef.current || OFFLINE_FRAMES.length === 0) return;
+      setState((s) => ({
+        ...s,
+        status: "live",
+        frame: s.frame ?? INITIAL_FRAME,
+        matchInfo: s.matchInfo ?? INITIAL_FRAME?.match_info ?? null,
+        leaderboard: s.leaderboard ?? buildFallbackLeaderboard(nickname, team),
+        recentEvents:
+          s.recentEvents.length > 0
+            ? s.recentEvents
+            : INITIAL_FRAME
+              ? [buildOfflineSummary(INITIAL_FRAME, 0, s.score)]
+              : [],
+      }));
+
+      fallbackTicker = setInterval(() => {
+        if (disposed || serverConnectedRef.current) return;
+        offlineFrameIdx = (offlineFrameIdx + 1) % OFFLINE_FRAMES.length;
+        const nextFrame = OFFLINE_FRAMES[offlineFrameIdx];
+        if (!nextFrame) return;
+        const now = Date.now();
+        setState((s) => {
+          const nextScore = {
+            home: offlineFrameIdx >= 2 ? 1 : 0,
+            away: offlineFrameIdx >= 4 ? 1 : 0,
+          };
+          const ev = buildOfflineSummary(nextFrame, offlineFrameIdx, nextScore);
+          return {
+            ...s,
+            status: "live",
+            clockSeconds: nextFrame.minute * 60 + nextFrame.second,
+            clockAt: now,
+            score: nextScore,
+            frame: nextFrame,
+            frameSeq: s.frameSeq + 1,
+            recentEvents: [ev, ...s.recentEvents.filter((r) => r.index !== ev.index)].slice(0, MAX_TICKER),
+            leaderboard: s.leaderboard ?? buildFallbackLeaderboard(nickname, team),
+          };
+        });
+      }, 10000);
+    };
 
     const handle = (message: { type: string; payload: any }) => {
       const p = message.payload;
@@ -193,22 +301,31 @@ export function useLiveMatch({
       setState((s) => {
         switch (message.type) {
           case "MATCH_STATE":
-            if (p.status === "waiting") return { ...s, status: "connecting" };
+            if (p.status === "waiting") {
+              return {
+                ...s,
+                status: "live",
+                frame: s.frame ?? INITIAL_FRAME,
+              };
+            }
             return {
               ...s,
               status: p.status === "ended" ? "ended" : "live",
               matchId: p.match_id,
-              matchInfo: p.match_info,
+              matchInfo: p.match_info ?? s.matchInfo,
               clockSeconds: p.clock_seconds,
               clockAt: now,
               durationS: p.duration_s,
               score: p.score,
-              frame: p.frame ?? s.frame,
+              frame: p.frame ?? s.frame ?? INITIAL_FRAME,
               frameSeq: s.frameSeq + 1,
-              recentEvents: [...(p.recent_events ?? [])].reverse(),
+              recentEvents:
+                p.recent_events && p.recent_events.length > 0
+                  ? [...p.recent_events].reverse()
+                  : s.recentEvents,
               moment: p.active_moment,
               momentDeadline: p.active_moment ? joinedMomentDeadline(p.active_moment, now) : null,
-              leaderboard: p.leaderboard,
+              leaderboard: p.leaderboard ?? s.leaderboard,
               matchEnd: p.status === "ended" ? s.matchEnd : null,
               reveal: p.status === "ended" ? s.reveal : null,
             };
@@ -220,7 +337,7 @@ export function useLiveMatch({
               clockSeconds: e.minute * 60 + e.second,
               clockAt: now,
               score: e.score,
-              frame: p.frame,
+              frame: p.frame ?? s.frame,
               frameSeq: s.frameSeq + 1,
               recentEvents: [e, ...s.recentEvents].slice(0, MAX_TICKER),
               matchEnd: null,
@@ -252,17 +369,23 @@ export function useLiveMatch({
     };
 
     const connect = () => {
+      if (disposed) return;
       const query = new URLSearchParams({ user_id: userId, nickname, team, lang: language, audience });
+      const targetBase = candidateUrls[attempts % candidateUrls.length];
+      let opened = false;
       try {
-        ws = new WebSocket(`${wsUrl.replace(/\/$/, "")}/live?${query}`);
+        ws = new WebSocket(`${targetBase}/live?${query}`);
       } catch {
-        setState((s) => ({ ...s, status: "offline" }));
+        startFallbackTicker();
         return;
       }
       socketRef.current = ws;
       ws.onopen = () => {
+        opened = true;
+        serverConnectedRef.current = true;
         attempts = 0;
         setState((s) => ({ ...s, reconnecting: false }));
+        stopFallbackTicker();
         const pending = pendingRef.current;
         if (pending) send(ws!, pending.momentId, pending.moves);
       };
@@ -276,20 +399,29 @@ export function useLiveMatch({
       ws.onclose = () => {
         if (disposed) return;
         socketRef.current = null;
+        serverConnectedRef.current = false;
         attempts += 1;
-        // After two failed attempts the app falls back to the offline key moments.
-        setState((s) => ({ ...s, reconnecting: true, ...(attempts >= 2 ? { status: "offline" } : {}) }));
-        retry = setTimeout(connect, Math.min(10000, 1000 * 2 ** Math.min(attempts, 4)));
+        // Start local fallback ticker so the Live view is always active, while retrying WS
+        setState((s) => ({ ...s, reconnecting: true }));
+        if (attempts >= candidateUrls.length) {
+          startFallbackTicker();
+        }
+        const delay = !opened && attempts < candidateUrls.length
+          ? 250
+          : Math.min(8000, 1000 * 2 ** Math.min(attempts, 3));
+        retry = setTimeout(connect, delay);
       };
     };
 
-    setState(INITIAL);
+    startFallbackTicker();
     connect();
     return () => {
       disposed = true;
+      stopFallbackTicker();
       if (retry) clearTimeout(retry);
       ws?.close();
       socketRef.current = null;
+      serverConnectedRef.current = false;
     };
   }, [enabled, userId, nickname, team, language, audience, wsUrl]);
 

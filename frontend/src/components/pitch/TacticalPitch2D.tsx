@@ -307,7 +307,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
   ) {
     const { t } = useI18n();
     // Toggle states
-    const [showVoronoi, setShowVoronoi] = useState<boolean>(true);
+    const [showVoronoi, setShowVoronoi] = useState<boolean>(false);
     const [showXtGrid, setShowXtGrid] = useState<boolean>(true);
     const [showPassCorridor, setShowPassCorridor] = useState<boolean>(true);
     const [showGhostMode, setShowGhostMode] = useState<boolean>(true);
