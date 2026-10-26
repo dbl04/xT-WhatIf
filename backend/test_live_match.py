@@ -9,6 +9,7 @@ import asyncio
 import random
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -207,6 +208,46 @@ class RunnerTest(unittest.TestCase):
         self.assertGreaterEqual(len(room.moments), 3)
         self.assertTrue(all(len(m.submissions) > 0 for m in room.moments))
         self.assertEqual(room.leaderboard_for(None)["players"], 30)
+
+
+class RevealVoiceTest(unittest.TestCase):
+    def test_voice_is_ready_at_close_and_secret_before(self):
+        """Audio starts while the window is open, is served only after close, each text synthesised once."""
+        runner = live_match.LiveMatchRunner()
+        runner.room = MatchRoom(EVENTS, duration_s=300, window_s=30, cooldown_s=15)
+        runner.room.kickoff(T0)
+        event, report = _first_open(EVENTS)
+        at = runner.room.real_time_of(event)
+        fan = _fan("ana", TeamSide.AWAY, "es")
+        runner.clients[object()] = fan
+        runner.room.join(fan)
+        calls = []
+
+        async def fake_synthesize(request):
+            calls.append(request.text)
+            return live_match.TTSResponse(audio_base64=f"audio:{request.text}", provider="azure-openai-tts",
+                                          voice_preset="test", estimated_duration_sec=1.0)
+
+        async def scenario():
+            runner.room.due_events(at)
+            m = runner.room.open_moment(event, report, at)
+            runner._prepare_voices(m, closed=False)
+            self.assertIsNone(await runner.reveal_voice(m.id, fan.user_id))  # still secret
+            runner.room.close_moment(m.closes_at)
+            runner._prepare_voices(m, closed=True)
+            lines = await runner.reveal_voice(m.id, fan.user_id)
+            self.assertIsNone(await runner.reveal_voice(m.id, "stranger"))
+            return m, lines
+
+        with unittest.mock.patch.object(live_match, "azure_tts_configured", return_value=True), \
+                unittest.mock.patch.object(live_match, "synthesize_speech", fake_synthesize):
+            m, lines = asyncio.run(scenario())
+
+        self.assertEqual([l["agent_role"] for l in lines], ["data_scientist", "classic_coach"])
+        self.assertTrue(all(l["audio_base64"] == f"audio:{l['text']}" for l in lines))
+        self.assertIn("Esta vez no enviaste", lines[1]["text"])
+        self.assertEqual(len(calls), len(set(calls)))  # one synthesis per text
+        self.assertIn(lines[0]["text"], calls[:1])  # the optimum started on open
 
 
 class SocketTest(unittest.TestCase):

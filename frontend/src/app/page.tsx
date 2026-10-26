@@ -31,7 +31,7 @@ import { sfx } from "@/lib/sfx";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
 import { useI18n } from "@/lib/i18n";
-import { MatchFramePayload, PlayerNode } from "@/types/match";
+import { AgentMessage, MatchFramePayload, PlayerNode } from "@/types/match";
 import {
   Download,
   HelpCircle,
@@ -56,6 +56,22 @@ export default function HomePage() {
 }
 
 /** Reveal: the pass the optimum opens, from the ball to its receiver where the optimum leaves them. */
+/** Pundit lines of a live reveal with their pre-synthesised audio (null audio: browser voice). */
+async function fetchRevealVoice(
+  momentId: string,
+  userId: string
+): Promise<{ agent_role: string; audio_base64: string | null }[] | null> {
+  try {
+    const res = await fetch(
+      `${LIVE_API_URL}/api/v1/live/moments/${encodeURIComponent(momentId)}/voice?user_id=${encodeURIComponent(userId)}`,
+      { signal: AbortSignal.timeout(9000) }
+    );
+    return res.ok ? (await res.json()).lines : null;
+  } catch {
+    return null;
+  }
+}
+
 function revealPass(frame: MatchFramePayload, reveal: MomentReveal): PitchChallenge["optimumPass"] {
   const target = reveal.optimum_target_id;
   if (target == null) return undefined;
@@ -371,6 +387,30 @@ function DashboardPage() {
     if (!reveal || revealSoundRef.current === reveal.moment_id) return;
     revealSoundRef.current = reveal.moment_id;
     sfx.reveal(reveal.beat_machine || (reveal.your_score ?? 0) >= 900);
+    // The pundits read the resolved play out loud: Voronoi the optimum, Bianchi the fan's verdict.
+    const { headline, body, personal } = reveal.explanation;
+    const highlighted = reveal.optimum_moves.map((m) => m.player_id);
+    const spoken = (role: AgentMessage["agent_role"], text: string): AgentMessage => ({
+      message_id: `${reveal.moment_id}-${role}`,
+      agent_role: role,
+      agent_name: "",
+      avatar_badge: "",
+      timestamp_label: "",
+      headline,
+      analysis_body: text,
+      referenced_metric: "",
+      highlighted_player_ids: role === "data_scientist" ? highlighted : [],
+    });
+    const lines = [spoken("data_scientist", `${headline}. ${body}`), spoken("classic_coach", personal)].filter(
+      (m) => m.analysis_body.trim()
+    );
+    // Audio the live service synthesised while the moment was open: ready as the reveal lands.
+    const voice = fetchRevealVoice(reveal.moment_id, fanSession?.identity.userId ?? "");
+    tts.playMessages(
+      lines,
+      lines.map((m) => voice.then((v) => v?.find((l) => l.agent_role === m.agent_role)?.audio_base64 ?? null))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal]);
   const { drop: dropOnBoard } = challenge;
   // The drop sound only for a player who really left their spot (a plain tap moves nobody).

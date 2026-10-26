@@ -18,6 +18,9 @@ export interface UseBroadcastTTSOptions {
   ) => void;
 }
 
+/** Backend TTS timeout (7 s by default) plus network and encoding slack. */
+const TTS_REQUEST_TIMEOUT_MS = 9000;
+
 /**
  * Best browser voice for a language: neural/"Natural"/"Online" voices (Edge, Chrome's Google
  * voices) sound far less robotic than the first local voice for the locale.
@@ -53,6 +56,10 @@ export function useBroadcastTTS({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesRef = useRef<AgentMessage[]>(messages);
+  /** Messages being played right now (the debate, or a list passed to playMessages) and their audio. */
+  const queueRef = useRef<{ msg: AgentMessage; audio: Promise<string | null> }[]>([]);
+  /** Bumped by stopAll: a playback loop from an earlier session must not carry on. */
+  const sessionRef = useRef<number>(0);
   const onActiveSpeakerChangeRef = useRef(onActiveSpeakerChange);
   const profileRef = useRef({ language, audience });
   profileRef.current = { language, audience };
@@ -69,6 +76,7 @@ export function useBroadcastTTS({
   const stopAll = useCallback(() => {
     const wasPlaying = isPlayingRef.current;
     isPlayingRef.current = false;
+    sessionRef.current += 1;
 
     if (pauseTimeoutRef.current) {
       clearTimeout(pauseTimeoutRef.current);
@@ -124,15 +132,77 @@ export function useBroadcastTTS({
     []
   );
 
+  /**
+   * Azure OpenAI voice for one message from the backend (/tts/synthesize), as base64 MP3; null
+   * when the backend has no TTS deployment, fails or times out (the browser voice reads it then).
+   */
+  const fetchAudio = useCallback(
+    async (msg: AgentMessage): Promise<string | null> => {
+      const role = msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/tts/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: (msg.analysis_body || msg.headline).slice(0, 1200),
+            agent_role: role,
+            language: profileRef.current.language,
+            audience: profileRef.current.audience,
+          }),
+          // The backend waits up to AZURE_OPENAI_TTS_TIMEOUT_S (7 s) for Azure: give it that
+          // plus the round trip, or the OpenAI voice is aborted before it arrives.
+          signal: AbortSignal.timeout(TTS_REQUEST_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+          console.warn("[TTS] synthesize failed:", res.status);
+          return null;
+        }
+        const data = await res.json();
+        if (data.is_fallback && data.warning) console.warn("[TTS]", data.warning);
+        return data.audio_base64 ?? null;
+      } catch (err) {
+        console.warn("[TTS] synthesize request failed:", err);
+        return null;
+      }
+    },
+    []
+  );
+
+  /** Plays the message's OpenAI audio once it arrives, or reads it with the browser voice. */
+  const speakMessage = useCallback(
+    async (msg: AgentMessage, audioPromise: Promise<string | null>, session: number) => {
+      const audioBase64 = await audioPromise;
+      if (session !== sessionRef.current) return;
+      let handledWithAudio = false;
+      if (audioBase64) {
+        const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+        currentAudioRef.current = audio;
+        handledWithAudio = await new Promise<boolean>((resolve) => {
+          audio.onended = () => resolve(true);
+          audio.onerror = () => resolve(false);
+          audio.play().catch((err) => {
+            console.warn("[TTS] OpenAI audio could not play:", err);
+            resolve(false);
+          });
+        });
+      }
+      if (!handledWithAudio && session === sessionRef.current) {
+        await speakWithWebSpeech(msg);
+      }
+    },
+    [speakWithWebSpeech]
+  );
+
   const playMessageIndex = useCallback(
-    async (index: number) => {
-      const msgs = messagesRef.current;
-      if (!isPlayingRef.current || index >= msgs.length) {
+    async (index: number, session: number) => {
+      if (session !== sessionRef.current) return;
+      const queue = queueRef.current;
+      if (index >= queue.length) {
         stopAll();
         return;
       }
 
-      const msg = msgs[index];
+      const { msg, audio } = queue[index];
       setActiveMessageIndex(index);
       const role =
         msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
@@ -141,84 +211,42 @@ export function useBroadcastTTS({
       onActiveSpeakerChangeRef.current?.(role, msg.highlighted_player_ids || []);
 
       try {
-        // First try backend synthesize endpoint with fast timeout
-        let handledWithAudio = false;
-        try {
-          const res = await fetch(`${API_BASE_URL}/api/v1/tts/synthesize`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: msg.analysis_body || msg.headline,
-              agent_role: role,
-              language: profileRef.current.language,
-              audience: profileRef.current.audience,
-            }),
-            signal: AbortSignal.timeout(1200),
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.audio_base64) {
-              const audio = new Audio(`data:audio/mp3;base64,${data.audio_base64}`);
-              currentAudioRef.current = audio;
-              await new Promise<void>((resolve) => {
-                audio.onended = () => resolve();
-                audio.onerror = () => resolve();
-                audio.play().catch(() => resolve());
-              });
-              handledWithAudio = true;
-            }
-          }
-        } catch {
-          handledWithAudio = false;
-        }
-
-        // Zero-latency browser Web Speech fallback
-        if (!handledWithAudio && isPlayingRef.current) {
-          await speakWithWebSpeech(msg);
-        }
+        await speakMessage(msg, audio, session);
       } catch {
         // ignore errors to preserve continuity
       }
 
-      if (!isPlayingRef.current) return;
+      if (session !== sessionRef.current) return;
 
       // 350ms dramatic pause between speakers
-      pauseTimeoutRef.current = setTimeout(() => {
-        if (isPlayingRef.current) {
-          playMessageIndex(index + 1);
-        }
-      }, 350);
+      pauseTimeoutRef.current = setTimeout(() => playMessageIndex(index + 1, session), 350);
     },
-    [speakWithWebSpeech, stopAll]
+    [speakMessage, stopAll]
   );
 
-  const playSingleMessage = useCallback(
-    async (msg: AgentMessage) => {
+  /**
+   * Plays a list of messages in order, interrupting anything playing. Every message's audio is
+   * requested at once, so the next speaker is ready when the current one finishes; `audio` can
+   * hand in audio already on its way (e.g. the live reveal, synthesised while the moment was open).
+   */
+  const playMessages = useCallback(
+    (msgs: AgentMessage[], audio: (Promise<string | null> | undefined)[] = []) => {
+      if (!msgs.length) return;
       stopAll();
+      const session = sessionRef.current;
+      queueRef.current = msgs.map((msg, i) => ({ msg, audio: audio[i] ?? fetchAudio(msg) }));
       isPlayingRef.current = true;
       setIsPlaying(true);
-      const role =
-        msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
-      setActiveSpeaker(role);
-      onActiveSpeakerChangeRef.current?.(role, msg.highlighted_player_ids || []);
-
-      try {
-        await speakWithWebSpeech(msg);
-      } finally {
-        stopAll();
-      }
+      playMessageIndex(0, session);
     },
-    [speakWithWebSpeech, stopAll]
+    [fetchAudio, playMessageIndex, stopAll]
   );
 
+  const playSingleMessage = useCallback((msg: AgentMessage) => playMessages([msg]), [playMessages]);
+
   const play = useCallback(() => {
-    if (!messagesRef.current.length) return;
-    stopAll();
-    isPlayingRef.current = true;
-    setIsPlaying(true);
-    playMessageIndex(0);
-  }, [playMessageIndex, stopAll]);
+    playMessages(messagesRef.current);
+  }, [playMessages]);
 
   const pause = useCallback(() => {
     stopAll();
@@ -252,6 +280,7 @@ export function useBroadcastTTS({
     activeSpeaker,
     activeMessageIndex,
     play,
+    playMessages,
     playSingleMessage,
     pause,
     stop: stopAll,

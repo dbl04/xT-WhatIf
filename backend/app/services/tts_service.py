@@ -18,6 +18,7 @@ import re
 import base64
 import logging
 import asyncio
+from collections import OrderedDict
 from typing import Dict, List, Literal, Optional, Tuple
 from pydantic import BaseModel, Field
 from fastapi import APIRouter
@@ -191,6 +192,22 @@ async def _call_azure_speech(
     return raw_audio
 
 
+def azure_tts_configured() -> bool:
+    """True when real Azure OpenAI credentials are set (not the mock defaults)."""
+    return (
+        bool(settings.AZURE_OPENAI_API_KEY)
+        and settings.AZURE_OPENAI_API_KEY not in ("mock-key", "", "your-azure-openai-key-here")
+        and bool(settings.AZURE_OPENAI_ENDPOINT)
+        and "mock.openai.azure.com" not in settings.AZURE_OPENAI_ENDPOINT
+    )
+
+
+# Synthesised audio by (text, role, language, slow, by_sentence): fixed phrases and replayed
+# debates are paid for once per replica. LRU, base64 MP3 of a few tens of KB each.
+_AUDIO_CACHE_SIZE = 128
+_AUDIO_CACHE: "OrderedDict[Tuple[str, str, str, bool, bool], str]" = OrderedDict()
+
+
 @router.post("/api/v1/tts/synthesize", response_model=TTSResponse)
 async def synthesize_speech(request: TTSRequest) -> TTSResponse:
     """
@@ -206,15 +223,21 @@ async def synthesize_speech(request: TTSRequest) -> TTSResponse:
     deployment = getattr(settings, "AZURE_OPENAI_TTS_DEPLOYMENT", None) or "gpt-4o-mini-tts"
     timeout_s = float(getattr(settings, "AZURE_OPENAI_TTS_TIMEOUT_S", DEFAULT_TTS_TIMEOUT_S) or DEFAULT_TTS_TIMEOUT_S)
 
-    # Check Azure OpenAI configuration
-    has_azure = (
-        bool(settings.AZURE_OPENAI_API_KEY)
-        and settings.AZURE_OPENAI_API_KEY not in ("mock-key", "", "your-azure-openai-key-here")
-        and bool(settings.AZURE_OPENAI_ENDPOINT)
-        and "mock.openai.azure.com" not in settings.AZURE_OPENAI_ENDPOINT
-    )
+    cache_key = (request.text, role, request.language, request.audience == "audio_description",
+                 request.synthesize_by_sentence)
+    cached = _AUDIO_CACHE.get(cache_key)
+    if cached is not None:
+        _AUDIO_CACHE.move_to_end(cache_key)
+        return TTSResponse(
+            audio_base64=cached,
+            provider="azure-openai-tts",
+            voice_preset=voice_preset,
+            estimated_duration_sec=estimated_dur,
+            is_fallback=False,
+            deployment=deployment,
+        )
 
-    if has_azure:
+    if azure_tts_configured():
         api_version = resolve_tts_api_version(deployment)
         compat_note = check_tts_endpoint_compatibility(
             settings.AZURE_OPENAI_ENDPOINT, deployment, api_version
@@ -255,6 +278,9 @@ async def synthesize_speech(request: TTSRequest) -> TTSResponse:
                 )
 
             b64_audio = base64.b64encode(raw_audio).decode("utf-8")
+            _AUDIO_CACHE[cache_key] = b64_audio
+            while len(_AUDIO_CACHE) > _AUDIO_CACHE_SIZE:
+                _AUDIO_CACHE.popitem(last=False)
 
             return TTSResponse(
                 audio_base64=b64_audio,

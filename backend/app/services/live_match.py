@@ -16,6 +16,9 @@ WebSocket: /ws/live?user_id=&nickname=&team=home|away&lang=en|es&audience=...
 Server -> client: MATCH_STATE, MATCH_EVENT, MOMENT_OPEN, SUBMIT_ACK, MOMENT_CLOSED,
                   MOMENT_REVEAL, LEADERBOARD, MATCH_END
 Client -> server: {"type": "SUBMIT", "payload": {"moment_id": "...", "moves": [{"player_id", "x", "y"}]}}
+
+Reveal voice: the pundits' audio is synthesised while the window is open (the optimum is known
+then) and served by GET /api/v1/live/moments/{id}/voice only once the moment has closed.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.core.config import settings
@@ -53,12 +56,15 @@ from app.services.game_engine import (
     MIN_SPACING_M,
 )
 from app.services.narration import MOMENT_LABELS, REVEAL_TEXT, reveal_explanation
+from app.services.tts_service import TTSRequest, TTSResponse, azure_tts_configured, synthesize_speech
 
 logger = logging.getLogger("xtwhatif.live")
 
 TEAMS = (TeamSide.HOME, TeamSide.AWAY)
 # A fan "found it" with this many points (community stat in the reveal).
 FOUND_IT_SCORE = 900
+# Longest the voice endpoint waits for audio still being synthesised (the backend TTS timeout).
+REVEAL_VOICE_WAIT_S = 7.5
 
 
 def _labels(key: Optional[str]) -> Dict[str, str]:
@@ -244,22 +250,39 @@ class MatchRoom:
         return m
 
     # --- reveal and leaderboard ---------------------------------------------
+    @staticmethod
+    def explanation(m: Moment, team: TeamSide, lang: str) -> Dict[str, str]:
+        opt = m.optimum(team)
+        return reveal_explanation(m.event.frame, opt.mode, opt.moves, opt.base.value, opt.best.value,
+                                  opt.best.target_id, lang)
+
+    @staticmethod
+    def personal_text(m: Moment, user_id: str, lang: str) -> str:
+        text = REVEAL_TEXT[lang]
+        sub = m.submissions.get(user_id)
+        if sub is None:
+            return text["you_missed"]
+        if sub.beat_machine:
+            return text["you_beat"]
+        return text["you_scored"].format(score=sub.score)
+
+    @classmethod
+    def voice_lines(cls, m: Moment, profile: Profile) -> List[Tuple[str, str]]:
+        """What the pundits read at the reveal: Voronoi the optimum, Bianchi the fan's verdict."""
+        e = cls.explanation(m, profile.team, profile.language)
+        return [("data_scientist", f"{e['headline']}. {e['body']}"),
+                ("classic_coach", cls.personal_text(m, profile.user_id, profile.language))]
+
     def reveal_for(self, m: Moment, profile: Profile) -> Dict[str, Any]:
         opt = m.optimum(profile.team)
         lang = profile.language
-        explanation = reveal_explanation(m.event.frame, opt.mode, opt.moves, opt.base.value, opt.best.value,
-                                         opt.best.target_id, lang)
+        explanation = self.explanation(m, profile.team, lang)
         sub = m.submissions.get(profile.user_id)
         same_side = [s for s in m.submissions.values() if s.team == profile.team]
         found = sum(1 for s in same_side if (s.score or 0) >= FOUND_IT_SCORE)
         share = round(100 * found / len(same_side)) if same_side else 0
         text = REVEAL_TEXT[lang]
-        if sub is None:
-            personal = text["you_missed"]
-        elif sub.beat_machine:
-            personal = text["you_beat"]
-        else:
-            personal = text["you_scored"].format(score=sub.score)
+        personal = self.personal_text(m, profile.user_id, lang)
         return {
             "moment_id": m.id,
             "mode": opt.mode,
@@ -357,6 +380,8 @@ class LiveMatchRunner:
         self.next_kickoff_at: Optional[float] = None
         self._bot_queue: List[Tuple[float, int, str, Profile, float]] = []
         self._bot_rng = random.Random(settings.LIVE_FIRST_SEED)
+        # Reveal audio being synthesised, by (moment id, text, role, language, audience).
+        self._voices: Dict[Tuple[str, str, str, str, str], asyncio.Task] = {}
 
     # --- lifecycle ----------------------------------------------------------
     def start(self) -> None:
@@ -412,11 +437,13 @@ class LiveMatchRunner:
                 if moment:
                     await self.broadcast({"type": "MOMENT_OPEN", "payload": moment.open_payload()})
                     self._schedule_bots(moment)
+                    self._prepare_voices(moment, closed=False)
 
         await self._run_bots(now)
 
         if room.due_to_close(now):
             moment = room.close_moment(now)
+            self._prepare_voices(moment, closed=True)
             await self.broadcast({"type": "MOMENT_CLOSED", "payload": {"moment_id": moment.id}})
             for ws, profile in list(self.clients.items()):
                 await self._send(ws, {"type": "MOMENT_REVEAL", "payload": room.reveal_for(moment, profile)})
@@ -448,6 +475,56 @@ class LiveMatchRunner:
                 continue
             moves = bot_moves(room.moment, profile.team, skill, self._bot_rng)
             room.submit(profile, SubmitIn(moment_id=moment_id, moves=moves), now)
+
+    # --- reveal voice -------------------------------------------------------
+    def _voice_task(self, moment: Moment, role: str, text: str, profile: Profile) -> asyncio.Task:
+        key = (moment.id, text, role, profile.language, profile.audience)
+        task = self._voices.get(key)
+        if task is None:
+            request = TTSRequest(text=text[:1200], agent_role=role, language=profile.language,
+                                 audience=profile.audience)
+            task = self._voices[key] = asyncio.create_task(synthesize_speech(request))
+        return task
+
+    def _prepare_voices(self, moment: Moment, closed: bool) -> None:
+        """
+        Starts the reveal audio early so it plays as soon as the moment closes. On open: the
+        optimum (Voronoi) and the fixed verdicts for every connected fan's side, language and
+        audience; on close: each fan's own score (Bianchi). Same texts share one synthesis.
+        """
+        if not closed:
+            self._voices = {k: t for k, t in self._voices.items() if k[0] == moment.id}
+        if not azure_tts_configured():
+            return
+        for profile in list(self.clients.values()):
+            if closed:
+                text = MatchRoom.personal_text(moment, profile.user_id, profile.language)
+                self._voice_task(moment, "classic_coach", text, profile)
+                continue
+            e = MatchRoom.explanation(moment, profile.team, profile.language)
+            self._voice_task(moment, "data_scientist", f"{e['headline']}. {e['body']}", profile)
+            for verdict in ("you_missed", "you_beat"):
+                self._voice_task(moment, "classic_coach", REVEAL_TEXT[profile.language][verdict], profile)
+
+    async def reveal_voice(self, moment_id: str, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """The fan's reveal lines with their audio (None: browser voice); None if not revealed yet."""
+        room = self.room
+        moment = next((m for m in room.moments if m.id == moment_id), None) if room else None
+        standing = room.standings.get(user_id) if room else None
+        if moment is None or not moment.closed or standing is None:
+            return None
+        profile = standing.profile
+        lines = MatchRoom.voice_lines(moment, profile)
+        audio: List[Optional[str]] = [None] * len(lines)
+        if azure_tts_configured():
+            tasks = [self._voice_task(moment, role, text, profile) for role, text in lines]
+            try:
+                done: List[TTSResponse] = await asyncio.wait_for(
+                    asyncio.gather(*(asyncio.shield(t) for t in tasks)), timeout=REVEAL_VOICE_WAIT_S)
+                audio = [r.audio_base64 for r in done]
+            except asyncio.TimeoutError:
+                audio = [t.result().audio_base64 if t.done() and not t.exception() else None for t in tasks]
+        return [{"agent_role": role, "text": text, "audio_base64": a} for (role, text), a in zip(lines, audio)]
 
     # --- clients ------------------------------------------------------------
     def state_for(self, profile: Optional[Profile]) -> Dict[str, Any]:
@@ -498,6 +575,18 @@ router = APIRouter(tags=["Live"])
 async def live_state():
     """Current live match (no personal data): clock, score, active moment, leaderboard."""
     return runner.state_for(None)
+
+
+@router.get("/api/v1/live/moments/{moment_id}/voice")
+async def live_reveal_voice(moment_id: str, user_id: str):
+    """
+    The pundits' reveal audio for one fan, pre-synthesised during the window. Served only after
+    the moment has closed, so it never gives the optimum away early.
+    """
+    lines = await runner.reveal_voice(moment_id, user_id)
+    if lines is None:
+        raise HTTPException(status_code=404, detail="No revealed moment for this fan")
+    return {"moment_id": moment_id, "lines": lines}
 
 
 @router.websocket("/ws/live")
