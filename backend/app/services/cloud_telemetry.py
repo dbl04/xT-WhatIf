@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("xt_whatif.cloud_telemetry")
+# The Azure SDKs log every HTTP request and token fetch at INFO; keep only their warnings.
+logging.getLogger("azure").setLevel(logging.WARNING)
 
 # Cached telemetry result to avoid throttling Azure Monitor API limits
 _cached_telemetry: Optional[Dict[str, Any]] = None
@@ -73,7 +75,10 @@ def get_aca_gateway_replicas(
 
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(minutes=5)
-        timespan = f"{start_time.isoformat()}/{end_time.isoformat()}"
+        # UTC with a "Z" suffix: the "+" of "+00:00" is not URL-encoded by the SDK, reaches Azure
+        # Monitor as a space and the query is rejected (400, invalid time interval).
+        iso = "%Y-%m-%dT%H:%M:%SZ"
+        timespan = f"{start_time.strftime(iso)}/{end_time.strftime(iso)}"
 
         metrics_data = client.metrics.list(
             resource_uri=resource_uri,
