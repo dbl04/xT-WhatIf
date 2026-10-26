@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Award, Radio, RotateCcw, Trophy, Users } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Award, Download, Dumbbell, RotateCcw, Trophy, Users } from "lucide-react";
 import { Button, Kicker, Tag } from "@/components/ui/primitives";
 import { MessageKey, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -39,10 +39,7 @@ export const LiveStatusCard: React.FC<{
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-2">
-        <Kicker className="flex items-center gap-1.5 text-signal-gain">
-          <Radio className="h-3 w-3 animate-pulse" aria-hidden />
-          {t("live.kicker")}
-        </Kicker>
+        <Kicker className="text-signal-gain">{t("live.kicker")}</Kicker>
         <span className="font-mono text-[10px] text-fg-subtle">
           <Users className="mr-1 inline h-3 w-3 align-[-2px]" aria-hidden />
           {t("live.fans", { n: fans.toLocaleString() })}
@@ -82,13 +79,10 @@ export const LiveStatusCard: React.FC<{
       </div>
 
       <p className="text-[11px] leading-snug text-fg-muted">{t("live.waitingMoment")}</p>
-      <button
-        type="button"
-        onClick={onPractice}
-        className="self-start text-[11px] text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
-      >
+      <Button variant="secondary" onClick={onPractice} className="w-full">
+        <Dumbbell className="h-3.5 w-3.5" aria-hidden />
         {t("live.practice")}
-      </button>
+      </Button>
     </div>
   );
 };
@@ -202,11 +196,6 @@ export const RevealCard: React.FC<{
         <p className="mt-1 text-[11.5px] text-fg-subtle">{reveal.explanation.community}</p>
       </div>
 
-      <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
-        <span className="h-2 w-2 rounded-full border border-signal-gain bg-signal-gain/30" aria-hidden />
-        {t("reveal.legend")}
-      </p>
-
       <Button variant="primary" onClick={onContinue}>
         {t("reveal.continue")}
       </Button>
@@ -224,53 +213,104 @@ const ChanceStat: React.FC<{ label: string; value: number | null; accent?: boole
 );
 
 // ======================================================================
-// LEADERBOARD
+// LEADERBOARD — the top rows and, below them, the fan's own position when outside them
 // ======================================================================
 export const LeaderboardCard: React.FC<{
   leaderboard: Leaderboard | null;
   matchInfo: MatchInfo;
   nickname: string;
+  team: TeamSide;
   rows?: number;
-}> = ({ leaderboard, matchInfo, nickname, rows = 5 }) => {
+  /**
+   * Fill the parent's height with as many top rows as fit, keeping room for the fan's own row:
+   * "always" (its own column), or "stacked" (only from sm to lg, next to the match events).
+   * The list is absolutely positioned while filling, so it takes the height it is given and
+   * never pushes its parent taller.
+   */
+  fill?: "always" | "stacked";
+}> = ({ leaderboard, matchInfo, nickname, team, rows = 5, fill }) => {
   const { t } = useI18n();
-  const top = leaderboard?.top.slice(0, rows) ?? [];
-  const scored = top.some((r) => r.total > 0);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [fitRows, setFitRows] = useState(rows);
+  useEffect(() => {
+    const el = listRef.current;
+    const inner = innerRef.current;
+    if (!fill || !el || !inner || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      if (getComputedStyle(inner).position !== "absolute") {
+        setFitRows(rows);
+        return;
+      }
+      const rowPx = inner.querySelector("li")?.getBoundingClientRect().height || 25;
+      // List border, the "…" separator (16 px) and the fan's own row stay visible.
+      setFitRows(Math.max(3, Math.floor((el.clientHeight - 2 - 16 - rowPx) / rowPx)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fill, rows]);
+  const top = leaderboard?.top.slice(0, fill ? fitRows : rows) ?? [];
+  const you = leaderboard?.you ?? null;
+  // Ranks are unique, so the fan's row is found by rank (nicknames may repeat).
+  const youInTop = !!you && top.some((r) => r.rank === you.rank);
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Kicker className="flex items-center gap-1.5">
-          <Trophy className="h-3 w-3" aria-hidden />
-          {t("board.kicker")}
-        </Kicker>
-        {leaderboard?.you && (
-          <span className="font-mono text-[10px] text-fg-muted">
-            {t("board.you")} #{leaderboard.you.rank} · {leaderboard.you.total}
-          </span>
+    <div
+      className={cn(
+        "flex flex-col gap-2",
+        fill === "always" && "h-full min-h-0",
+        fill === "stacked" && "sm:h-full sm:min-h-0 lg:h-auto"
+      )}
+    >
+      <Kicker className="flex items-center gap-1.5">
+        <Trophy className="h-3 w-3" aria-hidden />
+        {t("board.kicker")}
+      </Kicker>
+      <div
+        ref={listRef}
+        className={cn(
+          fill === "always" && "relative min-h-0 flex-1",
+          fill === "stacked" && "sm:relative sm:min-h-0 sm:flex-1 lg:static lg:flex-none"
         )}
-      </div>
-      {!scored ? (
-        <p className="text-[12px] text-fg-subtle">{t("board.empty")}</p>
-      ) : (
+      >
+      <div
+        ref={innerRef}
+        className={cn(
+          fill === "always" && "absolute inset-0 overflow-hidden",
+          fill === "stacked" && "sm:absolute sm:inset-0 sm:overflow-hidden lg:static lg:overflow-visible"
+        )}
+      >
+      {top.length > 0 && (
         <ol className="flex flex-col rounded-md border border-line">
-          {top.map((r) => {
-            const isYou = r.nickname === nickname && !r.is_bot;
-            return (
-              <li
-                key={`${r.rank}-${r.nickname}`}
-                className={cn(
-                  "flex items-center gap-2 border-b border-line px-2 py-1 text-[12px] last:border-b-0",
-                  isYou ? "bg-signal-gain/10 text-fg" : "text-fg-muted"
-                )}
-              >
-                <span className="w-5 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{r.rank}</span>
-                <TeamDot color={matchInfo[r.team].primary_color} />
-                <span className="min-w-0 flex-1 truncate">{r.nickname}</span>
-                <span className="font-mono text-[11px] tabular-nums text-fg">{r.total}</span>
+          {top.map((r) => (
+            <LeaderboardRow
+              key={`${r.rank}-${r.nickname}`}
+              rank={r.rank}
+              nickname={r.nickname}
+              total={r.total}
+              color={matchInfo[r.team].primary_color}
+              isYou={!!you && r.rank === you.rank}
+            />
+          ))}
+          {you && !youInTop && (
+            <>
+              <li aria-hidden className="border-b border-line px-2 text-center font-mono text-[10px] leading-4 text-fg-subtle">
+                …
               </li>
-            );
-          })}
+              <LeaderboardRow
+                rank={you.rank}
+                nickname={nickname}
+                total={you.total}
+                color={matchInfo[team].primary_color}
+                isYou
+              />
+            </>
+          )}
         </ol>
       )}
+      </div>
+      </div>
       {leaderboard && (
         <div className="grid grid-cols-2 gap-1.5">
           {(["home", "away"] as TeamSide[]).map((side) => (
@@ -287,10 +327,35 @@ export const LeaderboardCard: React.FC<{
   );
 };
 
+export const LeaderboardRow: React.FC<{ rank: number; nickname: string; total: number; color?: string; isYou: boolean }> = ({
+  rank,
+  nickname,
+  total,
+  color,
+  isYou,
+}) => (
+  <li
+    aria-current={isYou ? "true" : undefined}
+    className={cn(
+      "flex items-center gap-2 border-b border-line px-2 py-1 text-[12px] last:border-b-0",
+      isYou ? "bg-signal-gain/10 font-semibold text-fg" : "text-fg-muted"
+    )}
+  >
+    <span className="w-6 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{rank}</span>
+    <TeamDot color={color} />
+    <span className="min-w-0 flex-1 truncate">{nickname}</span>
+    <span className="font-mono text-[11px] tabular-nums text-fg">{total}</span>
+  </li>
+);
+
 // ======================================================================
 // FULL TIME
 // ======================================================================
-export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo }> = ({ end, matchInfo }) => {
+export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo; onExport?: () => void }> = ({
+  end,
+  matchInfo,
+  onExport,
+}) => {
   const { t } = useI18n();
   const [left, setLeft] = useState(end.next_kickoff_in_s);
   useEffect(() => {
@@ -317,6 +382,12 @@ export const MatchEndCard: React.FC<{ end: MatchEnd; matchInfo: MatchInfo }> = (
             </li>
           ))}
         </ul>
+      )}
+      {onExport && (
+        <Button variant="primary" onClick={onExport} className="w-full">
+          <Download className="h-3.5 w-3.5" aria-hidden />
+          {t("end.export")}
+        </Button>
       )}
       <p className="font-mono text-[11px] text-fg-subtle">{t("end.next", { s: left })}</p>
     </div>

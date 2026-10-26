@@ -18,7 +18,7 @@ import {
   TacticalZone,
 } from "@/lib/coordinates";
 import { useI18n } from "@/lib/i18n";
-import { Move, Lock, ZoomIn, Maximize2 } from "lucide-react";
+import { Move, ZoomIn, Maximize2 } from "lucide-react";
 import { Kicker } from "@/components/ui/primitives";
 import { PALETTE, hair, withAlpha } from "@/lib/palette";
 import { computeVoronoiCells } from "@/lib/voronoi";
@@ -93,9 +93,10 @@ export interface TacticalPitch2DProps {
   onSimulationTrigger?: (playerId: number) => void;
   onAnimationEnd?: () => void;
   onDragStart?: () => void;
-  teamShortNames?: { home: string; away: string };
   /** Challenge mode overlay; null/undefined for the free analysis board. */
   challenge?: PitchChallenge | null;
+  /** Nothing can be dragged (the live match outside a key moment). */
+  readOnly?: boolean;
 }
 
 /** Challenge overlay: who may move, the hard radius and the offside line. */
@@ -299,8 +300,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       onSimulationTrigger,
       onAnimationEnd,
       onDragStart,
-      teamShortNames = { home: "HOM", away: "AWY" },
       challenge = null,
+      readOnly = false,
     },
     ref
   ) {
@@ -448,6 +449,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const handlePointerDown = (id: number, e: React.PointerEvent) => {
       e.stopPropagation();
       if (onClickPlayer) onClickPlayer(id);
+      if (readOnly) return;
       if (challenge) {
         if (challenge.locked) return;
         if (!movableSet.has(id)) {
@@ -492,12 +494,12 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
     // Drop a drag in progress if the board gets locked (e.g. the clock runs out mid-gesture).
     useEffect(() => {
-      if (challenge?.locked && draggingId !== null) {
+      if ((challenge?.locked || readOnly) && draggingId !== null) {
         setDraggingId(null);
         setDragPos(null);
         setHoveredZone(null);
       }
-    }, [challenge?.locked, draggingId]);
+    }, [challenge?.locked, readOnly, draggingId]);
 
     const handlePointerUp = (e: React.PointerEvent) => {
       if (draggingId !== null) {
@@ -626,7 +628,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
             <Kicker className="text-fg">{t("pitch.title")}</Kicker>
-            <span className="font-mono text-[10px] text-fg-subtle">{t("pitch.subtitle")}</span>
           </div>
 
           {/* View: zoom on the action / full pitch */}
@@ -954,7 +955,9 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
               const isLocked = !!challenge && !movableSet.has(p.player_id);
               const nameDy = nameOffsets.get(p.player_id);
               const violation = challenge?.violationLabels[p.player_id];
-              const cursor = !challenge
+              const cursor = readOnly
+                ? "cursor-default"
+                : !challenge
                 ? "cursor-grab active:cursor-grabbing"
                 : isMovable
                   ? "cursor-grab active:cursor-grabbing"
@@ -1005,26 +1008,22 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         {/* Footer: hint, legend, readouts */}
         <div className="flex h-8 flex-nowrap items-center justify-between gap-4 border-t border-line px-4 text-[11px] text-fg-subtle">
           <div className="flex min-w-0 items-center gap-2">
-            {challenge?.locked ? (
-              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {readOnly ? (
+              <span className="truncate">{t("live.waitingMoment")}</span>
             ) : (
-              <Move className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              !challenge?.locked && (
+                <>
+                  <Move className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">
+                    {challenge ? t("challenge.hint", { n: challenge.maxPlayers, r: challenge.maxRadius }) : t("pitch.hint")}
+                  </span>
+                </>
+              )
             )}
-            <span className="truncate">
-              {challenge
-                ? challenge.locked
-                  ? t("challenge.hintLocked")
-                  : t("challenge.hint", { n: challenge.maxPlayers, r: challenge.maxRadius })
-                : t("pitch.hint")}
-            </span>
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-wide md:flex">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-home" />{teamShortNames.home}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-team-away" />{teamShortNames.away}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-gain" />{t("pitch.onBall")}</span>
               <span className="flex items-center gap-1.5"><span className="h-px w-3 bg-signal-gain" />{t("pitch.bestPass")}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-signal-loss" />{t("pitch.inertia")}</span>
             </div>
             {hoveredCellXt != null && (
               <span className="font-mono text-[10px] text-fg-muted">{t("pitch.cellXt")} <span className="text-signal-gain">{hoveredCellXt.toFixed(3)}</span></span>

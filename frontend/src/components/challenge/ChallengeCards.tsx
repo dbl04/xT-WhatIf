@@ -9,7 +9,6 @@ import {
   Check,
   CloudOff,
   Loader2,
-  Lock,
   Play,
   RotateCcw,
   Shield,
@@ -326,15 +325,10 @@ export const ChallengeCard: React.FC<{
 
       <div className="flex items-center justify-between gap-2">
         <Kicker className="text-signal-gain">{t("challenge.kicker")}</Kicker>
-        {isOpen ? (
+        {isOpen && (
           <IconButton size="sm" onClick={onLeave} title={t("challenge.leave")} aria-label={t("challenge.leave")}>
             <X className="h-3.5 w-3.5" />
           </IconButton>
-        ) : (
-          <Tag tone={state.submission?.auto ? "magenta" : "green"}>
-            {state.submission?.auto ? <Lock className="h-3 w-3" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
-            {state.submission?.auto ? t("challenge.autoSubmitted") : t("challenge.submitted")}
-          </Tag>
         )}
       </div>
 
@@ -408,7 +402,7 @@ export const ChallengeCard: React.FC<{
           </div>
 
           <div className="flex items-center gap-2 border-t border-line pt-3">
-            <Button variant="ghost" onClick={onReset} disabled={moved.length === 0}>
+            <Button variant="secondary" onClick={onReset} disabled={moved.length === 0}>
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               {t("challenge.reset")}
             </Button>
@@ -422,7 +416,7 @@ export const ChallengeCard: React.FC<{
         <>
           <div className="rounded-md border border-line bg-ink-800/70 p-2.5">
             <div className="font-display text-lg font-bold uppercase leading-none tracking-tight text-fg">
-              {t("challenge.submittedTitle")}
+              {t("challenge.yourMoves")}
             </div>
             {state.submission && state.submission.moves.length > 0 ? (
               <ul className="mt-2 flex flex-col gap-1">
@@ -468,11 +462,15 @@ export const ChallengeCard: React.FC<{
           {delivery && <DeliveryNote delivery={delivery} />}
           {delivery?.status !== "failed" && <p className="text-[12px] text-fg-muted">{t("challenge.revealSoon")}</p>}
 
-          <div className="flex items-center border-t border-line pt-3">
-            <Button variant="secondary" onClick={onLeave} className="ml-auto">
-              {t("challenge.back")}
-            </Button>
-          </div>
+          {/* A live answer is final: the card waits for the reveal. Practice has no reveal, so it keeps a way out.
+              Only live challenges preview against the live service (previewBaseUrl). */}
+          {!state.previewBaseUrl && (
+            <div className="flex items-center border-t border-line pt-3">
+              <Button variant="secondary" onClick={onLeave} className="ml-auto">
+                {t("challenge.back")}
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -587,39 +585,33 @@ export const ChallengeStrip: React.FC<{
         </span>
 
         <span className="ml-auto flex items-center gap-1">
-          {isOpen ? (
+          {isOpen && (
             <>
-              <IconButton
+              <Button
+                variant="secondary"
                 onClick={onReset}
                 disabled={used === 0}
                 title={t("challenge.reset")}
                 aria-label={t("challenge.reset")}
+                className="px-2.5"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </IconButton>
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden min-[420px]:inline">{t("challenge.reset")}</span>
+              </Button>
               <Button variant="primary" onClick={onConfirm} className="px-3.5">
                 <Check className="h-3.5 w-3.5" aria-hidden />
                 {t("challenge.confirm")}
               </Button>
             </>
-          ) : (
-            <>
-              <Tag tone={state.submission?.auto ? "magenta" : "green"} className="hidden sm:inline-flex">
-                {state.submission?.auto ? t("challenge.autoSubmitted") : t("challenge.submitted")}
-              </Tag>
-              <Button variant="secondary" onClick={onLeave}>
-                {t("challenge.back")}
-              </Button>
-            </>
+          )}
+          {!isOpen && !state.previewBaseUrl && (
+            <Button variant="secondary" onClick={onLeave}>
+              {t("challenge.back")}
+            </Button>
           )}
         </span>
       </div>
       <div className="flex items-center gap-2 px-2.5 pb-2 text-[11px] text-fg-muted">
-        {!isOpen && (
-          <Tag tone={state.submission?.auto ? "magenta" : "green"} className="sm:hidden">
-            {state.submission?.auto ? t("challenge.autoSubmitted") : t("challenge.submitted")}
-          </Tag>
-        )}
         <span className="min-w-0 truncate" aria-live="polite">
           {message}
         </span>

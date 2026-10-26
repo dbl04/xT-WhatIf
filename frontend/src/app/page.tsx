@@ -6,8 +6,10 @@ import { TacticalPitch2D, TacticalPitch2DHandle } from "@/components/pitch/Tacti
 import { XtDeltaPanel } from "@/components/metrics/XtDeltaPanel";
 import { PlaybackBar } from "@/components/controls/PlaybackBar";
 import { ExportReportModal } from "@/components/controls/ExportReportModal";
+import { FullTimeReportModal } from "@/components/controls/FullTimeReportModal";
+import { useFullTimeReport } from "@/hooks/useFullTimeReport";
 import { CloudTelemetryModal } from "@/components/controls/CloudTelemetryModal";
-import { DemoGuideModal } from "@/components/controls/DemoGuideModal";
+import { InfoModal, useFirstVisitInfo } from "@/components/controls/InfoModal";
 import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
@@ -32,9 +34,8 @@ import { useI18n } from "@/lib/i18n";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
 import {
   Download,
-  Columns2,
-  Server,
   HelpCircle,
+  Columns2,
   PanelLeftClose,
   PanelLeftOpen,
   ArrowUpRight,
@@ -43,10 +44,14 @@ import { motion, AnimatePresence } from "framer-motion";
 
 /** Pre-match onboarding (profile → team) and then the live dashboard. */
 export default function HomePage() {
+  const [firstVisitInfo, closeFirstVisitInfo] = useFirstVisitInfo();
   return (
-    <OnboardingGate>
-      <DashboardPage />
-    </OnboardingGate>
+    <>
+      <OnboardingGate>
+        <DashboardPage />
+      </OnboardingGate>
+      <InfoModal isOpen={firstVisitInfo} onClose={closeFirstVisitInfo} />
+    </>
   );
 }
 
@@ -72,7 +77,6 @@ function DashboardPage() {
     frames,
     currentFrameIndex,
     currentFrame,
-    connectionMode,
     isThinking,
     highlightedPlayerIds,
     setHighlightedPlayerIds,
@@ -104,12 +108,14 @@ function DashboardPage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isFullTimeReportOpen, setIsFullTimeReportOpen] = useState<boolean>(false);
   const [isCloudTelemetryOpen, setIsCloudTelemetryOpen] = useState<boolean>(false);
   const [isDemoGuideOpen, setIsDemoGuideOpen] = useState<boolean>(false);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
   const [isHudDrawerOpen, setIsHudDrawerOpen] = useState<boolean>(true);
 
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
+
 
   // Contextual tactical presets for the current play
   const currentPresets = useMemo(
@@ -192,9 +198,86 @@ function DashboardPage() {
     enabled: !!fanSession,
   });
   const liveState = live.state;
+  const fullTimeReport = useFullTimeReport(liveState);
   const [practising, setPractising] = useState(false);
   const liveAvailable = liveState.status === "live" || liveState.status === "ended";
   const isLiveView = liveAvailable && !practising && !!liveState.frame;
+
+  // From lg the pitch takes the widest 3:2 box that fits next to the dock and above the
+  // lower-third and the transport; the dock and the pitch column are then centred together so
+  // spare width is shared on both sides. Below lg the wrappers have no box and the CSS cap applies.
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const pitchColumnRef = useRef<HTMLDivElement | null>(null);
+  const belowPitchRef = useRef<HTMLDivElement | null>(null);
+  const [pitchMaxWidth, setPitchMaxWidth] = useState<number | null>(null);
+  // The side columns start where the pitch frame starts (it is centred in its column), and the
+  // right column also ends where it ends.
+  const pitchBoxRef = useRef<HTMLDivElement | null>(null);
+  const [pitchBox, setPitchBox] = useState<{ top: number; height: number; stageH: number } | null>(null);
+  useEffect(() => {
+    const box = pitchBoxRef.current;
+    const stage = stageRef.current;
+    if (!box || !stage || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      if (!window.matchMedia("(min-width: 1024px)").matches || !box.offsetHeight) {
+        setPitchBox(null);
+        return;
+      }
+      const style = getComputedStyle(stage);
+      const stageTop = stage.getBoundingClientRect().top + parseFloat(style.paddingTop);
+      const stageH = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      const top = Math.max(0, Math.round(box.getBoundingClientRect().top - stageTop));
+      setPitchBox((prev) =>
+        prev && prev.top === top && prev.height === box.offsetHeight && prev.stageH === stageH
+          ? prev
+          : { top, height: box.offsetHeight, stageH }
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(stage);
+    if (belowPitchRef.current) observer.observe(belowPitchRef.current);
+    return () => observer.disconnect();
+  }, []);
+  // Live view: the leaderboard gets its own column on the right when that costs the pitch nothing
+  // (wide, short windows where the pitch is limited by height).
+  const [boardOnRight, setBoardOnRight] = useState(false);
+  useEffect(() => {
+    const stage = stageRef.current;
+    const dock = dockRef.current;
+    const below = belowPitchRef.current;
+    if (!stage || !dock || !below || typeof ResizeObserver === "undefined") return;
+    // Pitch top bar (44 px + border), footer (33 px) and frame border; gaps: 16 px between the
+    // columns, 12 px between the pitch and what sits below it.
+    const PITCH_CHROME_PX = 82;
+    const measure = () => {
+      if (!window.matchMedia("(min-width: 1024px)").matches) {
+        // Stacked layout: the leaderboard always sits next to the match events again.
+        setBoardOnRight(false);
+        setPitchMaxWidth(null);
+        return;
+      }
+      const style = getComputedStyle(stage);
+      const innerW = stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const innerH = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      const width = innerW - dock.offsetWidth - 16;
+      const belowH = below.offsetHeight;
+      const height = innerH - (belowH > 0 ? belowH + 12 : 0) - PITCH_CHROME_PX;
+      // The right column is as wide as the dock.
+      const widthWithBoard = width - dock.offsetWidth - 16;
+      const boardFits = isLiveView && widthWithBoard >= height * 1.5;
+      setBoardOnRight(boardFits);
+      setPitchMaxWidth(Math.floor(Math.max(320, Math.min(boardFits ? widthWithBoard : width, height * 1.5))));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    observer.observe(dock);
+    observer.observe(below);
+    return () => observer.disconnect();
+  }, [isLiveView]);
 
   const challenge = useChallenge({
     onSubmit: (submission) => {
@@ -341,7 +424,16 @@ function DashboardPage() {
   const clock = isLiveView
     ? `${Math.floor(liveClock / 60)}:${String(liveClock % 60).padStart(2, "0")}`
     : `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
-  const isLive = connectionMode === "live";
+
+  const leaderboardCard = (
+    <LeaderboardCard
+      leaderboard={liveState.leaderboard}
+      matchInfo={liveMatchInfo}
+      nickname={fanSession?.identity.nickname ?? ""}
+      team={supportedSide}
+      fill="stacked"
+    />
+  );
 
   return (
     <main className="relative flex min-h-screen w-full select-none flex-col bg-ink text-fg lg:h-screen lg:overflow-hidden">
@@ -361,71 +453,67 @@ function DashboardPage() {
           <span className="hidden h-6 w-px bg-line-strong sm:block" />
 
           {/* Scorebug */}
-          <div className="hidden shrink-0 items-stretch overflow-hidden rounded-[3px] border border-line-strong font-display text-sm font-bold uppercase leading-none tracking-wide sm:flex">
-            <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
-              <span className="h-2.5 w-1 bg-team-home" />
+          <div className="hidden h-9 shrink-0 items-stretch overflow-hidden rounded-[3px] border border-line-strong font-display text-xl font-bold uppercase leading-none tracking-wide sm:flex">
+            <span className="flex items-center gap-2 bg-fg px-3 text-ink">
+              <span className="h-4 w-1.5 bg-team-home" />
               {fixture.home.short_name}
             </span>
             {isLiveView && (
-              <span className="flex items-center bg-ink-700 px-2 tabular-nums text-fg">
+              <span className="flex items-center bg-ink-700 px-3 tabular-nums text-fg">
                 {liveState.score.home}–{liveState.score.away}
               </span>
             )}
-            <span className="flex min-w-[58px] items-center justify-center bg-ink-800 px-2.5 tabular-nums text-fg">
+            <span className="flex min-w-[76px] items-center justify-center bg-ink-800 px-3 tabular-nums text-fg">
               {clock}
             </span>
-            <span className="flex items-center gap-1.5 bg-fg px-2.5 text-ink">
+            <span className="flex items-center gap-2 bg-fg px-3 text-ink">
               {fixture.away.short_name}
-              <span className="h-2.5 w-1 bg-ink" />
+              <span className="h-4 w-1.5 bg-ink" />
             </span>
           </div>
 
           <div className="hidden min-w-0 flex-col xl:flex">
-            <Kicker>{fixture.competition} · {t("header.syntheticData")}</Kicker>
             <span className="truncate text-xs text-fg-muted">
-              {fixture.venue ? `${fixture.venue} · ` : ""}
-              {fixture.home.name} v {fixture.away.name} ·{" "}
-              <span className={currentFrame.is_counterfactual_mode ? "text-signal-gain" : "text-fg"}>
-                {currentFrame.is_counterfactual_mode ? t("header.simulated") : t("header.original")}
-              </span>
+              {fixture.home.name} v {fixture.away.name}
+              {currentFrame.is_counterfactual_mode && (
+                <>
+                  {" "}·{" "}
+                  <span className="text-signal-gain">{t("header.simulated")}</span>
+                </>
+              )}
             </span>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            onClick={() => setIsHudDrawerOpen((prev) => !prev)}
-            title={t("nav.panelTitle")}
-            className={isHudDrawerOpen ? "text-fg" : undefined}
-          >
-            {isHudDrawerOpen ? (
-              <PanelLeftClose className="h-3.5 w-3.5" />
-            ) : (
-              <PanelLeftOpen className="h-3.5 w-3.5" />
-            )}
-            <span className="hidden xl:inline">{t("nav.panel")}</span>
-          </Button>
+          {/* Panel and Compare only act on the practice board; Infrastructure is hidden so the fixture line fits. */}
+          {!isLiveView && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setIsHudDrawerOpen((prev) => !prev)}
+                title={t("nav.panelTitle")}
+                className={isHudDrawerOpen ? "text-fg" : undefined}
+              >
+                {isHudDrawerOpen ? (
+                  <PanelLeftClose className="h-3.5 w-3.5" />
+                ) : (
+                  <PanelLeftOpen className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden xl:inline">{t("nav.panel")}</span>
+              </Button>
 
-          <Button
-            variant="ghost"
-            onClick={() => setIsScenarioModalOpen(true)}
-            title={t("nav.compareTitle")}
-          >
-            <Columns2 className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">{t("nav.compare")}</span>
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={() => setIsCloudTelemetryOpen(true)}
-            className="hidden md:inline-flex"
-            title={t("nav.infraTitle")}
-          >
-            <Server className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">{t("nav.infra")}</span>
-          </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setIsScenarioModalOpen(true)}
+                title={t("nav.compareTitle")}
+              >
+                <Columns2 className="h-3.5 w-3.5" />
+                <span className="hidden xl:inline">{t("nav.compare")}</span>
+              </Button>
+            </>
+          )}
 
           <IconButton
             onClick={() => setIsDemoGuideOpen(true)}
@@ -446,15 +534,13 @@ function DashboardPage() {
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
 
-          <span
-            className="mr-2 hidden items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted sm:inline-flex"
-            title={isLive ? t("nav.liveTitle") : t("nav.offlineTitle")}
+          {/* Live: the fan's report only exists from full time on. Practice: the board's report. */}
+          <Button
+            variant="primary"
+            onClick={() => (isLiveView ? setIsFullTimeReportOpen(true) : setIsExportModalOpen(true))}
+            disabled={isLiveView && !fullTimeReport}
+            title={isLiveView ? t("nav.exportLiveTitle") : t("nav.exportTitle")}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-signal-gain" : "bg-fg-subtle"}`} />
-            {isLive ? "Live" : "Offline"}
-          </span>
-
-          <Button variant="primary" onClick={() => setIsExportModalOpen(true)} title={t("nav.exportTitle")}>
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{t("nav.export")}</span>
           </Button>
@@ -462,17 +548,27 @@ function DashboardPage() {
       </header>
 
       {/* 2. Main Stadium Viewport */}
-      <div className="relative z-10 flex w-full flex-1 flex-col gap-3 p-2 sm:p-4 lg:h-full lg:flex-row lg:items-center lg:justify-center lg:overflow-hidden">
-        {/* Width capped so the 3:2 pitch fits the viewport height. 10.5rem = header (56px)
-            + stage padding (32px) + pitch top bar (45px) + footer (33px) + frame border (2px);
-            those bars have fixed heights and never wrap. */}
+      {/* lg and up: the side dock is its own column and the pitch column stacks the pitch, the
+          lower-third and the transport, so nothing covers the board. Below lg the stage is one
+          scrolling column (the wrappers are display: contents and the order-* classes apply). */}
+      <div
+        ref={stageRef}
+        className="relative z-10 flex w-full flex-1 flex-col gap-3 p-2 sm:p-4 lg:h-full lg:min-h-0 lg:flex-row lg:items-stretch lg:justify-center lg:gap-4 lg:overflow-hidden"
+      >
         <div
-          className="order-1 flex w-full items-center justify-center self-center lg:h-full"
-          style={{ maxWidth: "min(1720px, calc((100vh - 10.5rem) * 1.5))" }}
+          ref={pitchColumnRef}
+          className="contents lg:flex lg:h-full lg:min-h-0 lg:min-w-0 lg:flex-none lg:flex-col lg:items-center lg:justify-center lg:gap-3"
+          style={pitchMaxWidth ? { width: pitchMaxWidth } : undefined}
+        >
+        {/* Below lg the width is capped so the 3:2 pitch fits the viewport height (10.5rem =
+            header + stage padding + the pitch's own bars). From lg the column is measured. */}
+        <div
+          ref={pitchBoxRef}
+          className="order-1 flex w-full items-center justify-center self-center lg:order-none"
+          style={{ maxWidth: pitchMaxWidth ?? "min(1720px, calc((100vh - 10.5rem) * 1.5))" }}
         >
           <TacticalPitch2D
             ref={pitchRef}
-            teamShortNames={teamShortNames}
             players={replay.players ?? (challengeState ? challengeState.players : pitchFrame.players)}
             ballX={pitchFrame.ball_x}
             ballY={pitchFrame.ball_y}
@@ -482,6 +578,8 @@ function DashboardPage() {
             isCounterfactualMode={!inChallenge && !isLiveView && currentFrame.is_counterfactual_mode}
             isPlaying={(isPlaying && !inChallenge) || replayPassing}
             challenge={pitchChallenge}
+            // The live match can only be touched while a key moment is open.
+            readOnly={isLiveView && !inChallenge}
             playbackSpeed={playbackSpeed}
             highlightedPlayerIds={highlightedPlayerIds}
             selectedPlayerId={hoveredPlayerId}
@@ -498,8 +596,80 @@ function DashboardPage() {
           />
         </div>
 
-        {/* 3. Tactical Dock (Top-Left) */}
-        <div className="pointer-events-none order-3 flex w-full flex-col lg:absolute lg:left-4 lg:top-4 lg:z-30 lg:max-w-[340px]">
+        {/* Live view: nothing sits under the pitch on lg (no transport, no lower-third). */}
+        <div
+          ref={belowPitchRef}
+          className={`contents lg:flex lg:w-full lg:shrink-0 lg:flex-col lg:items-center lg:gap-3 ${isLiveView ? "lg:hidden" : ""}`}
+        >
+        {/* 4. Lower-Third (hidden during a challenge: the pundits discuss the answer and the
+            card would cover the challenge card on short screens) */}
+        {!inChallenge && !isLiveView && <div className="order-4 w-full lg:order-1"><BroadcastCommentatorCard
+          messages={currentFrame.agent_debate}
+          activeSpeakingRole={tts.activeSpeaker}
+          isSpeaking={tts.isPlaying}
+          isSimulating={isThinking}
+          highlightedPlayerIds={highlightedPlayerIds}
+          onHighlightPlayers={setHighlightedPlayerIds}
+          onPlaySingleMessage={tts.playSingleMessage}
+          onPlayFullDebate={tts.play}
+          onStopAudio={tts.stop}
+          clockLabel={clock}
+          eventType={currentFrame.event_type}
+        /></div>}
+
+        {/* 5. Transport Dock */}
+        <div className={`pointer-events-none order-2 flex w-full flex-col items-center gap-3 lg:order-2 ${isLiveView ? "lg:hidden" : ""}`}>
+          {challengeState && !reveal && (
+            <div className="pointer-events-auto w-full max-w-xl lg:hidden">
+              <ChallengeStrip
+                state={challengeState}
+                secondsLeft={challenge.secondsLeft}
+                notice={challenge.notice}
+                teamInfo={fanSession?.teamInfo}
+                onConfirm={() => challenge.submit(false)}
+                onReset={challenge.reset}
+                onLeave={challenge.close}
+                delivery={liveDelivery}
+              />
+            </div>
+          )}
+          <div className={`pointer-events-auto w-full max-w-5xl ${isLiveView ? "hidden" : challengeState ? "hidden lg:block" : ""}`}>
+            <PlaybackBar
+              frames={frames}
+              currentFrameIndex={currentFrameIndex}
+              onSelectFrameIndex={(idx) => {
+                setIsPlaying(false);
+                // Moving to another moment leaves the challenge of this one.
+                if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) challenge.close();
+                selectFrameIndex(idx);
+              }}
+              minute={currentFrame.minute}
+              second={currentFrame.second}
+              eventType={currentFrame.event_type}
+              isCounterfactualMode={currentFrame.is_counterfactual_mode}
+              isPlaying={isPlaying && !inChallenge}
+              onTogglePlay={() => {
+                if (!inChallenge) handleTogglePlay();
+              }}
+              onResetSimulation={() => {
+                setIsPlaying(false);
+                if (challengeState?.status === "open") challenge.reset();
+                else if (!inChallenge) resetSimulation();
+              }}
+              onSpeedChange={(s) => setPlaybackSpeed(s)}
+            />
+          </div>
+        </div>
+        </div>
+        </div>
+
+        {/* 3. Tactical Dock (left column from lg) */}
+        <div
+          ref={dockRef}
+          className="pointer-events-none order-3 flex w-full flex-col lg:order-first lg:h-full lg:min-h-0 lg:w-[320px] lg:shrink-0 lg:overflow-y-auto 2xl:w-[360px]"
+          // Starts level with the pitch frame and uses the height left below that.
+          style={pitchBox ? { marginTop: pitchBox.top, height: pitchBox.stageH - pitchBox.top } : undefined}
+        >
           {challengeState ? (
             /* Challenge open: only the challenge card, always visible on large screens (the
                compact strip replaces the transport dock below lg). Auto-Coach, quick scenarios
@@ -541,11 +711,17 @@ function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
               aria-label={t("live.kicker")}
-              className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+              className="pointer-events-auto grid rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:grid-cols-2 lg:flex lg:max-h-[calc(100vh-7rem)] lg:flex-col lg:overflow-y-auto"
             >
-              <section className="border-b border-line p-3">
+              {/* Below lg: match events and leaderboard side by side (from sm). From lg: one column,
+                  unless the leaderboard has moved to its own column on the right. */}
+              <section className="border-b border-line p-3 sm:border-b-0 sm:border-r lg:border-r-0 lg:border-b">
                 {liveState.matchEnd ? (
-                  <MatchEndCard end={liveState.matchEnd} matchInfo={liveMatchInfo} />
+                  <MatchEndCard
+                    end={liveState.matchEnd}
+                    matchInfo={liveMatchInfo}
+                    onExport={fullTimeReport ? () => setIsFullTimeReportOpen(true) : undefined}
+                  />
                 ) : (
                   <LiveStatusCard
                     live={liveState}
@@ -555,13 +731,7 @@ function DashboardPage() {
                   />
                 )}
               </section>
-              <section className="p-3">
-                <LeaderboardCard
-                  leaderboard={liveState.leaderboard}
-                  matchInfo={liveMatchInfo}
-                  nickname={fanSession?.identity.nickname ?? ""}
-                />
-              </section>
+              {!boardOnRight && <section className="flex flex-col p-3">{leaderboardCard}</section>}
             </motion.aside>
           ) : (
           <AnimatePresence>
@@ -641,68 +811,37 @@ function DashboardPage() {
           )}
         </div>
 
-        {/* 4. Lower-Third (hidden during a challenge: the pundits discuss the answer and the
-            card would cover the challenge card on short screens) */}
-        {!inChallenge && !isLiveView && <div className="order-4 lg:contents"><BroadcastCommentatorCard
-          messages={currentFrame.agent_debate}
-          activeSpeakingRole={tts.activeSpeaker}
-          isSpeaking={tts.isPlaying}
-          isSimulating={isThinking}
-          highlightedPlayerIds={highlightedPlayerIds}
-          onHighlightPlayers={setHighlightedPlayerIds}
-          onPlaySingleMessage={tts.playSingleMessage}
-          onPlayFullDebate={tts.play}
-          onStopAudio={tts.stop}
-          clockLabel={clock}
-          eventType={currentFrame.event_type}
-        /></div>}
 
-        {/* 5. Transport Dock */}
-        <div className="pointer-events-none order-2 flex w-full flex-col items-center gap-3 lg:absolute lg:inset-x-0 lg:bottom-3 lg:z-30 lg:mx-auto lg:flex-row lg:justify-center lg:px-4">
-          {challengeState && !reveal && (
-            <div className="pointer-events-auto w-full max-w-xl lg:hidden">
-              <ChallengeStrip
-                state={challengeState}
-                secondsLeft={challenge.secondsLeft}
-                notice={challenge.notice}
-                teamInfo={fanSession?.teamInfo}
-                onConfirm={() => challenge.submit(false)}
-                onReset={challenge.reset}
-                onLeave={challenge.close}
-                delivery={liveDelivery}
+        {/* Right column (live, wide and short windows): the leaderboard */}
+        {isLiveView && boardOnRight && (
+          <div
+            className="pointer-events-none hidden lg:flex lg:min-h-0 lg:w-[320px] lg:shrink-0 lg:flex-col lg:self-start 2xl:w-[360px]"
+            // Same top and bottom as the pitch frame.
+            style={pitchBox ? { marginTop: pitchBox.top, height: pitchBox.height } : undefined}
+          >
+            <aside
+              aria-label={t("board.kicker")}
+              className="pointer-events-auto flex h-full min-h-0 flex-col rounded-lg border border-line-strong bg-ink-900/95 p-3 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+            >
+              <LeaderboardCard
+                leaderboard={liveState.leaderboard}
+                matchInfo={liveMatchInfo}
+                nickname={fanSession?.identity.nickname ?? ""}
+                team={supportedSide}
+                fill="always"
               />
-            </div>
-          )}
-          <div className={`pointer-events-auto w-full max-w-5xl ${isLiveView ? "hidden" : challengeState ? "hidden lg:block" : ""}`}>
-            <PlaybackBar
-              frames={frames}
-              currentFrameIndex={currentFrameIndex}
-              onSelectFrameIndex={(idx) => {
-                setIsPlaying(false);
-                // Moving to another moment leaves the challenge of this one.
-                if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) challenge.close();
-                selectFrameIndex(idx);
-              }}
-              minute={currentFrame.minute}
-              second={currentFrame.second}
-              eventType={currentFrame.event_type}
-              isCounterfactualMode={currentFrame.is_counterfactual_mode}
-              isPlaying={isPlaying && !inChallenge}
-              onTogglePlay={() => {
-                if (!inChallenge) handleTogglePlay();
-              }}
-              onResetSimulation={() => {
-                setIsPlaying(false);
-                if (challengeState?.status === "open") challenge.reset();
-                else if (!inChallenge) resetSimulation();
-              }}
-              onSpeedChange={(s) => setPlaybackSpeed(s)}
-            />
+            </aside>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Modals */}
+      <FullTimeReportModal
+        isOpen={isFullTimeReportOpen}
+        onClose={() => setIsFullTimeReportOpen(false)}
+        snapshot={fullTimeReport}
+        nickname={fanSession?.identity.nickname ?? ""}
+      />
       <ExportReportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
@@ -717,7 +856,7 @@ function DashboardPage() {
         onClose={() => setIsCloudTelemetryOpen(false)}
       />
 
-      <DemoGuideModal
+      <InfoModal
         isOpen={isDemoGuideOpen}
         onClose={() => setIsDemoGuideOpen(false)}
       />

@@ -55,6 +55,8 @@ def get_aca_gateway_replicas(
     aca_app = app_name or os.getenv("ACA_GATEWAY_NAME", "xt-whatif-aca-gateway")
 
     if not sub_id:
+        # Normal when running locally, so it stays out of the default log output.
+        logger.debug("AZURE_SUBSCRIPTION_ID is not set; using simulated telemetry.")
         fallback = {"replicas": 1, "simulated": True}
         _cached_telemetry = fallback
         _cached_time = now
@@ -77,7 +79,8 @@ def get_aca_gateway_replicas(
             resource_uri=resource_uri,
             timespan=timespan,
             interval="PT1M",
-            metricnames="ReplicaCount",
+            # REST name of the metric the portal shows as "Replica Count".
+            metricnames="Replicas",
             aggregation="Average,Maximum",
         )
 
@@ -97,13 +100,14 @@ def get_aca_gateway_replicas(
                         _cached_time = now
                         return res
 
+        logger.warning("Azure Monitor returned no Replicas data for %s; using simulated telemetry.", aca_app)
         fallback = {"replicas": 1, "simulated": True}
         _cached_telemetry = fallback
         _cached_time = now
         return fallback
 
     except Exception as e:
-        logger.info("Azure Monitor query failed (fallback to simulated): %s", e)
+        logger.warning("Azure Monitor query failed (fallback to simulated): %s", e)
         fallback = {"replicas": 1, "simulated": True}
         _cached_telemetry = fallback
         _cached_time = now
