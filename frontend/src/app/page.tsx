@@ -162,6 +162,7 @@ function DashboardPage() {
   // ====================================================================
   // xT Live Challenge. In the live match, MOMENT_OPEN opens the challenge for everyone and
   // the moves go back as SUBMIT; "Play this moment" stays for practising the key moments.
+  // The Live view is the main/default page unless the user explicitly switches to Practice mode.
   // ====================================================================
   const fanSession = useFanSession();
   const supportedSide = fanSession?.team ?? "home";
@@ -175,8 +176,7 @@ function DashboardPage() {
   });
   const liveState = live.state;
   const [practising, setPractising] = useState(false);
-  const liveAvailable = liveState.status === "live" || liveState.status === "ended";
-  const isLiveView = liveAvailable && !practising && !!liveState.frame;
+  const isLiveView = !practising;
 
   const challenge = useChallenge({
     onSubmit: (submission) => {
@@ -223,6 +223,17 @@ function DashboardPage() {
   const continueAfterReveal = () => {
     live.dismissReveal();
     closeChallenge();
+  };
+
+  const goToLive = () => {
+    setPractising(false);
+    live.dismissReveal();
+    closeChallenge();
+    setIsPlaying(false);
+    tts.stop();
+    setHighlightedPlayerIds([]);
+    setHoveredPlayerId(null);
+    resetSimulation();
   };
 
   // Game clock between messages, and the action replayed on every new live event.
@@ -279,19 +290,24 @@ function DashboardPage() {
   const clock = isLiveView
     ? `${Math.floor(liveClock / 60)}:${String(liveClock % 60).padStart(2, "0")}`
     : `${currentFrame.minute}:${String(currentFrame.second).padStart(2, "0")}`;
-  const isLive = connectionMode === "live";
+  const isLive = connectionMode === "live" || liveState.status === "live";
 
   return (
     <main className="relative flex h-screen w-screen select-none flex-col overflow-hidden bg-ink text-fg">
       {/* 1. Top Broadcast Bar */}
       <header className="z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-4">
-          {/* Wordmark */}
-          <div className="flex items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight">
+          {/* Wordmark — clicking returns to the Live match view */}
+          <button
+            type="button"
+            onClick={goToLive}
+            title={t("live.backToLive")}
+            className="flex cursor-pointer items-baseline gap-0.5 font-display text-[22px] font-extrabold uppercase leading-none tracking-tight transition-opacity hover:opacity-80 focus:outline-none"
+          >
             <span className="text-fg">xT</span>
             <span className="text-signal-green">/</span>
             <span className="text-fg">WhatIf</span>
-          </div>
+          </button>
 
           <span className="hidden h-6 w-px bg-line-strong sm:block" />
 
@@ -501,9 +517,9 @@ function DashboardPage() {
                 transition={{ duration: 0.16, ease: "easeOut" }}
                 className="pointer-events-auto flex max-h-[calc(100vh-15rem)] flex-col overflow-y-auto rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
-                {liveAvailable && practising && (
+                {practising && (
                   <section className="border-b border-line p-3">
-                    <Button variant="secondary" className="w-full" onClick={() => setPractising(false)}>
+                    <Button variant="secondary" className="w-full" onClick={goToLive}>
                       {t("live.backToLive")}
                     </Button>
                   </section>

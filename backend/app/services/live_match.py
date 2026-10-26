@@ -451,17 +451,17 @@ class LiveMatchRunner:
     def state_for(self, profile: Optional[Profile]) -> Dict[str, Any]:
         room = self.room
         if room is None:
-            return {"status": "waiting"}
+            self._new_match(time.time()); room = self.room
         now = time.time()
-        recent = room.events[max(0, room.next_index - 5):room.next_index]
-        last = room.last_event
+        recent = room.events[max(0, room.next_index - 5):room.next_index] or (room.events[:1] if room.events else [])
+        last = room.last_event or (room.events[0] if room.events else None)
         return {
             "status": "ended" if room.ended else "live",
             "match_id": room.match_id,
             "match_info": room.events[0].frame.match_info.model_dump(mode="json") if room.events else None,
             "clock_seconds": round(room.match_clock(now)),
             "duration_s": room.duration_s,
-            "score": last.score.model_dump() if last else {"home": 0, "away": 0},
+            "score": room.last_event.score.model_dump() if room.last_event else {"home": 0, "away": 0},
             "frame": last.frame.model_dump(mode="json") if last else None,
             "recent_events": [_event_summary(e) for e in recent],
             "active_moment": room.moment.open_payload() if room.moment else None,
@@ -510,7 +510,7 @@ async def live_socket(websocket: WebSocket):
         await websocket.close(code=1008, reason="Invalid profile")
         return
     await websocket.accept()
-    runner.clients[websocket] = profile
+    runner.clients[websocket] = profile; runner._new_match(time.time()) if runner.room is None else None
     if runner.room is not None:
         runner.room.join(profile)
     await runner._send(websocket, {"type": "MATCH_STATE", "payload": runner.state_for(profile)})
