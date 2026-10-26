@@ -280,7 +280,8 @@ class MatchRoom:
     def ranking(self) -> List[Standing]:
         return sorted(self.standings.values(), key=lambda s: (-s.total, s.last_scored_at))
 
-    def leaderboard_for(self, user_id: Optional[str], top: int = 10) -> Dict[str, Any]:
+    # 30 rows: enough to fill the leaderboard column on a tall screen; the client shows what fits.
+    def leaderboard_for(self, user_id: Optional[str], top: int = 30) -> Dict[str, Any]:
         ranked = self.ranking()
         rows = [{"rank": i + 1, "nickname": s.profile.nickname, "team": s.profile.team.value,
                  "total": s.total, "is_bot": s.profile.is_bot} for i, s in enumerate(ranked[:top])]
