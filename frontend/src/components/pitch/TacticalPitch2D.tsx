@@ -97,6 +97,10 @@ export interface TacticalPitch2DProps {
   challenge?: PitchChallenge | null;
   /** Nothing can be dragged (the live match outside a key moment). */
   readOnly?: boolean;
+  /** Maximum players that can be moved on the Key Moments board (defaults to 2). */
+  maxFreeMoves?: number;
+  /** Fired when the user tries to drag a 3rd player on the Key Moments board. */
+  onFreeMoveLimitReached?: () => void;
 }
 
 /** Challenge overlay: who may move, the hard radius and the offside line. */
@@ -302,6 +306,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       onDragStart,
       challenge = null,
       readOnly = false,
+      maxFreeMoves = 2,
+      onFreeMoveLimitReached,
     },
     ref
   ) {
@@ -461,6 +467,12 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
           challenge.onBlocked?.(id, "limit");
           return;
         }
+      } else {
+        const othersMoved = players.filter((p) => p.is_modified && p.player_id !== id).length;
+        if (othersMoved >= maxFreeMoves) {
+          onFreeMoveLimitReached?.();
+          return;
+        }
       }
       // Pause the animation as soon as a drag starts
       if (onDragStart) onDragStart();
@@ -524,7 +536,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       const perpY = ux;
       const wS = 1.6, wE = 4.4;
       return [
-        `${(ballX + perpX * wS).toFixed(2)},${(ballY + perpY * wS).toFixed(2)}`,
+        `${(ballX + perpX * wS).toFixed(2)},${(ballY + perpX * wS).toFixed(2)}`,
         `${(ballEndX + perpX * wE).toFixed(2)},${(ballEndY + perpY * wE).toFixed(2)}`,
         `${(ballEndX - perpX * wE).toFixed(2)},${(ballEndY - perpY * wE).toFixed(2)}`,
         `${(ballX - perpX * wS).toFixed(2)},${(ballY - perpY * wS).toFixed(2)}`,
@@ -624,6 +636,18 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
     return (
       <div className="relative flex w-full select-none flex-col overflow-hidden rounded-lg border border-line-strong bg-ink-900">
+        {/* Waiting for key moment banner above the pitch in Live Match */}
+        {readOnly && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex min-h-8 items-center justify-center gap-2 border-b border-line bg-amber-400/10 px-4 py-1.5 text-center text-xs font-medium text-amber-200"
+          >
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400" aria-hidden />
+            <span>{t("live.waitingPitchBanner")}</span>
+          </div>
+        )}
+
         {/* Top Bar - Title + Layer toggles */}
         <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
@@ -710,26 +734,26 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
               </marker>
             </defs>
 
-            {/* Grass */}
-            <rect width="120" height="80" fill="url(#pitchGrassStripes)" />
+            {/* Pitch Base */}
+            <rect x="0" y="0" width="120" height="80" fill="url(#pitchGrassStripes)" />
 
-            {/* VORONOI TERRITORIAL LAYER */}
+            {/* VORONOI TESSELLATION + DISPUTE FRONTIER */}
             {showVoronoi && (
-              <g id="voronoiDominioLayer" pointerEvents="none">
+              <g id="voronoiLayer" pointerEvents="none">
                 {voronoiData.cells.map((cell) => {
                   const isHome = cell.team === "home";
+                  const fillColor = isHome ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.025)";
                   return (
-                    <polygon
-                      key={`voronoi-${cell.playerId}`}
-                      points={cell.svgPoints}
-                      fill={isHome ? "rgba(117,170,219,0.13)" : "rgba(244,240,248,0.05)"}
-                      stroke={isHome ? "rgba(117,170,219,0.38)" : "rgba(244,240,248,0.2)"}
-                      {...hair(0.5)}
-                    />
+                    <g key={`voronoi-${cell.playerId}`}>
+                      <polygon
+                        points={cell.svgPoints}
+                        fill={fillColor}
+                        stroke="rgba(255,255,255,0.12)"
+                        {...hair(0.5)}
+                      />
+                    </g>
                   );
                 })}
-
-                {/* Dispute frontiers: solid in the offensive third, dashed elsewhere */}
                 {voronoiData.frontiers.map((f, idx) => (
                   <line
                     key={`frontier-${idx}`}
@@ -750,8 +774,9 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
             {showXtGrid && (
               <g id="xtGridLayer" pointerEvents="all">
                 {xtGridCells.map((cell) => {
-                  const isOrigin = cell.col === originCell.col && cell.row === originCell.row;
-                  const isDest = destCell && cell.col === destCell.col && cell.row === destCell.row;
+                  // Hide ORIGIN and TARGET squares when outside a key moment (readOnly live match)
+                  const isOrigin = !readOnly && cell.col === originCell.col && cell.row === originCell.row;
+                  const isDest = !readOnly && destCell && cell.col === destCell.col && cell.row === destCell.row;
                   const cellFill = withAlpha(C.gain, Number(Math.min(0.24, cell.xtVal * 0.42).toFixed(3)));
 
                   return (

@@ -27,6 +27,8 @@ export interface UseMatchEngineOptions {
   /** Narration profile: the backend writes labels and the pundits' debate for it. */
   language?: Language;
   audience?: Audience;
+  /** Called whenever a counterfactual move simulation finishes so commentators can speak about it. */
+  onSimulationComplete?: (frame: MatchFramePayload) => void;
 }
 
 export type ConnectionMode = "live" | "offline";
@@ -81,6 +83,7 @@ export function useMatchEngine({
   wsUrl = `${WS_BASE_URL}/ws`,
   language = DEFAULT_LANGUAGE,
   audience = DEFAULT_AUDIENCE,
+  onSimulationComplete,
 }: UseMatchEngineOptions = {}) {
   // Loaded frames and the active one
   const [frames, setFrames] = useState<MatchFramePayload[]>(DEFAULT_OFFLINE_FRAMES);
@@ -103,11 +106,13 @@ export function useMatchEngine({
   const profileRef = useRef({ language, audience });
   const connectionModeRef = useRef<ConnectionMode>(connectionMode);
   const resimulateRef = useRef<(players: PlayerNode[]) => void>(() => {});
+  const onSimulationCompleteRef = useRef(onSimulationComplete);
 
   framesRef.current = frames;
   currentIndexRef.current = currentFrameIndex;
   profileRef.current = { language, audience };
   connectionModeRef.current = connectionMode;
+  onSimulationCompleteRef.current = onSimulationComplete;
 
   // 1. Load frames for the current profile from GET /api/v1/match/{matchId}/frames.
   //    Without a backend, fall back to the bundled offline frames (same data, same narration).
@@ -210,6 +215,7 @@ export function useMatchEngine({
               return updated;
             });
             setIsThinking(false);
+            onSimulationCompleteRef.current?.(message.payload);
           }
         } catch (e) {
           console.error("Error handling WebSocket message:", e);
@@ -270,6 +276,18 @@ export function useMatchEngine({
     [currentFrameIndex]
   );
 
+  // Apply a pre-computed simulated frame (e.g. from /api/v1/agents/what-if voice input)
+  const applySimulatedFrame = useCallback((simulated: MatchFramePayload) => {
+    setFrames((prev) => {
+      const next = [...prev];
+      const idx = next.findIndex((f) => f.event_uuid === simulated.event_uuid);
+      next[idx !== -1 ? idx : currentIndexRef.current] = simulated;
+      return next;
+    });
+    setIsThinking(false);
+    onSimulationCompleteRef.current?.(simulated);
+  }, []);
+
   // 4. Run the counterfactual simulation (onPlayerDrop)
   const triggerSimulation = useCallback(
     async (customPlayers?: PlayerNode[]) => {
@@ -323,6 +341,7 @@ export function useMatchEngine({
               return next;
             });
             setIsThinking(false);
+            onSimulationCompleteRef.current?.(simulated);
             return;
           }
         } catch (e) {
@@ -332,6 +351,7 @@ export function useMatchEngine({
 
       // Offline mode: instant heuristic xT estimate and pundit debate
       setTimeout(() => {
+        let computedFrame: MatchFramePayload | null = null;
         setFrames((prev) => {
           const next = [...prev];
           const frame = { ...next[frameIndex] };
@@ -391,11 +411,15 @@ export function useMatchEngine({
             passProb,
           });
 
+          computedFrame = frame;
           next[frameIndex] = frame;
           return next;
         });
 
         setIsThinking(false);
+        if (computedFrame) {
+          onSimulationCompleteRef.current?.(computedFrame);
+        }
       }, 450);
     },
     [apiUrl]
@@ -449,6 +473,7 @@ export function useMatchEngine({
     setHoveredPlayerId,
     selectFrameIndex,
     updatePlayerPosition,
+    applySimulatedFrame,
     onPlayerDrop,
     triggerSimulation,
     resetSimulation,

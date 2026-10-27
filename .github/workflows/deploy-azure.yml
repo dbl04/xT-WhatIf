@@ -194,15 +194,27 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # AKS is optional: set the repository variable AKS_ENABLED=true once the cluster exists.
-      - name: Set AKS Cluster Context
+      # The cluster is not created by Bicep: skip (with a warning) instead of failing if it is missing.
+      - name: Check AKS Cluster Exists
+        id: aks
         if: vars.AKS_ENABLED == 'true'
+        run: |
+          if az aks show --resource-group "$RESOURCE_GROUP" --name "$AKS_CLUSTER_NAME" --query name -o tsv >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::AKS cluster '$AKS_CLUSTER_NAME' not found in '$RESOURCE_GROUP'. Skipping AKS worker deployment (set vars AKS_CLUSTER_NAME / AZURE_RG, or AKS_ENABLED=false)."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set AKS Cluster Context
+        if: steps.aks.outputs.exists == 'true'
         uses: azure/aks-set-context@v3
         with:
           resource-group: ${{ env.RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
       - name: Deploy AKS Compute Workers & HPA
-        if: vars.AKS_ENABLED == 'true'
+        if: steps.aks.outputs.exists == 'true'
         env:
           AKS_WORKER_TOKEN: ${{ secrets.AKS_WORKER_TOKEN }}
         run: |
