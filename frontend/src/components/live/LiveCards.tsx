@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Award, Download, Dumbbell, Play, RotateCcw, Square, Trophy, Users } from "lucide-react";
 import { Button, Kicker, Tag } from "@/components/ui/primitives";
 import { MessageKey, useI18n } from "@/lib/i18n";
+import { localizeEventLabel } from "@/lib/match";
 import { cn } from "@/lib/utils";
 import type { MatchInfo, TeamSide } from "@/types/match";
 import type { Leaderboard, LiveEventSummary, LiveState, MatchEnd, MomentReveal } from "@/hooks/useLiveMatch";
@@ -104,7 +105,7 @@ const TickerRow: React.FC<{ event: LiveEventSummary; matchInfo: MatchInfo; langu
     >
       <span className="w-7 shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle">{event.minute}&apos;</span>
       <TeamDot color={team.primary_color} />
-      <span className="min-w-0 flex-1 truncate">{event.labels[language] ?? event.event_type}</span>
+      <span className="min-w-0 flex-1 truncate">{localizeEventLabel(event, language)}</span>
       <span className={cn("shrink-0 font-mono text-[10px] uppercase", isGoal && "font-bold")}>
         {t(`live.outcome.${event.outcome}`)}
       </span>

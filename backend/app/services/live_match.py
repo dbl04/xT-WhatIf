@@ -298,13 +298,10 @@ class MatchRoom:
 
     @classmethod
     def voice_lines(cls, m: Moment, profile: Profile) -> List[Tuple[str, str]]:
-        """What the pundits read at the reveal: Voronoi the optimum + user comparison, Bianchi the fan's verdict."""
+        """What the pundits say out loud at the reveal: concise, conversational broadcast lines."""
         pack = cls.pundit_pack(m, profile.team, profile.user_id, profile.language)
-        voronoi_text = f"{pack['headline']}. {pack['body']}"
-        if pack.get("voronoi_comparison"):
-            voronoi_text = f"{voronoi_text} {pack['voronoi_comparison']}"
-        return [("data_scientist", voronoi_text),
-                ("classic_coach", str(pack["personal"]))]
+        return [("data_scientist", str(pack["voronoi_voice"])),
+                ("classic_coach", str(pack["bianchi_voice"]))]
 
     def reveal_for(self, m: Moment, profile: Profile) -> Dict[str, Any]:
         opt = m.optimum(profile.team)
@@ -332,6 +329,8 @@ class MatchRoom:
                 "voronoi_comparison": pack["voronoi_comparison"],
                 "bianchi_headline": pack["bianchi_headline"],
                 "personal": pack["personal"],
+                "voronoi_voice": pack["voronoi_voice"],
+                "bianchi_voice": pack["bianchi_voice"],
                 "community": text["community"].format(share=share),
             },
             "pundits": pack["pundits"],
@@ -528,8 +527,8 @@ class LiveMatchRunner:
     def _prepare_voices(self, moment: Moment, closed: bool) -> None:
         """
         Starts the reveal audio early so it plays as soon as the moment closes. On open: the
-        optimum (Voronoi) and the no-move coaching verdict for every connected fan's side,
-        language and audience; on close: each fan's personalised Voronoi + Bianchi comparison.
+        default (no-submission) spoken lines for every connected fan's side, language and
+        audience; on close: each fan's personalised Voronoi + Bianchi spoken lines.
         Same texts share one synthesis.
         """
         if not closed:
@@ -541,10 +540,9 @@ class LiveMatchRunner:
                 for role, text in MatchRoom.voice_lines(moment, profile):
                     self._voice_task(moment, role, text, profile)
                 continue
-            e = MatchRoom.explanation(moment, profile.team, profile.language)
-            self._voice_task(moment, "data_scientist", f"{e['headline']}. {e['body']}", profile)
-            missed = MatchRoom.personal_text(moment, "", profile.language, team=profile.team)
-            self._voice_task(moment, "classic_coach", missed, profile)
+            no_sub = profile.model_copy(update={"user_id": ""})
+            for role, text in MatchRoom.voice_lines(moment, no_sub):
+                self._voice_task(moment, role, text, profile)
 
     async def reveal_voice(self, moment_id: str, user_id: str) -> Optional[List[Dict[str, Any]]]:
         """The fan's reveal lines with their audio (None: browser voice); None if not revealed yet."""
