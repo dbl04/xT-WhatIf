@@ -125,11 +125,12 @@ var registries = [
 var backendSecrets = [
   {
     name: 'openai-api-key'
-    value: azureOpenAiKey
+    // Container Apps rejects secrets with an empty value: fall back to a placeholder.
+    value: empty(azureOpenAiKey) ? 'mock-azure-openai-key' : azureOpenAiKey
   }
   {
     name: 'aks-worker-token'
-    value: aksWorkerToken
+    value: empty(aksWorkerToken) ? 'disabled-worker-token' : aksWorkerToken
   }
 ]
 var openAiEnv = [
