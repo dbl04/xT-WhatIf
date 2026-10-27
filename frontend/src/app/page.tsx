@@ -11,6 +11,7 @@ import { useFullTimeReport } from "@/hooks/useFullTimeReport";
 import { CloudTelemetryModal } from "@/components/controls/CloudTelemetryModal";
 import { InfoModal, useFirstVisitInfo } from "@/components/controls/InfoModal";
 import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
+import { VoiceWhatIfPanel } from "@/components/controls/VoiceWhatIfPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
 import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
 import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
@@ -31,6 +32,7 @@ import { sfx } from "@/lib/sfx";
 import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
 import { useI18n } from "@/lib/i18n";
+import { MAX_VOICE_MOVES } from "@/lib/voiceWhatIf";
 import { AgentMessage, MatchFramePayload, PlayerNode } from "@/types/match";
 import {
   Download,
@@ -89,6 +91,7 @@ function revealPass(frame: MatchFramePayload, reveal: MomentReveal): PitchChalle
 
 function DashboardPage() {
   const { language, audience, t } = useI18n();
+  const onSimDoneRef = useRef<(frame: MatchFramePayload) => void>(() => {});
   const {
     frames,
     currentFrameIndex,
@@ -100,10 +103,15 @@ function DashboardPage() {
     setHoveredPlayerId,
     selectFrameIndex,
     updatePlayerPosition,
+    applySimulatedFrame,
     onPlayerDrop,
     triggerSimulation,
     resetSimulation,
-  } = useMatchEngine({ language, audience });
+  } = useMatchEngine({
+    language,
+    audience,
+    onSimulationComplete: (simFrame) => onSimDoneRef.current(simFrame),
+  });
 
   // Audio broadcast hook
   const handleActiveSpeakerChange = useCallback(
@@ -129,6 +137,7 @@ function DashboardPage() {
   const [isDemoGuideOpen, setIsDemoGuideOpen] = useState<boolean>(false);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
   const [isHudDrawerOpen, setIsHudDrawerOpen] = useState<boolean>(true);
+  const [freeMoveLimitNotice, setFreeMoveLimitNotice] = useState<boolean>(false);
 
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
 
@@ -142,12 +151,21 @@ function DashboardPage() {
   // Moves players and simulates in one go. triggerSimulation receives the moved players
   // explicitly because its `frames` snapshot does not include updates from this same tick.
   const applyMovesAndSimulate = (players: PlayerNode[]) => {
-    const moved = players.filter((p) => p.is_modified);
+    const moved = players.filter((p) => p.is_modified).slice(0, MAX_VOICE_MOVES);
     moved.forEach((p) => updatePlayerPosition(p.player_id, p.x, p.y));
     triggerSimulation(moved);
   };
 
   const applyPreset = (preset: TacticalPreset) => {
+    const othersMoved = currentFrame.players.filter(
+      (p) => p.is_modified && p.player_id !== preset.playerId
+    ).length;
+    if (othersMoved >= MAX_VOICE_MOVES) {
+      sfx.blocked();
+      setFreeMoveLimitNotice(true);
+      return;
+    }
+    setFreeMoveLimitNotice(false);
     setIsPlaying(false);
     applyMovesAndSimulate(
       currentFrame.players.map((p) =>
@@ -257,6 +275,29 @@ function DashboardPage() {
     if (belowPitchRef.current) observer.observe(belowPitchRef.current);
     return () => observer.disconnect();
   }, []);
+
+  const challenge = useChallenge({
+    onSubmit: (submission) => {
+      if (submission.auto) sfx.whistle();
+      else sfx.confirm();
+      const moment = liveState.moment;
+      if (!moment || moment.frame.event_uuid !== submission.eventUuid) return; // practice: nothing to send
+      // Only legal moves are sent: a player breaking a rule stays in place (the server would
+      // reject the whole submission otherwise).
+      const broken = new Set((challenge.state?.violations ?? []).map((v) => v.player_id));
+      live.submit(moment.moment_id, submission.moves.filter((m) => !broken.has(m.player_id)));
+    },
+  });
+  const challengeState = challenge.state;
+  const inChallenge = challengeState !== null;
+
+  // In Key Moments mode (!isLiveView), whenever a move simulation completes, have the commentators speak about it.
+  onSimDoneRef.current = (simFrame: MatchFramePayload) => {
+    if (!isLiveView && !inChallenge && simFrame.agent_debate?.length > 0) {
+      tts.playMessages(simFrame.agent_debate);
+    }
+  };
+
   // Live view: the leaderboard gets its own column on the right when that costs the pitch nothing
   // (wide, short windows where the pitch is limited by height).
   const [boardOnRight, setBoardOnRight] = useState(false);
@@ -265,9 +306,8 @@ function DashboardPage() {
     const dock = dockRef.current;
     const below = belowPitchRef.current;
     if (!stage || !dock || !below || typeof ResizeObserver === "undefined") return;
-    // Pitch top bar (44 px + border), footer (33 px) and frame border; gaps: 16 px between the
-    // columns, 12 px between the pitch and what sits below it.
-    const PITCH_CHROME_PX = 82;
+    // Pitch top bar (44 px + border), footer (33 px), frame border, plus waiting banner (34 px) when readOnly.
+    const PITCH_CHROME_PX = isLiveView && !inChallenge ? 116 : 82;
     const measure = () => {
       if (!window.matchMedia("(min-width: 1024px)").matches) {
         // Stacked layout: the leaderboard always sits next to the match events again.
@@ -293,22 +333,8 @@ function DashboardPage() {
     observer.observe(dock);
     observer.observe(below);
     return () => observer.disconnect();
-  }, [isLiveView]);
+  }, [isLiveView, inChallenge]);
 
-  const challenge = useChallenge({
-    onSubmit: (submission) => {
-      if (submission.auto) sfx.whistle();
-      else sfx.confirm();
-      const moment = liveState.moment;
-      if (!moment || moment.frame.event_uuid !== submission.eventUuid) return; // practice: nothing to send
-      // Only legal moves are sent: a player breaking a rule stays in place (the server would
-      // reject the whole submission otherwise).
-      const broken = new Set((challenge.state?.violations ?? []).map((v) => v.player_id));
-      live.submit(moment.moment_id, submission.moves.filter((m) => !broken.has(m.player_id)));
-    },
-  });
-  const challengeState = challenge.state;
-  const inChallenge = challengeState !== null;
   // Delivery of the moves only matters on the live moment's board, not in practice.
   const liveDelivery: LiveDelivery | undefined =
     challengeState && liveState.moment?.frame.event_uuid === challengeState.baseFrame.event_uuid
@@ -359,6 +385,7 @@ function DashboardPage() {
 
   const goToLive = () => {
     setPractising(false);
+    setFreeMoveLimitNotice(false);
     live.dismissReveal();
     closeChallenge();
     setIsPlaying(false);
@@ -654,6 +681,11 @@ function DashboardPage() {
             challenge={pitchChallenge}
             // The live match can only be touched while a key moment is open.
             readOnly={isLiveView && !inChallenge}
+            maxFreeMoves={MAX_VOICE_MOVES}
+            onFreeMoveLimitReached={() => {
+              sfx.blocked();
+              setFreeMoveLimitNotice(true);
+            }}
             playbackSpeed={playbackSpeed}
             highlightedPlayerIds={highlightedPlayerIds}
             selectedPlayerId={hoveredPlayerId}
@@ -713,6 +745,7 @@ function DashboardPage() {
               currentFrameIndex={currentFrameIndex}
               onSelectFrameIndex={(idx) => {
                 setIsPlaying(false);
+                setFreeMoveLimitNotice(false);
                 // Moving to another moment leaves the challenge of this one.
                 if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) challenge.close();
                 selectFrameIndex(idx);
@@ -727,6 +760,7 @@ function DashboardPage() {
               }}
               onResetSimulation={() => {
                 setIsPlaying(false);
+                setFreeMoveLimitNotice(false);
                 if (challengeState?.status === "open") challenge.reset();
                 else if (!inChallenge) resetSimulation();
               }}
@@ -829,6 +863,28 @@ function DashboardPage() {
                   </section>
                 )}
 
+                {/* Microphone Voice Input Mode — ONLY in Key Moments mode (!isLiveView) */}
+                <section className="border-b border-line p-3">
+                  <VoiceWhatIfPanel
+                    currentFrame={currentFrame}
+                    onBeforeListen={() => {
+                      setIsPlaying(false);
+                      tts.stop();
+                    }}
+                    onMovePlayer={updatePlayerPosition}
+                    onApplySimulatedFrame={applySimulatedFrame}
+                    onTriggerOfflineSimulation={applyMovesAndSimulate}
+                    onHighlightPlayers={setHighlightedPlayerIds}
+                    onResetMoves={() => {
+                      setIsPlaying(false);
+                      setFreeMoveLimitNotice(false);
+                      tts.stop();
+                      resetSimulation();
+                    }}
+                    externalLimitNotice={freeMoveLimitNotice}
+                  />
+                </section>
+
                 {/* xT Live Challenge entry */}
                 <section className="border-b border-line p-3">
                   <PlayMomentCard
@@ -867,7 +923,10 @@ function DashboardPage() {
                   <AutoCoachPanel
                     currentFrame={currentFrame}
                     onApplyOptimalDefense={applyMovesAndSimulate}
-                    onResetDefense={() => resetSimulation()}
+                    onResetDefense={() => {
+                      setFreeMoveLimitNotice(false);
+                      resetSimulation();
+                    }}
                   />
                 </section>
 
@@ -879,6 +938,7 @@ function DashboardPage() {
                     isCounterfactualMode={currentFrame.is_counterfactual_mode}
                     onReset={() => {
                       setIsPlaying(false);
+                      setFreeMoveLimitNotice(false);
                       resetSimulation();
                     }}
                   />
