@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from app.schemas.match_contract import AgentMessage, AgentRole, MatchFramePayload, PlayerNode
 
@@ -115,43 +115,41 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
         "analyst": {
             DS: {
                 "down": (
-                    "Expected threat collapses (-{pct}% relative xT)",
-                    "Shifting {mod} {dist} m to ({mx}, {my}) puts the Voronoi cell across the lane to {receiver}. "
+                    "Expected threat drops by {pct}%",
+                    "Shifting {mod} {dist} m closes the passing lane to {receiver}. "
                     "xT falls from {orig} to {sim} and pass completion drops to {prob}%.",
                     "ΔxT: {delta} | Pass prob.: {prob}%",
                 ),
                 "up": (
-                    "Attacking threat rises sharply ({delta} xT)",
+                    "Attacking threat rises ({delta} xT)",
                     "{mod}'s move opens a direct corridor worth {sim} xT. "
-                    "Pass completion climbs to {prob}% and local space control grows to {ctrl}%.",
+                    "Pass completion climbs to {prob}% and local space control reaches {ctrl}%.",
                     "ΔxT: {delta} | Control: {ctrl}%",
                 ),
                 "flat": (
-                    "Statistically neutral: the xT cell is unchanged (ΔxT 0.00)",
-                    "Repositioning {mod} keeps the threat vector at {sim} xT. "
-                    "Pass completion stays at {prob}% with no meaningful change in territorial control.",
+                    "Threat stays neutral at {sim} xT",
+                    "Repositioning {mod} keeps threat at {sim} xT. "
+                    "Pass completion stays at {prob}% with no major shift in space control.",
                     "xT: {sim} | Pass prob.: {prob}%",
                 ),
             },
             CO: {
                 "down": (
-                    "You cover the pass to {receiver}, but give away the inside lane",
-                    "Yes, {mod} dropping off kills the ball down the outside, but look at the gap opening between "
-                    "centre-back and full-back. If the passer looks up and threads it inside to {optimal}, "
-                    "we're caught with poor body shape and the holding midfielder out of position.",
-                    "Defensive gap open towards {optimal}",
+                    "You cover the pass to {receiver}, but watch the inside lane",
+                    "Dropping {mod} kills the ball down the outside, but watch the gap between "
+                    "centre-back and full-back if they thread it inside to {optimal}.",
+                    "Defensive gap towards {optimal}",
                 ),
                 "up": (
-                    "Aggressive vertical run; watch the cover shift",
-                    "Great movement: it drags markers and unsettles the back line. If the ball goes early to "
-                    "{optimal} we have numbers in the box, but the holding midfielder must close the far lane "
-                    "to stop the counter on a rebound.",
+                    "Sharp vertical run; watch the cover shift",
+                    "Great movement dragging markers. If the ball goes early to {optimal} we have "
+                    "numbers in the box, though the holding midfielder must cover the counter.",
                     "Cover shift required",
                 ),
                 "flat": (
-                    "Good positional hold; not enough pressure on the receiver",
-                    "{mod} holds the line but doesn't bother the receiver. If we don't close the pressing distance "
-                    "before {optimal} receives facing forward, the block loses the initiative.",
+                    "Good position, but needs tighter pressure",
+                    "{mod} holds the line but stays too far off. Close the distance before "
+                    "{optimal} can turn and face goal.",
                     "Pressing distance > 2.0 m",
                 ),
             },
@@ -160,40 +158,36 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
             DS: {
                 "down": (
                     "That move cuts the danger by {pct}%",
-                    "Moving {mod} {dist} metres blocks the route to {receiver}. The attack's chance of leading to "
-                    "a goal drops from {orig_pct}% to {sim_pct}%, and the pass now only has a {prob}% chance of arriving.",
+                    "Moving {mod} {dist} metres blocks the route to {receiver}. Goal danger drops "
+                    "from {orig_pct}% to {sim_pct}%, and the pass only has a {prob}% chance of arriving.",
                     "Goal threat: {orig_pct}% → {sim_pct}%",
                 ),
                 "up": (
                     "This makes the attack more dangerous",
-                    "With {mod} in the new spot, the attack's chance of leading to a goal rises from {orig_pct}% "
-                    "to {sim_pct}%, and the pass is now {prob}% likely to arrive.",
+                    "With {mod} in the new spot, goal danger rises from {orig_pct}% to {sim_pct}%, "
+                    "and the pass is {prob}% likely to arrive.",
                     "Goal threat: {orig_pct}% → {sim_pct}%",
                 ),
                 "flat": (
                     "Not much changes",
-                    "Moving {mod} keeps the danger about the same: roughly a {sim_pct}% chance of leading to a goal, "
-                    "with the pass {prob}% likely to arrive.",
+                    "Moving {mod} keeps the danger around {sim_pct}%, with the pass {prob}% likely to arrive.",
                     "Goal threat: {sim_pct}%",
                 ),
             },
             CO: {
                 "down": (
-                    "Good block, but there's a gap in the middle",
-                    "{mod} shuts the obvious pass, but now there's space inside. "
-                    "A clever pass to {optimal} would still hurt us.",
+                    "Good block, but watch the middle",
+                    "{mod} shuts the obvious pass, though a quick ball inside to {optimal} could still hurt us.",
                     "Watch out for {optimal}",
                 ),
                 "up": (
                     "Great run: the defence is pulled apart",
-                    "That run drags defenders away. If the ball reaches {optimal} quickly, "
-                    "the attack has extra players in the box.",
+                    "That run drags defenders away. Get the ball to {optimal} quickly and we are in.",
                     "Key player: {optimal}",
                 ),
                 "flat": (
                     "Right place, but too passive",
-                    "{mod} is in position but isn't close enough to bother anyone. "
-                    "{optimal} can still turn and run at the defence.",
+                    "{mod} is in position but needs to get tighter so {optimal} cannot turn.",
                     "Get closer to {optimal}",
                 ),
             },
@@ -201,42 +195,38 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
         "coach": {
             DS: {
                 "down": (
-                    "Validated: threat down {pct}% after the adjustment",
-                    "Moving {mod} {dist} m to ({mx}, {my}) lowers xT from {orig} to {sim} (Δ {delta}); the pass to "
-                    "{receiver} drops to {prob}% completion. Keep the move inside the 6 m inertia radius so it is "
-                    "reachable in real time.",
+                    "Validated: threat down {pct}%",
+                    "Moving {mod} {dist} m lowers xT from {orig} to {sim} and cuts the pass to "
+                    "{receiver} to {prob}% completion.",
                     "ΔxT: {delta} | Pass prob.: {prob}%",
                 ),
                 "up": (
-                    "Rejected: the adjustment adds {delta} xT",
-                    "With {mod} at ({mx}, {my}) xT goes from {orig} to {sim} and pass completion rises to {prob}%. "
-                    "The move opens space instead of closing it: revert it or pick another defender.",
+                    "Rejected: adjustment adds {delta} xT",
+                    "With {mod} moved, xT rises from {orig} to {sim} and pass completion reaches {prob}%. "
+                    "Pick another defender to close the space.",
                     "ΔxT: {delta} | Pass prob.: {prob}%",
                 ),
                 "flat": (
-                    "No measurable gain (ΔxT 0.00)",
-                    "{mod}'s new position leaves xT at {sim} and pass completion at {prob}%. "
-                    "Spend the movement on a defender nearer the ball.",
+                    "No measurable gain",
+                    "{mod}'s new spot leaves xT at {sim} and pass completion at {prob}%. "
+                    "Use the move on a defender closer to the ball.",
                     "xT: {sim} | Pass prob.: {prob}%",
                 ),
             },
             CO: {
                 "down": (
-                    "Coaching point: keep {mod} there and cover inside",
-                    "{mod} screens the pass to {receiver}; the nearest central midfielder slides 3 to 4 m inside "
-                    "to deny {optimal}. Trigger: the passer's head goes up.",
+                    "Keep {mod} there and cover inside",
+                    "{mod} screens the pass to {receiver}; slide the midfielder 3 m inside to deny {optimal}.",
                     "Cover the lane to {optimal}",
                 ),
                 "up": (
-                    "Coaching point: undo it, the shape breaks",
-                    "That position drags the line and frees {optimal}. Hold the line with the centre-back "
-                    "and let the full-back press the ball instead.",
+                    "Undo it, the defensive line breaks",
+                    "That position frees {optimal}. Hold the line with the centre-back and press with the full-back.",
                     "Hold the line",
                 ),
                 "flat": (
-                    "Coaching point: press closer",
-                    "The position is fine, the intensity isn't. {mod} must close to under 2 m "
-                    "before {optimal} receives on the half-turn.",
+                    "Step in tighter on the receiver",
+                    "Position is fine, intensity is not. {mod} must close to under 2 m before {optimal} receives.",
                     "Pressing distance < 2 m",
                 ),
             },
@@ -245,35 +235,31 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
             DS: {
                 "down": (
                     "The defence closes the route to {receiver}",
-                    "{mod} moves {dist} metres and ends up {mod_spot}. From there, {mod} stands in the path of the "
-                    "pass to {receiver}. The attack becomes less dangerous: its chance of leading to a goal falls "
-                    "from {orig_pct} to {sim_pct} percent.",
+                    "{mod} moves {dist} metres and ends up {mod_spot}, blocking the pass to {receiver}. "
+                    "Goal danger falls from {orig_pct} to {sim_pct} percent.",
                     "Goal threat {orig_pct}% to {sim_pct}%",
                 ),
                 "up": (
                     "The attack finds more space",
-                    "{mod} moves {dist} metres and ends up {mod_spot}. That opens a path forward: the chance of a goal "
-                    "rises from {orig_pct} to {sim_pct} percent, and the pass has a {prob} percent chance of arriving.",
+                    "{mod} moves {dist} metres and ends up {mod_spot}. Goal danger rises from {orig_pct} "
+                    "to {sim_pct} percent, with a {prob} percent pass chance.",
                     "Goal threat {orig_pct}% to {sim_pct}%",
                 ),
                 "flat": (
                     "The picture stays the same",
-                    "{mod} moves {dist} metres and ends up {mod_spot}. Nothing important changes: the chance of a goal "
-                    "stays at about {sim_pct} percent.",
+                    "{mod} moves {dist} metres and ends up {mod_spot}. Goal danger stays at about {sim_pct} percent.",
                     "Goal threat {sim_pct}%",
                 ),
             },
             CO: {
                 "down": (
                     "Space opens on the inside",
-                    "Picture the gap between the defenders. With {mod} pulled across, {optimal} is free "
-                    "{optimal_spot}, waiting for a pass through the middle.",
+                    "With {mod} pulled across, {optimal} is free {optimal_spot}, waiting for a pass through the middle.",
                     "Free player: {optimal}",
                 ),
                 "up": (
                     "Defenders are dragged out of position",
-                    "The run pulls defenders towards the ball. {optimal} is now unmarked {optimal_spot}; "
-                    "a quick pass there would put the attack in front of goal.",
+                    "The run pulls defenders towards the ball, leaving {optimal} unmarked {optimal_spot}.",
                     "Free player: {optimal}",
                 ),
                 "flat": (
@@ -288,44 +274,37 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
         "analyst": {
             DS: {
                 "down": (
-                    "Colapso del peligro esperado (-{pct}% en xT relativo)",
-                    "Al desplazar a {mod} {dist} metros hacia ({mx}, {my}), su polígono de Voronoi intercepta la "
-                    "trayectoria hacia {receiver}. El xT cae de {orig} a {sim} y la probabilidad de pase se reduce "
-                    "al {prob}%.",
+                    "El peligro esperado cae un {pct}%",
+                    "Desplazar a {mod} {dist} metros cierra la línea de pase hacia {receiver}. "
+                    "El xT baja de {orig} a {sim} y la probabilidad de pase cae al {prob}%.",
                     "ΔxT: {delta} | Prob. pase: {prob}%",
                 ),
                 "up": (
-                    "Incremento sustancial de amenaza ofensiva ({delta} xT)",
-                    "El movimiento de {mod} libera un corredor directo con valor de celda xT de {sim}. "
-                    "La probabilidad de pase sube al {prob}% y el dominio espacial local se expande al {ctrl}%.",
+                    "Aumenta la amenaza ofensiva ({delta} xT)",
+                    "El movimiento de {mod} abre un pasillo directo de {sim} xT. "
+                    "La probabilidad de pase sube al {prob}% y el control del espacio llega al {ctrl}%.",
                     "ΔxT: {delta} | Control: {ctrl}%",
                 ),
                 "flat": (
-                    "Equilibrio estadístico neutro en la celda xT (ΔxT: 0.00)",
-                    "El reposicionamiento de {mod} mantiene el vector de amenaza en {sim} xT. La probabilidad de pase "
-                    "se sitúa en {prob}% sin alteración significativa del control territorial.",
+                    "Amenaza neutra en {sim} xT",
+                    "El ajuste de {mod} mantiene la amenaza en {sim} xT y la probabilidad de pase en {prob}%.",
                     "xT: {sim} | Prob. pase: {prob}%",
                 ),
             },
             CO: {
                 "down": (
-                    "Tapas el pase a {receiver}, pero regalas el carril interior",
-                    "Sí, el retroceso de {mod} corta el latigazo por fuera, pero mira cómo se abre el intervalo entre "
-                    "central y lateral. Si el pasador levanta la cabeza y filtra por dentro hacia {optimal}, nos "
-                    "agarran mal perfilados y con el mediocentro descolgado.",
-                    "Intervalo defensivo abierto hacia {optimal}",
+                    "Tapas a {receiver}, pero vigila por dentro",
+                    "El retroceso de {mod} corta el pase exterior, pero cuidado si filtran por dentro hacia {optimal}.",
+                    "Intervalo abierto hacia {optimal}",
                 ),
                 "up": (
-                    "Rompimiento vertical agresivo; ojo a la basculación",
-                    "Excelente desmarque que arrastra marcas y descoloca a la última línea. Si el pase va con ventaja "
-                    "hacia {optimal}, quedan en superioridad en el área, pero el pivote tiene que cerrar el carril "
-                    "opuesto para evitar la contra si hay rebote.",
+                    "Buen desmarque vertical; ojo a la vigilancia",
+                    "Gran movimiento arrastrando marcas: si el balón llega rápido a {optimal} creamos peligro claro.",
                     "Basculación defensiva requerida",
                 ),
                 "flat": (
-                    "Fijación posicional correcta; falta agresividad de marca",
-                    "{mod} mantiene la línea pero no incomoda la recepción. Si no acortamos la distancia de acoso antes "
-                    "de que {optimal} reciba perfilado hacia adelante, el bloque defensivo pierde la iniciativa.",
+                    "Buena posición, pero falta apretar la marca",
+                    "{mod} aguanta la línea pero no incomoda. Hay que encimar antes de que {optimal} reciba girado.",
                     "Distancia de acoso > 2.0 m",
                 ),
             },
@@ -334,40 +313,36 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
             DS: {
                 "down": (
                     "Ese movimiento reduce el peligro un {pct}%",
-                    "Mover a {mod} {dist} metros tapa el camino hacia {receiver}. La probabilidad de que la jugada "
-                    "acabe en gol baja del {orig_pct}% al {sim_pct}%, y el pase solo tiene un {prob}% de llegar.",
+                    "Mover a {mod} {dist} metros tapa el pase a {receiver}. El peligro de gol baja del "
+                    "{orig_pct}% al {sim_pct}%, y el pase queda en un {prob}% de éxito.",
                     "Peligro de gol: {orig_pct}% → {sim_pct}%",
                 ),
                 "up": (
                     "Así el ataque es más peligroso",
-                    "Con {mod} en la nueva posición, la probabilidad de que la jugada acabe en gol sube del "
-                    "{orig_pct}% al {sim_pct}%, y el pase tiene un {prob}% de llegar.",
+                    "Con {mod} en esa posición, el peligro de gol sube del {orig_pct}% al {sim_pct}% y el pase "
+                    "tiene un {prob}% de llegar.",
                     "Peligro de gol: {orig_pct}% → {sim_pct}%",
                 ),
                 "flat": (
                     "Apenas cambia nada",
-                    "Mover a {mod} deja el peligro casi igual: más o menos un {sim_pct}% de que acabe en gol, "
-                    "y el pase tiene un {prob}% de llegar.",
+                    "Mover a {mod} deja el peligro parecido, en torno al {sim_pct}% de acabar en gol.",
                     "Peligro de gol: {sim_pct}%",
                 ),
             },
             CO: {
                 "down": (
-                    "Buen bloqueo, pero queda un hueco por dentro",
-                    "{mod} tapa el pase evidente, pero ahora hay espacio por el centro. "
-                    "Un buen pase a {optimal} todavía nos haría daño.",
+                    "Buen bloqueo, pero queda hueco por dentro",
+                    "{mod} tapa el pase claro, aunque un balón filtrado a {optimal} todavía puede hacernos daño.",
                     "Cuidado con {optimal}",
                 ),
                 "up": (
-                    "Gran desmarque: la defensa se descoloca",
-                    "Ese movimiento arrastra a los defensas. Si el balón llega rápido a {optimal}, "
-                    "el ataque tendrá más jugadores en el área.",
+                    "Gran desmarque que rompe la línea",
+                    "Ese movimiento arrastra a los defensas. Si el balón llega rápido a {optimal}, hay ocasión clara.",
                     "Jugador clave: {optimal}",
                 ),
                 "flat": (
-                    "Bien colocado, pero demasiado pasivo",
-                    "{mod} está en su sitio pero no molesta a nadie. "
-                    "{optimal} todavía puede girarse y encarar a la defensa.",
+                    "Bien colocado, pero demasiado lejos",
+                    "{mod} está en su sitio pero deja pensar. Si no se acerca, {optimal} puede girarse cómodo.",
                     "Acércate a {optimal}",
                 ),
             },
@@ -375,42 +350,37 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
         "coach": {
             DS: {
                 "down": (
-                    "Validado: el peligro baja un {pct}% con el ajuste",
-                    "Mover a {mod} {dist} m hasta ({mx}, {my}) baja el xT de {orig} a {sim} (Δ {delta}); el pase a "
-                    "{receiver} cae al {prob}% de acierto. Mantén el ajuste dentro del radio de inercia de 6 m para "
-                    "que sea alcanzable en tiempo real.",
+                    "Validado: el peligro baja un {pct}%",
+                    "Mover a {mod} {dist} m reduce el xT de {orig} a {sim} y deja el pase a {receiver} en un {prob}%.",
                     "ΔxT: {delta} | Prob. pase: {prob}%",
                 ),
                 "up": (
                     "Descartado: el ajuste suma {delta} xT",
-                    "Con {mod} en ({mx}, {my}) el xT pasa de {orig} a {sim} y la probabilidad de pase sube al {prob}%. "
-                    "El movimiento abre espacio en vez de cerrarlo: deshazlo o elige otro defensor.",
+                    "Con {mod} desplazado el xT sube de {orig} a {sim} y el pase sube al {prob}%. "
+                    "Conviene elegir otro defensor para cerrar espacio.",
                     "ΔxT: {delta} | Prob. pase: {prob}%",
                 ),
                 "flat": (
-                    "Sin ganancia medible (ΔxT 0.00)",
-                    "La nueva posición de {mod} deja el xT en {sim} y la probabilidad de pase en {prob}%. "
-                    "Invierte el movimiento en un defensor más cercano al balón.",
+                    "Sin ganancia medible",
+                    "La nueva posición de {mod} mantiene el xT en {sim} y el pase en {prob}%. "
+                    "Mejor ajustar con un defensor más cercano al balón.",
                     "xT: {sim} | Prob. pase: {prob}%",
                 ),
             },
             CO: {
                 "down": (
-                    "Consigna: {mod} se queda ahí y cerramos por dentro",
-                    "{mod} tapa el pase a {receiver}; el mediocentro más cercano bascula 3 o 4 m hacia dentro para "
-                    "negar a {optimal}. Señal: cuando el pasador levanta la cabeza.",
+                    "Consigna: {mod} cierra ahí y basculamos dentro",
+                    "{mod} tapa a {receiver}; que el mediocentro cierre 3 m por dentro para vigilar a {optimal}.",
                     "Cerrar la línea hacia {optimal}",
                 ),
                 "up": (
-                    "Consigna: deshazlo, se rompe la estructura",
-                    "Esa posición arrastra la línea y libera a {optimal}. Que el central mantenga la línea "
-                    "y sea el lateral quien salga a presionar el balón.",
+                    "Consigna: corregir, se abre la línea",
+                    "Esa posición libera a {optimal}. Que el central aguante la línea y salte el lateral al balón.",
                     "Mantener la línea",
                 ),
                 "flat": (
-                    "Consigna: presión más cerca",
-                    "La posición es buena, la intensidad no. {mod} tiene que cerrar a menos de 2 m "
-                    "antes de que {optimal} reciba a media vuelta.",
+                    "Consigna: acortar distancia de presión",
+                    "Buena zona pero poca intensidad. {mod} debe encimar a menos de 2 m antes de que {optimal} gire.",
                     "Distancia de presión < 2 m",
                 ),
             },
@@ -419,40 +389,36 @@ TEMPLATES: Dict[str, Dict[str, Dict[AgentRole, Dict[str, tuple]]]] = {
             DS: {
                 "down": (
                     "La defensa cierra el camino hacia {receiver}",
-                    "{mod} se desplaza {dist} metros y queda {mod_spot}. Desde ahí se coloca en la trayectoria del "
-                    "pase hacia {receiver}. El ataque pierde peligro: la probabilidad de gol baja del {orig_pct} "
-                    "al {sim_pct} por ciento.",
+                    "{mod} se mueve {dist} metros y queda {mod_spot}, cortando el pase a {receiver}. "
+                    "La probabilidad de gol baja del {orig_pct} al {sim_pct} por ciento.",
                     "Peligro de gol {orig_pct}% a {sim_pct}%",
                 ),
                 "up": (
                     "El ataque encuentra más espacio",
-                    "{mod} se desplaza {dist} metros y queda {mod_spot}. Eso abre un camino hacia delante: la "
-                    "probabilidad de gol sube del {orig_pct} al {sim_pct} por ciento, y el pase tiene un {prob} "
-                    "por ciento de llegar.",
+                    "{mod} se mueve {dist} metros y queda {mod_spot}. La probabilidad de gol sube del "
+                    "{orig_pct} al {sim_pct} por ciento, con un {prob} por ciento de éxito en el pase.",
                     "Peligro de gol {orig_pct}% a {sim_pct}%",
                 ),
                 "flat": (
                     "La situación no cambia",
-                    "{mod} se desplaza {dist} metros y queda {mod_spot}. No cambia nada importante: la probabilidad de gol "
-                    "sigue en torno al {sim_pct} por ciento.",
+                    "{mod} se mueve {dist} metros y queda {mod_spot}. La probabilidad de gol sigue en torno al "
+                    "{sim_pct} por ciento.",
                     "Peligro de gol {sim_pct}%",
                 ),
             },
             CO: {
                 "down": (
                     "Se abre espacio por dentro",
-                    "Imagina el hueco entre los defensas. Con {mod} desplazado, {optimal} queda libre "
-                    "{optimal_spot}, esperando un pase por el centro.",
+                    "Con {mod} desplazado, {optimal} queda libre {optimal_spot} esperando el pase interior.",
                     "Jugador libre: {optimal}",
                 ),
                 "up": (
                     "Los defensas quedan fuera de sitio",
-                    "El desmarque arrastra a los defensas hacia el balón. {optimal} queda sin marca {optimal_spot}; "
-                    "un pase rápido ahí dejaría al ataque frente a la portería.",
+                    "El desmarque arrastra marcas y deja a {optimal} libre {optimal_spot} frente a portería.",
                     "Jugador libre: {optimal}",
                 ),
                 "flat": (
-                    "El defensor aguanta la posición pero no aprieta",
+                    "El defensor aguanta pero no aprieta",
                     "{mod} está {mod_spot}, a unos pasos de {optimal}, que todavía puede recibir y girarse.",
                     "Amenaza más cercana: {optimal}",
                 ),
@@ -714,10 +680,10 @@ def delta_context(frame: MatchFramePayload, lang: Language = DEFAULT_LANGUAGE) -
         dx, dy = p.x - p.original_x, p.y - p.original_y
         if lang == "es":
             direction = "hacia la banda" if abs(dy) > abs(dx) else ("reculando hacia su portería" if dx < 0 else "adelantando la línea")
-            moved.append(f"{p.name} (#{p.jersey_number}) desplazado {dist:.1f} m {direction} a ({p.x:.1f}, {p.y:.1f})")
+            moved.append(f"{p.name} desplazado {dist:.1f} m {direction}")
         else:
             direction = "towards the touchline" if abs(dy) > abs(dx) else ("dropping towards their goal" if dx < 0 else "stepping up")
-            moved.append(f"{p.name} (#{p.jersey_number}) moved {dist:.1f} m {direction} to ({p.x:.1f}, {p.y:.1f})")
+            moved.append(f"{p.name} moved {dist:.1f} m {direction}")
 
     return {
         "actor": actor,
@@ -772,15 +738,9 @@ def counterfactual_debate(frame: MatchFramePayload, lang: Language = DEFAULT_LAN
     ds_parts = list(templates[DS][case])
     co_parts = list(templates[CO][case])
 
-    # When invoked by the Multi-Agent Orchestrator with tool trace & Coach Bianchi's proposal,
-    # enrich the dialectical exchange so Bianchi proposes a concrete adjustment, Voronoi validates
-    # it with tool telemetry (simulate_counterfactual, optimizer/solve, xt_at), they contrast
-    # numbers, and issue an explicit verdict.
     if coach_proposal is not None and tool_trace and audience in ("analyst", "coach"):
         opt_xt: Optional[float] = None
-        opt_prob: Optional[float] = None
         bianchi_xt: Optional[float] = None
-        target_cell_xt: Optional[float] = None
         for rec in tool_trace:
             tname = getattr(rec, "tool_name", "")
             res = getattr(rec, "result", {}) or {}
@@ -788,41 +748,33 @@ def counterfactual_debate(frame: MatchFramePayload, lang: Language = DEFAULT_LAN
                 pm = res.get("projected_metrics", {})
                 if "simulated_xt" in pm:
                     opt_xt = float(pm["simulated_xt"])
-                if "pass_completion_prob" in pm:
-                    opt_prob = float(pm["pass_completion_prob"])
             elif tname == "simulate_counterfactual":
                 if "simulated_xt" in res:
                     bianchi_xt = float(res["simulated_xt"])
-            elif tname == "xt_at":
-                if "xt_rounded" in res:
-                    target_cell_xt = float(res["xt_rounded"])
 
         p_name = getattr(coach_proposal, "player_name", fields["mod"])
         p_disp = float(getattr(coach_proposal, "displacement_m", 3.5))
-        p_tx = float(getattr(coach_proposal, "to_x", 90.0))
-        p_ty = float(getattr(coach_proposal, "to_y", 40.0))
         opt_xt_val = opt_xt if opt_xt is not None else m.simulated_xt
         bianchi_xt_val = bianchi_xt if bianchi_xt is not None else m.simulated_xt
-        cell_xt_val = target_cell_xt if target_cell_xt is not None else m.simulated_xt
 
         if lang == "es":
             co_parts[1] = (
-                f"{co_parts[1]} Propongo bascular a {p_name} {p_disp:.1f} m hacia ({p_tx:.1f}, {p_ty:.1f}) "
-                f"para cerrar ese intervalo interior. Veredicto táctico: corregir perfil y vigilancia."
+                f"{co_parts[1]} Propongo bascular a {p_name} {p_disp:.1f} m para tapar ese hueco interior. "
+                f"Veredicto táctico: corregir perfil y vigilancia."
             )
             ds_parts[1] = (
-                f"{ds_parts[1]} Validando la propuesta de Bianchi con las herramientas (xt_at={cell_xt_val:.2f}, "
-                f"simulate_counterfactual={bianchi_xt_val:.2f} xT vs optimizer/solve={opt_xt_val:.2f} xT): "
+                f"{ds_parts[1]} El ajuste de Bianchi deja la jugada en {bianchi_xt_val:.2f} xT frente a "
+                f"{opt_xt_val:.2f} xT del óptimo. "
                 f"Veredicto cuantitativo: {'ajuste aprobado' if delta <= 0 else 'aplicar solución del optimizador'}."
             )
         else:
             co_parts[1] = (
-                f"{co_parts[1]} I propose sliding {p_name} {p_disp:.1f} m to ({p_tx:.1f}, {p_ty:.1f}) "
-                f"to screen that inside channel. Tactical verdict: adjust cover and body shape."
+                f"{co_parts[1]} I propose sliding {p_name} {p_disp:.1f} m to close that inside gap. "
+                f"Tactical verdict: adjust cover and body shape."
             )
             ds_parts[1] = (
-                f"{ds_parts[1]} Validating Bianchi's proposal via engine tools (xt_at={cell_xt_val:.2f}, "
-                f"simulate_counterfactual={bianchi_xt_val:.2f} xT vs optimizer/solve={opt_xt_val:.2f} xT): "
+                f"{ds_parts[1]} Bianchi's shift leaves the play at {bianchi_xt_val:.2f} xT versus "
+                f"{opt_xt_val:.2f} xT for the optimum. "
                 f"Quantitative verdict: {'adjustment approved' if delta <= 0 else 'apply optimizer solution'}."
             )
 
@@ -840,25 +792,22 @@ def counterfactual_debate(frame: MatchFramePayload, lang: Language = DEFAULT_LAN
 AUDIENCE_STYLE = {
     "casual": (
         "Audience: casual fans. Use plain, friendly words and no jargon. Never write 'xT'; describe it as the "
-        "chance (in %) that the move leads to a goal. Short sentences."
+        "chance (in %) that the move leads to a goal. Short sentences, no parentheses."
     ),
     "analyst": (
-        "Audience: performance analysts. Quote the exact metrics: xT on the 16x12 grid, pass probability and "
-        "Voronoi space control. Precise, technical tone."
+        "Audience: performance analysts. Quote the key metrics clearly and concisely without parenthetical coordinates."
     ),
     "coach": (
-        "Audience: coaching staff. Give a clear verdict on the adjustment (keep it or undo it) and one concrete, "
-        "actionable coaching point. Use tactical vocabulary."
+        "Audience: coaching staff. Give a clear verdict on the adjustment and one concrete coaching point."
     ),
     "audio_description": (
         "Audience: blind and low-vision fans listening to audio. Describe where players are on the pitch "
-        "(wing, half-space, middle, distance from goal) and what changes, as spoken commentary. Say numbers "
-        "in words-friendly form ('18 percent'), avoid symbols, coordinates and abbreviations."
+        "and what changes, as spoken commentary. Avoid symbols, coordinates, parentheses and abbreviations."
     ),
 }
 LANGUAGE_STYLE = {
-    "en": "Write every text field in British English football commentary style.",
-    "es": "Escribe todos los campos de texto en español de España, con el estilo de un comentarista de fútbol.",
+    "en": "Write every text field in crisp, natural British English football commentary style.",
+    "es": "Escribe todos los campos de texto en español de España natural y directo, como un comentarista de fútbol.",
 }
 
 
@@ -875,7 +824,7 @@ def llm_system_prompt(lang: Language, audience: Audience) -> str:
         "challenges or complements the numbers and warns about the alternative receiver. highlighted_player_ids: "
         "the moved defender and the optimal_pass_target_id.\n\n"
         "Rules: use only the numbers given in the user message, never invent statistics; headline is one line; "
-        "analysis_body is 2-3 sentences.\n"
+        "analysis_body is 1-2 short, natural sentences without parentheses.\n"
         f"{LANGUAGE_STYLE[lang]}\n{AUDIENCE_STYLE[audience]}\n\n"
         "Required JSON structure:\n"
         "{\n"
@@ -920,10 +869,9 @@ def bianchi_agent_system_prompt(lang: Language, audience: Audience) -> str:
         f"You are '{name}' (agent_role: 'classic_coach', avatar_badge: 'PRO-COACH'). "
         "You are a veteran tactical football coach in a dialectical debate with Dr. Voronoi (Data Scientist). "
         "Your job in Turn 1 is to:\n"
-        "1. Read the counterfactual freeze-frame and identify the tactical danger (e.g. open half-space, "
-        "centre-back/full-back interval, pressing distance, or unmarked optimal receiver).\n"
+        "1. Read the counterfactual freeze-frame and identify the tactical danger.\n"
         "2. Propose a concrete defensive/tactical adjustment within the 6.0m inertia radius (player_id, to_x, to_y) "
-        "and state a clear coaching verdict.\n"
+        "and state a clear, concise coaching verdict without parentheses.\n"
         "3. Never invent numbers: only cite the exact numbers provided in the telemetry or proposal.\n"
         f"{LANGUAGE_STYLE[lang]}\n{AUDIENCE_STYLE[audience]}\n"
         "Reply ONLY with valid JSON:\n"
@@ -950,8 +898,7 @@ def voronoi_agent_system_prompt(lang: Language, audience: Audience) -> str:
         "Your job is to:\n"
         "1. Call the engine tools (`xt_at`, `simulate_counterfactual`, `optimizer_solve`) to validate both the user's "
         "counterfactual move and Coach Bianchi's proposed adjustment.\n"
-        "2. Contrast/disagree with Coach Bianchi using exact metrics (original_xt, simulated_xt, xt_delta, "
-        "pass_completion_prob %, space_control_home_pct %, and optimizer projected_xt) and issue a final quantitative verdict.\n"
+        "2. Contrast with Coach Bianchi using exact metrics in 1-2 short, natural sentences without parentheses.\n"
         "3. Every single number in your text MUST match the exact metrics from the frame or tool outputs.\n"
         f"{LANGUAGE_STYLE[lang]}\n{AUDIENCE_STYLE[audience]}\n"
         "After calling tools, reply ONLY with valid JSON:\n"
@@ -972,12 +919,12 @@ def voronoi_agent_system_prompt(lang: Language, audience: Audience) -> str:
 # ---------------------------------------------------------------------------
 REVEAL_TEXT = {
     "en": {
-        "headline_attack": "The best move: {who}",
-        "headline_defend": "The best defensive move: {who}",
-        "moved": "{name} moves {dist} m and ends up {spot}",
-        "joiner": ", and ",
-        "body_attack": "{moves}. The best pass is then to {target}, and the chance of a goal rises from {base}% to {best}%.",
-        "body_defend": "{moves}. The best pass left is to {target}, and the chance of a goal falls from {base}% to {best}%.",
+        "headline_attack": "Best move: {who}",
+        "headline_defend": "Best defensive move: {who}",
+        "moved": "{name} moves {spot}",
+        "joiner": " and ",
+        "body_attack": "{moves} to open the pass to {target}. The chance of a goal rises from {base}% to {best}%.",
+        "body_defend": "{moves} to cover {target}. The chance of a goal falls from {base}% to {best}%.",
         "no_move": "Nobody had to move: the original positions were already the best available.",
         "you_scored": "You reached {score} of 1000 points.",
         "you_beat": "You beat the machine: your move was better than the optimiser's.",
@@ -985,12 +932,12 @@ REVEAL_TEXT = {
         "community": "{share}% of fans got 900 points or more.",
     },
     "es": {
-        "headline_attack": "El mejor movimiento: {who}",
-        "headline_defend": "El mejor movimiento defensivo: {who}",
-        "moved": "{name} se desplaza {dist} m y queda {spot}",
-        "joiner": ", y ",
-        "body_attack": "{moves}. Así, el mejor pase es hacia {target} y la probabilidad de gol sube del {base}% al {best}%.",
-        "body_defend": "{moves}. Así, el mejor pase que queda es hacia {target} y la probabilidad de gol baja del {base}% al {best}%.",
+        "headline_attack": "Mejor movimiento: {who}",
+        "headline_defend": "Mejor ajuste defensivo: {who}",
+        "moved": "{name} va {spot}",
+        "joiner": " y ",
+        "body_attack": "{moves} para habilitar a {target}. La probabilidad de gol sube del {base}% al {best}%.",
+        "body_defend": "{moves} para cerrar sobre {target}. La probabilidad de gol baja del {base}% al {best}%.",
         "no_move": "No hacía falta mover a nadie: las posiciones originales ya eran las mejores.",
         "you_scored": "Has conseguido {score} de 1000 puntos.",
         "you_beat": "Has superado a la máquina: tu movimiento era mejor que el del optimizador.",
@@ -1025,15 +972,14 @@ def reveal_explanation(frame: MatchFramePayload, mode: str, moves: List[tuple], 
     }
 
 
-
 def _describe_move_list(
     by_id: Dict[int, object],
     moves: List[Tuple[int, float, float]],
     lang: Language,
 ) -> Tuple[str, str, List[int]]:
-    """Returns (who_joined, short_moves_desc, moved_ids) for a list of (player_id, x, y) moves."""
+    """Returns (who_joined, short_moves_desc, moved_ids) without any parenthetical clutter."""
     if not moves:
-        return ("—", "0.0 m", [])
+        return ("—", "0 m", [])
     names: List[str] = []
     short_parts: List[str] = []
     ids: List[int] = []
@@ -1044,12 +990,11 @@ def _describe_move_list(
         ids.append(pid)
         names.append(p.name)
         dist = math.hypot(x - p.x, y - p.y)
-        spot = describe_spot(x, y, lang)
-        short_parts.append(f"{p.name} {dist:.1f} m ({spot})")
-    joiner = " + " if lang == "es" else " + "
+        short_parts.append(f"{p.name} {dist:.0f} m")
+    joiner = " y " if lang == "es" else " and "
     return (
         joiner.join(names) if names else "—",
-        ", ".join(short_parts) if short_parts else "0.0 m",
+        ", ".join(short_parts) if short_parts else "0 m",
         ids,
     )
 
@@ -1069,20 +1014,22 @@ def reveal_pundits_and_comparison(
     lang: Language,
 ) -> Dict[str, object]:
     """
-    Builds the dialectical Live Match Reveal commentary for Dr. Voronoi (AI-QUANT) and
-    Coach Bianchi (PRO-COACH), explicitly contrasting the user's move against the bot's
-    (optimiser's) move while preserving each pundit's signature voice.
+    Builds both the visual card explanation AND distinct, natural spoken commentary lines
+    (`voronoi_voice`, `bianchi_voice`) for Dr. Voronoi and Coach Bianchi at the Live Match Reveal.
+    Spoken lines are short, intuitive broadcast reactions with zero parentheses or coordinates.
     """
     base_exp = reveal_explanation(frame, mode, opt_moves, base_value, best_value, best_target_id, lang)
     by_id = {p.player_id: p for p in frame.players}
-    bot_who, bot_moves_short, bot_ids = _describe_move_list(by_id, opt_moves, lang)
+    bot_who, _, bot_ids = _describe_move_list(by_id, opt_moves, lang)
     base_pct = _pct(base_value)
     best_pct = _pct(best_value)
     yours_pct = _pct(user_value) if user_value is not None else None
+    target = by_id.get(best_target_id)
+    target_name = target.name if target else FALLBACK_NAMES[lang]["optimal"]
 
     opt_coords = {pid: (x, y) for pid, x, y in opt_moves}
-    user_who, user_moves_short, user_ids = (
-        _describe_move_list(by_id, user_moves, lang) if user_moves else ("—", "0.0 m", [])
+    user_who, _, user_ids = (
+        _describe_move_list(by_id, user_moves, lang) if user_moves else ("—", "0 m", [])
     )
     same_players = bool(user_moves) and ({pid for pid, _, _ in user_moves} == {pid for pid, _, _ in opt_moves})
 
@@ -1097,186 +1044,200 @@ def reveal_pundits_and_comparison(
 
     gap_pct = abs(best_pct - yours_pct) if yours_pct is not None else abs(best_pct - base_pct)
 
-    # 1. Dr. Voronoi (Data Scientist): quantitative & spatial comparison between user and bot
+    # 1. Dr. Voronoi: concise card comparison + natural spoken line (different from card text)
     if user_moves is None or yours_pct is None:
         voronoi_comparison = ""
         voronoi_metric = (
-            f"Óptimo bot: {base_pct}% → {best_pct}%" if lang == "es" else f"Bot optimum: {base_pct}% → {best_pct}%"
+            f"Óptimo: {base_pct}% → {best_pct}%" if lang == "es" else f"Optimum: {base_pct}% → {best_pct}%"
         )
+        if lang == "es":
+            if mode == "attack":
+                voronoi_voice = f"La jugada pedía mover a {bot_who} para buscar a {target_name} y subir el peligro de gol al {best_pct} por ciento."
+            else:
+                voronoi_voice = f"Había que ajustar con {bot_who} sobre {target_name} para bajar el peligro de gol al {best_pct} por ciento."
+        else:
+            if mode == "attack":
+                voronoi_voice = f"The play called for moving {bot_who} to find {target_name} and lift the goal chance to {best_pct} percent."
+            else:
+                voronoi_voice = f"You needed {bot_who} closing down {target_name} to drop the goal chance to {best_pct} percent."
     elif len(user_moves) == 0:
         if lang == "es":
             voronoi_comparison = (
-                f"Comparativa espacial: mantuviste la disposición inicial ({yours_pct}% de gol), "
-                f"mientras que el bot desplazó a {bot_who} para llevar la métrica al {best_pct}% "
-                f"(diferencia de {gap_pct} puntos porcentuales)."
+                f"Sin mover jugadores te quedaste en el {yours_pct}%, mientras que el ajuste con {bot_who} "
+                f"llevaba la jugada al {best_pct}%."
             )
-            voronoi_metric = f"Bot ({bot_who}): {best_pct}% | Tú (sin mover): {yours_pct}%"
+            voronoi_voice = (
+                f"Al no tocar nada te quedaste en el {yours_pct} por ciento; moviendo a {bot_who} llegábamos al {best_pct} por ciento."
+            )
+            voronoi_metric = f"Óptimo {best_pct}% vs Tú {yours_pct}%"
         else:
             voronoi_comparison = (
-                f"Spatial comparison: you kept the initial shape ({yours_pct}% goal chance), "
-                f"whereas the bot shifted {bot_who} to take the metric to {best_pct}% "
-                f"(a {gap_pct}-point delta)."
+                f"Without moving players you stayed at {yours_pct}%, whereas adjusting {bot_who} "
+                f"took the play to {best_pct}%."
             )
-            voronoi_metric = f"Bot ({bot_who}): {best_pct}% | You (no move): {yours_pct}%"
+            voronoi_voice = (
+                f"Keeping everyone still left you at {yours_pct} percent, while moving {bot_who} reached {best_pct} percent."
+            )
+            voronoi_metric = f"Optimum {best_pct}% vs You {yours_pct}%"
     elif same_players:
         if lang == "es":
             voronoi_comparison = (
-                f"Comparativa espacial: coincidiste con el bot moviendo a {user_who} ({user_moves_short}), "
-                f"quedando a {pos_diff_m:.1f} m de la coordenada óptima del algoritmo y dejando la probabilidad "
-                f"de gol en el {yours_pct}% frente al {best_pct}% del bot."
+                f"Coincidiste con el bot moviendo a {user_who} y dejaste la jugada en el {yours_pct}% "
+                f"frente al {best_pct}% óptimo."
             )
-            voronoi_metric = f"Bot: {best_pct}% vs Tú: {yours_pct}% (desviación {pos_diff_m:.1f} m)"
+            if pos_diff_m <= 2.0 or gap_pct <= 2:
+                voronoi_voice = f"Clavaste el ajuste con {user_who}: un {yours_pct} por ciento, prácticamente idéntico al óptimo."
+            else:
+                voronoi_voice = f"Acertaste moviendo a {user_who} para un {yours_pct} por ciento, a solo un par de metros del {best_pct} por ciento óptimo."
+            voronoi_metric = f"Óptimo {best_pct}% vs Tú {yours_pct}%"
         else:
             voronoi_comparison = (
-                f"Spatial comparison: you matched the bot's player selection with {user_who} ({user_moves_short}), "
-                f"finishing {pos_diff_m:.1f} m from the algorithm's optimal coordinate for a {yours_pct}% goal "
-                f"chance versus the bot's {best_pct}%."
+                f"You matched the bot by moving {user_who}, taking the play to {yours_pct}% "
+                f"versus the {best_pct}% optimum."
             )
-            voronoi_metric = f"Bot: {best_pct}% vs You: {yours_pct}% ({pos_diff_m:.1f} m offset)"
+            if pos_diff_m <= 2.0 or gap_pct <= 2:
+                voronoi_voice = f"Spot on with {user_who} at {yours_pct} percent, right on the optimal mark."
+            else:
+                voronoi_voice = f"Good call moving {user_who} for {yours_pct} percent, just a couple of steps shy of the {best_pct} percent best."
+            voronoi_metric = f"Optimum {best_pct}% vs You {yours_pct}%"
     else:
         if lang == "es":
             voronoi_comparison = (
-                f"Comparativa espacial: tu ajuste sobre {user_who} ({user_moves_short}) sitúa la probabilidad "
-                f"de gol en el {yours_pct}%, mientras que el modelo del bot optimizó con {bot_who} hasta el "
-                f"{best_pct}% (brecha de {gap_pct} puntos porcentuales)."
+                f"Tu ajuste con {user_who} dejó el peligro en el {yours_pct}%, mientras que el bot "
+                f"movió a {bot_who} para llegar al {best_pct}%."
             )
-            voronoi_metric = f"Bot ({bot_who}): {best_pct}% vs Tú ({user_who}): {yours_pct}%"
+            voronoi_voice = (
+                f"Tu movimiento con {user_who} dejó un {yours_pct} por ciento, pero la clave estaba en {bot_who} para llegar al {best_pct} por ciento."
+            )
+            voronoi_metric = f"Bot {best_pct}% vs Tú {yours_pct}%"
         else:
             voronoi_comparison = (
-                f"Spatial comparison: your adjustment with {user_who} ({user_moves_short}) puts goal probability "
-                f"at {yours_pct}%, whereas the bot's model optimised with {bot_who} to reach {best_pct}% "
-                f"(a {gap_pct}-point gap)."
+                f"Your move with {user_who} left the threat at {yours_pct}%, whereas the bot "
+                f"moved {bot_who} to reach {best_pct}%."
             )
-            voronoi_metric = f"Bot ({bot_who}): {best_pct}% vs You ({user_who}): {yours_pct}%"
+            voronoi_voice = (
+                f"Your move with {user_who} gave you {yours_pct} percent, whereas shifting {bot_who} reached {best_pct} percent."
+            )
+            voronoi_metric = f"Bot {best_pct}% vs You {yours_pct}%"
 
-    # 2. Coach Bianchi (Tactical Coach): dressing-room contrast between user's move and bot's move
+    # 2. Coach Bianchi: concise card verdict + punchy spoken reaction (different from card text)
     if user_moves is None or user_score is None or yours_pct is None:
         if lang == "es":
-            bianchi_headline = "¡En la banda no te puedes quedar congelado!"
+            bianchi_headline = "¡En la banda no te puedes quedar helado!"
             personal = (
-                f"Esta vez no enviaste ningún movimiento. ¡En el área técnica hay que decidir en segundos, míster! "
-                f"Mientras dudabas en la pizarra, el bot ajustó a {bot_who} para llevar la jugada del {base_pct}% al {best_pct}%."
+                f"Esta vez no enviaste ningún movimiento. En directo hay que decidir rápido y ajustar a {bot_who}."
             )
-            bianchi_metric = f"Sin movimiento | Ajuste del bot: {bot_who}"
+            bianchi_voice = f"Esta vez no enviaste movimiento, míster; en la banda hay que reaccionar rápido con {bot_who}."
+            bianchi_metric = f"Sin movimiento | Clave: {bot_who}"
         else:
             bianchi_headline = "Cannot freeze on the touchline!"
             personal = (
-                f"You did not submit a move this time. You have to decide in split seconds on the touchline! "
-                f"While you hesitated on the board, the bot adjusted {bot_who} to take the play from {base_pct}% to {best_pct}%."
+                f"You did not submit a move this time. On the touchline you have to act fast and adjust {bot_who}."
             )
-            bianchi_metric = f"No move sent | Bot shift: {bot_who}"
+            bianchi_voice = f"You did not submit a move this time; on the touchline you have to react fast with {bot_who}."
+            bianchi_metric = f"No move sent | Key: {bot_who}"
     elif beat_machine:
         if lang == "es":
-            bianchi_headline = f"¡Tu pizarra con {user_who} supera al algoritmo!"
+            bianchi_headline = f"¡Tu pizarra con {user_who} supera a la máquina!"
             personal = (
-                f"Has superado a la máquina: tu movimiento era mejor que el del optimizador ({user_score} de 1000 puntos). "
-                f"¡Eso es puro colmillo de vestuario! Mientras el bot movía a {bot_who} ({best_pct}%), tu lectura con "
-                f"{user_who} ({user_moves_short}) llevó la jugada al {yours_pct}%. ¡El oficio gana a la calculadora!"
+                f"Has superado a la máquina con {user_score} de 1000 puntos. El bot movió a {bot_who}, "
+                f"pero tu lectura con {user_who} fue todavía mejor."
             )
-            bianchi_metric = f"¡Superaste al bot! {user_score}/1000 pts ({yours_pct}% vs {best_pct}%)"
+            bianchi_voice = f"¡Qué barbaridad, míster! Tu jugada con {user_who} supera hasta a la máquina, puro oficio."
+            bianchi_metric = f"¡Superaste al bot! {user_score}/1000 pts"
         else:
-            bianchi_headline = f"Your board with {user_who} beats the algorithm!"
+            bianchi_headline = f"Your board with {user_who} beats the machine!"
             personal = (
-                f"You beat the machine: your move was better than the optimiser's ({user_score} of 1000 points). "
-                f"Pure dressing-room instinct! While the bot moved {bot_who} ({best_pct}%), your reading with "
-                f"{user_who} ({user_moves_short}) took the play to {yours_pct}%. Footballing craft beats the calculator!"
+                f"You beat the machine with {user_score} of 1000 points. The bot moved {bot_who}, "
+                f"but your reading with {user_who} was even better."
             )
-            bianchi_metric = f"Beat the bot! {user_score}/1000 pts ({yours_pct}% vs {best_pct}%)"
+            bianchi_voice = f"Brilliant stuff! Your move with {user_who} even beats the machine, pure footballing instinct."
+            bianchi_metric = f"Beat the bot! {user_score}/1000 pts"
     elif len(user_moves) == 0:
         if lang == "es":
-            bianchi_headline = f"Bloque estático frente al ajuste de {bot_who}"
+            bianchi_headline = f"Faltó bascular con {bot_who}"
             personal = (
-                f"Has conseguido {user_score} de 1000 puntos. Dejaste al equipo clavado en su sitio ({yours_pct}%) "
-                f"mientras el bot corregía con {bot_who} ({bot_moves_short}) para llevar la jugada al {best_pct}%. "
-                f"¡En el fútbol de élite, quien no bascula a tiempo pierde el duelo!"
+                f"Has conseguido {user_score} de 1000 puntos. Dejaste al equipo parado cuando la jugada "
+                f"pedía ajustar rápido a {bot_who}."
             )
-            bianchi_metric = f"Puntuación: {user_score}/1000 | Sin desplazar jugadores"
+            bianchi_voice = f"Si dejas al equipo clavado nos comen el espacio, míster; había que mover a {bot_who}."
+            bianchi_metric = f"Puntuación: {user_score}/1000 | Sin cambios"
         else:
-            bianchi_headline = f"Static block against the bot's shift on {bot_who}"
+            bianchi_headline = f"Needed to shift {bot_who}"
             personal = (
-                f"You reached {user_score} of 1000 points. You left the team standing still ({yours_pct}%) "
-                f"while the bot stepped in with {bot_who} ({bot_moves_short}) to take the play to {best_pct}%. "
-                f"At the top level, if you don't shift your shape in time, you lose the duel!"
+                f"You reached {user_score} of 1000 points. You left the team standing still when the play "
+                f"called for shifting {bot_who}."
             )
-            bianchi_metric = f"Score: {user_score}/1000 | 0 players moved"
+            bianchi_voice = f"Leave the team standing still and you get punished; you had to shift {bot_who}."
+            bianchi_metric = f"Score: {user_score}/1000 | No moves"
     elif user_score >= 900:
         if same_players:
             if lang == "es":
-                action_coda = (
-                    "¡Cerraste la línea de pase como manda el manual!"
-                    if mode == "defend"
-                    else "¡Atacaste el espacio libre en el segundo exacto!"
-                )
                 bianchi_headline = f"¡Misma lectura que el bot con {user_who}!"
                 personal = (
-                    f"Has conseguido {user_score} de 1000 puntos. ¡Lectura de pizarra de primer nivel! "
-                    f"Igual que la máquina, viste enseguida que la llave era mover a {user_who} ({user_moves_short}), "
-                    f"clavando un {yours_pct}% frente al {best_pct}% del bot. {action_coda}"
+                    f"Has conseguido {user_score} de 1000 puntos. Viste enseguida que la llave de la jugada "
+                    f"era mover a {user_who}."
                 )
-                bianchi_metric = f"Puntuación: {user_score}/1000 | Lectura óptima ({user_who})"
+                bianchi_voice = f"¡Lectura de manual, míster! Viste el ajuste de {user_who} en el segundo exacto."
+                bianchi_metric = f"Puntuación: {user_score}/1000 | Lectura óptima"
             else:
-                action_coda = (
-                    "Shut the passing lane right by the book!"
-                    if mode == "defend"
-                    else "Attacked the open space right on cue!"
-                )
                 bianchi_headline = f"Same reading as the bot with {user_who}!"
                 personal = (
-                    f"You reached {user_score} of 1000 points. Top-drawer tactical reading! "
-                    f"Just like the machine, you immediately spotted that the key was moving {user_who} ({user_moves_short}), "
-                    f"hitting {yours_pct}% against the bot's {best_pct}%. {action_coda}"
+                    f"You reached {user_score} of 1000 points. You spotted straight away that moving "
+                    f"{user_who} was the key."
                 )
-                bianchi_metric = f"Score: {user_score}/1000 | Optimal reading ({user_who})"
+                bianchi_voice = f"Textbook reading! You spotted that move with {user_who} right on cue."
+                bianchi_metric = f"Score: {user_score}/1000 | Optimal reading"
         else:
             if lang == "es":
-                bianchi_headline = f"Tu variante con {user_who} iguala al bot ({bot_who})"
+                bianchi_headline = f"Tu variante con {user_who} iguala a {bot_who}"
                 personal = (
-                    f"Has conseguido {user_score} de 1000 puntos. ¡Qué gran oficio táctico! "
-                    f"Aunque el bot optó por mover a {bot_who} ({best_pct}%), tu alternativa con {user_who} "
-                    f"({user_moves_short}) logró un {yours_pct}% igual de contundente. ¡En el césped hay más de un camino para mandar!"
+                    f"Has conseguido {user_score} de 1000 puntos. Aunque el bot eligió a {bot_who}, "
+                    f"tu alternativa con {user_who} funcionó igual de bien."
                 )
-                bianchi_metric = f"Puntuación: {user_score}/1000 | Variante eficaz ({user_who})"
+                bianchi_voice = f"¡Muy buen ojo! Tu alternativa con {user_who} rinde tan bien como la de la máquina."
+                bianchi_metric = f"Puntuación: {user_score}/1000 | Variante eficaz"
             else:
-                bianchi_headline = f"Your variant with {user_who} matches the bot ({bot_who})"
+                bianchi_headline = f"Your variant with {user_who} matches {bot_who}"
                 personal = (
-                    f"You reached {user_score} of 1000 points. Great tactical craft! "
-                    f"Even though the bot chose {bot_who} ({best_pct}%), your alternative with {user_who} "
-                    f"({user_moves_short}) delivered an equally effective {yours_pct}%. There is more than one way to boss the pitch!"
+                    f"You reached {user_score} of 1000 points. Even though the bot picked {bot_who}, "
+                    f"your alternative with {user_who} worked just as well."
                 )
-                bianchi_metric = f"Score: {user_score}/1000 | Effective variant ({user_who})"
+                bianchi_voice = f"Sharp eye! Your alternative with {user_who} works just as well as the machine's."
+                bianchi_metric = f"Score: {user_score}/1000 | Effective variant"
     elif same_players:
         if lang == "es":
-            bianchi_headline = f"Mismo jugador que el bot ({user_who}), distinto perfilaje"
+            bianchi_headline = f"Buen ojo eligiendo a {user_who}"
             personal = (
-                f"Has conseguido {user_score} de 1000 puntos. Tuviste buen ojo al elegir a {user_who} "
-                f"({user_moves_short}, {yours_pct}%), pero te quedaste a {pos_diff_m:.1f} m de donde lo colocó "
-                f"el bot ({bot_moves_short}, {best_pct}%). ¡En un partido cerrado, dos pasos más adentro deciden si cortas el pase o te rematan!"
+                f"Has conseguido {user_score} de 1000 puntos. Acertaste eligiendo a {user_who} como el bot, "
+                f"solo faltó ajustar un par de metros más."
             )
-            bianchi_metric = f"Puntuación: {user_score}/1000 | A {pos_diff_m:.1f} m del ajuste del bot"
+            bianchi_voice = f"Elegiste bien a {user_who}, míster, solo faltó dar un par de pasos más para cerrar la jugada."
+            bianchi_metric = f"Puntuación: {user_score}/1000 | A {pos_diff_m:.1f} m del óptimo"
         else:
-            bianchi_headline = f"Same player as the bot ({user_who}), different angle"
+            bianchi_headline = f"Good eye picking {user_who}"
             personal = (
-                f"You reached {user_score} of 1000 points. Good eye picking {user_who} "
-                f"({user_moves_short}, {yours_pct}%), but you stopped {pos_diff_m:.1f} m from where the bot placed "
-                f"them ({bot_moves_short}, {best_pct}%). In a tight game, two steps inside decide whether you cut the pass or concede!"
+                f"You reached {user_score} of 1000 points. Good eye picking {user_who} like the bot, "
+                f"just a couple of steps short of the ideal spot."
             )
-            bianchi_metric = f"Score: {user_score}/1000 | {pos_diff_m:.1f} m off the bot's spot"
+            bianchi_voice = f"Right idea picking {user_who}, you just needed two more steps to finish the job."
+            bianchi_metric = f"Score: {user_score}/1000 | {pos_diff_m:.1f} m off optimum"
     else:
         if lang == "es":
-            bianchi_headline = f"Tu movimiento ({user_who}) vs el del bot ({bot_who})"
+            bianchi_headline = f"Tu ajuste con {user_who} frente a {bot_who}"
             personal = (
-                f"Has conseguido {user_score} de 1000 puntos. Tú apostaste por desplazar a {user_who} "
-                f"({user_moves_short}) dejando un {yours_pct}%, pero el verdadero incendio táctico estaba donde "
-                f"intervino el bot con {bot_who} ({bot_moves_short}, {best_pct}%). ¡No mires solo la pelota, vigila la espalda y el carril interior!"
+                f"Has conseguido {user_score} de 1000 puntos. Moviste a {user_who}, pero el peligro real "
+                f"estaba donde intervino el bot con {bot_who}."
             )
+            bianchi_voice = f"Tocaste a {user_who}, pero el peligro de verdad estaba donde cerró la máquina con {bot_who}."
             bianchi_metric = f"Puntuación: {user_score}/1000 | Tú: {user_who} vs Bot: {bot_who}"
         else:
-            bianchi_headline = f"Your move ({user_who}) vs the bot's ({bot_who})"
+            bianchi_headline = f"Your move with {user_who} vs {bot_who}"
             personal = (
-                f"You reached {user_score} of 1000 points. You gambled on shifting {user_who} "
-                f"({user_moves_short}) for {yours_pct}%, but the real tactical fire was where the bot stepped in "
-                f"with {bot_who} ({bot_moves_short}, {best_pct}%). Don't just watch the ball—protect the inside lane!"
+                f"You reached {user_score} of 1000 points. You moved {user_who}, but the real danger "
+                f"was where the bot stepped in with {bot_who}."
             )
+            bianchi_voice = f"You moved {user_who}, but the real danger was where the machine stepped in with {bot_who}."
             bianchi_metric = f"Score: {user_score}/1000 | You: {user_who} vs Bot: {bot_who}"
 
     clock = f"{frame.minute:02d}:{frame.second:02d}"
@@ -1312,5 +1273,7 @@ def reveal_pundits_and_comparison(
         "voronoi_comparison": voronoi_comparison,
         "bianchi_headline": bianchi_headline,
         "personal": personal,
+        "voronoi_voice": voronoi_voice,
+        "bianchi_voice": bianchi_voice,
         "pundits": pundits,
     }

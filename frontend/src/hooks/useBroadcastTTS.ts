@@ -57,9 +57,13 @@ function normalizeSpokenText(raw: string, language: Language): string {
   const deltaWord = language === "es" ? "delta equis te" : "delta x T";
   const xtWord = language === "es" ? "equis te" : "x T";
   return raw
+    // Strip parenthetical remarks and coordinate tuples so TTS never reads out parentheses
+    .replace(/\s+(?:en|at|hacia|to|hasta)\s*\([^)]*\)/gi, "")
+    .replace(/\s*\([^)]*\)/g, "")
     .replace(/ΔxT/g, deltaWord)
     .replace(/\bxT\b/g, xtWord)
     .replace(/\s+/g, " ")
+    .replace(/\s+([.,;!?])/g, "$1")
     .trim();
 }
 
@@ -80,12 +84,19 @@ export function useBroadcastTTS({
   const isPlayingRef = useRef<boolean>(false);
   const isMutedRef = useRef<boolean>(isMuted);
   isMutedRef.current = isMuted;
+  const activeIndexRef = useRef<number>(0);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesRef = useRef<AgentMessage[]>(messages);
   /** Messages being played right now (the debate, or a list passed to playMessages) and their audio. */
   const queueRef = useRef<{ msg: AgentMessage; audio: Promise<string | null> }[]>([]);
-  /** Bumped by stopAll: a playback loop from an earlier session must not carry on. */
+  /** Saved playback state when muted mid-commentary or when a reveal arrives while muted, so unmuting resumes it. */
+  const resumableRef = useRef<{
+    msgs: AgentMessage[];
+    audio: (Promise<string | null> | undefined)[];
+    index: number;
+  } | null>(null);
+  /** Bumped by haltPlayback/stopAll: a playback loop from an earlier session must not carry on. */
   const sessionRef = useRef<number>(0);
   const onActiveSpeakerChangeRef = useRef(onActiveSpeakerChange);
   const profileRef = useRef({ language, audience });
@@ -100,7 +111,8 @@ export function useBroadcastTTS({
     onActiveSpeakerChangeRef.current = onActiveSpeakerChange;
   }, [onActiveSpeakerChange]);
 
-  const stopAll = useCallback(() => {
+  /** Stops active audio/speech without clearing `resumableRef` (used when muting). */
+  const haltPlayback = useCallback(() => {
     const wasPlaying = isPlayingRef.current;
     isPlayingRef.current = false;
     sessionRef.current += 1;
@@ -119,7 +131,6 @@ export function useBroadcastTTS({
       window.speechSynthesis.cancel();
     }
 
-    // Use functional state updates to avoid unnecessary renders if already false/null
     setIsPlaying((prev) => (prev ? false : prev));
     setActiveSpeaker((prev) => (prev !== null ? null : prev));
     setActiveMessageIndex((prev) => (prev !== -1 ? -1 : prev));
@@ -129,12 +140,12 @@ export function useBroadcastTTS({
     }
   }, []);
 
-  // When the user toggles the header mute button on, immediately silence any active voice.
-  useEffect(() => {
-    if (isMuted) {
-      stopAll();
-    }
-  }, [isMuted, stopAll]);
+  /** Stops playback completely and clears any resumable queue (used on finish, dismiss, or explicit stop). */
+  const stopAll = useCallback(() => {
+    resumableRef.current = null;
+    activeIndexRef.current = 0;
+    haltPlayback();
+  }, [haltPlayback]);
 
   const speakWithWebSpeech = useCallback(
     (msg: AgentMessage): Promise<void> => {
@@ -174,12 +185,16 @@ export function useBroadcastTTS({
   const fetchAudio = useCallback(
     async (msg: AgentMessage): Promise<string | null> => {
       const role = msg.agent_role === "data_scientist" ? "data_scientist" : "classic_coach";
+      const spokenText = normalizeSpokenText(
+        msg.analysis_body || msg.headline,
+        profileRef.current.language
+      );
       try {
         const res = await fetch(`${API_BASE_URL}/api/v1/tts/synthesize`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            text: (msg.analysis_body || msg.headline).slice(0, 1200),
+            text: spokenText.slice(0, 1200),
             agent_role: role,
             language: profileRef.current.language,
             audience: profileRef.current.audience,
@@ -237,6 +252,11 @@ export function useBroadcastTTS({
         return;
       }
 
+      activeIndexRef.current = index;
+      if (resumableRef.current) {
+        resumableRef.current.index = index;
+      }
+
       const { msg, audio } = queue[index];
       setActiveMessageIndex(index);
       const role =
@@ -267,16 +287,41 @@ export function useBroadcastTTS({
   const playMessages = useCallback(
     (msgs: AgentMessage[], audio: (Promise<string | null> | undefined)[] = []) => {
       if (!msgs.length) return;
-      stopAll();
+      haltPlayback();
+      const resolvedAudio = msgs.map((msg, i) => audio[i] ?? fetchAudio(msg));
+      resumableRef.current = { msgs, audio: resolvedAudio, index: 0 };
+      activeIndexRef.current = 0;
       if (isMutedRef.current) return;
       const session = sessionRef.current;
-      queueRef.current = msgs.map((msg, i) => ({ msg, audio: audio[i] ?? fetchAudio(msg) }));
+      queueRef.current = msgs.map((msg, i) => ({ msg, audio: resolvedAudio[i]! }));
       isPlayingRef.current = true;
       setIsPlaying(true);
       playMessageIndex(0, session);
     },
-    [fetchAudio, playMessageIndex, stopAll]
+    [fetchAudio, haltPlayback, playMessageIndex]
   );
+
+  // When the user mutes, immediately silence active speech while keeping `resumableRef`;
+  // when the user unmutes, resume speaking from where it was interrupted (or from the start if muted on arrival).
+  const prevMutedRef = useRef<boolean>(isMuted);
+  useEffect(() => {
+    const wasMuted = prevMutedRef.current;
+    prevMutedRef.current = isMuted;
+    if (isMuted) {
+      if (resumableRef.current) {
+        resumableRef.current.index = Math.max(0, activeIndexRef.current);
+      }
+      haltPlayback();
+    } else if (wasMuted && resumableRef.current && resumableRef.current.msgs.length > 0) {
+      const { msgs, audio, index } = resumableRef.current;
+      const startIdx = index < msgs.length ? index : 0;
+      const session = sessionRef.current;
+      queueRef.current = msgs.map((msg, i) => ({ msg, audio: audio[i] ?? fetchAudio(msg) }));
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      playMessageIndex(startIdx, session);
+    }
+  }, [isMuted, haltPlayback, fetchAudio, playMessageIndex]);
 
   const playSingleMessage = useCallback((msg: AgentMessage) => playMessages([msg]), [playMessages]);
 
@@ -289,12 +334,8 @@ export function useBroadcastTTS({
   }, [stopAll]);
 
   const toggleMute = useCallback(() => {
-    const next = !isMutedRef.current;
-    setIsMuted(next);
-    if (next) {
-      stopAll();
-    }
-  }, [setIsMuted, stopAll]);
+    setIsMuted(!isMutedRef.current);
+  }, [setIsMuted]);
 
   // A new language or audience means new commentary: silence the old one.
   useEffect(() => {

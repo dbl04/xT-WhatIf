@@ -45,7 +45,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   onResetSimulation,
   onSpeedChange,
 }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [internalPlaying, setInternalPlaying] = useState<boolean>(false);
   const [speed, setSpeed] = useState<number>(1);
 
@@ -165,7 +165,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         >
           {frames.map((f, i) => (
             <option key={f.event_uuid || i} value={i} className="bg-ink-900 text-fg">
-              {formatMomentLabel(f)}
+              {formatMomentLabel(f, language)}
             </option>
           ))}
         </select>

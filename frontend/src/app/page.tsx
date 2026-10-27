@@ -394,16 +394,15 @@ function DashboardPage() {
   const reveal =
     isLiveView && liveState.reveal && liveState.reveal.moment_id === liveState.moment?.moment_id ? liveState.reveal : null;
 
-  // Pundits read the resolved play out loud: Dr. Voronoi explains the bot's optimum & spatial comparison,
-  // Coach Bianchi delivers the tactical verdict contrasting the user's move vs the bot's move.
+  // Pundits comment on the resolved play with concise, conversational broadcast lines (distinct from the card text).
   const playRevealVoice = useCallback(
     (rev: MomentReveal) => {
-      const { headline, body, personal, voronoi_comparison, bianchi_headline } = rev.explanation;
+      const { headline, body, personal, voronoi_comparison, bianchi_headline, voronoi_voice, bianchi_voice } =
+        rev.explanation;
       const optIds = rev.optimum_moves.map((m) => m.player_id);
       const userIds = rev.your_moves.map((m) => m.player_id);
-      const voronoiText = [headline, body, voronoi_comparison]
-        .filter((part) => part && part.trim())
-        .join(" ");
+      const voronoiSpoken = (voronoi_voice || voronoi_comparison || body).trim();
+      const bianchiSpoken = (bianchi_voice || personal).trim();
       const spoken = (
         role: AgentMessage["agent_role"],
         title: string,
@@ -421,8 +420,8 @@ function DashboardPage() {
         highlighted_player_ids: ids,
       });
       const lines = [
-        spoken("data_scientist", headline, voronoiText, optIds),
-        spoken("classic_coach", bianchi_headline || headline, personal, userIds.length > 0 ? userIds : optIds),
+        spoken("data_scientist", headline, voronoiSpoken, optIds),
+        spoken("classic_coach", bianchi_headline || headline, bianchiSpoken, userIds.length > 0 ? userIds : optIds),
       ].filter((m) => m.analysis_body.trim());
       // Audio the live service synthesised while the moment was open: ready as the reveal lands.
       const voice = fetchRevealVoice(rev.moment_id, fanSession?.identity.userId ?? "");
@@ -605,7 +604,7 @@ function DashboardPage() {
 
           <span className="mx-1 hidden h-5 w-px bg-line-strong sm:block" />
 
-          <ProfileSwitcher />
+          <ProfileSwitcher hideAudience={isLiveView} />
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
 
