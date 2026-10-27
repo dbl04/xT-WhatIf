@@ -52,8 +52,8 @@ flowchart TD
     end
 
     subgraph AKS ["Azure Kubernetes Service (optional)"]
-        SVC["xt-whatif-aks-worker-svc<br/>ClusterIP :8000"]
-        WORKERS["xt-whatif-aks-worker pods<br/>SERVICE_ROLE=aks-worker<br/>xT · Voronoi (KDTree) · pass cones"]
+        SVC["xt-whatif-aks-worker-svc<br/>LoadBalancer :8000 (X-Worker-Token)"]
+        WORKERS["xt-whatif-aks-worker pods<br/>SERVICE_ROLE=aks-worker<br/>xT · Voronoi (KDTree) · pass cones · moment Validator"]
         HPA["HPA v2<br/>CPU 65 % · 3–12 pods"]
         HPA -.-> WORKERS
     end
@@ -69,18 +69,20 @@ flowchart TD
     BROWSER <-->|"REST /api/v1/* · WS /ws/match/{id}"| GATEWAY
     BROWSER <-->|"WS /ws/live"| LIVE
     GATEWAY -->|"POST /api/v1/simulate · 3.5 s timeout"| SVC
+    LIVE -->|"2× POST /api/v1/game/optimize (attack + defend)<br/>as events happen · 1.5 s timeout"| SVC
     SVC --> WORKERS
     GATEWAY -.->|"timeout · error · non-200 · chaos toggle<br/>→ compute in-process"| GATEWAY
+    LIVE -.->|"timeout · error · non-200 · chaos toggle<br/>→ compute in-process"| LIVE
     GATEWAY <-->|"pundit debate · TTS"| AOAI
-    WORKERS <-->|"pundit debate"| AOAI
+    LIVE <-->|"reveal TTS"| AOAI
     MI -.->|"image pull"| ACR
     ACAENV -.->|"container logs"| LOGS
 ```
 
 ### How the pieces fit together
-1. **One image, several roles.** The backend image is the same for the gateway (`aca-gateway`), the live match (`LIVE_ENABLED=true`) and the AKS workers (`aks-worker`). Locally, `standalone` runs everything in one process.
-2. **Delegation with in-process fallback.** When `AKS_WORKER_URL` is set, the gateway forwards each simulation to the AKS workers. If the call times out (3.5 s), fails or returns a non-200 status, the gateway runs the same engine itself and counts the event as a circuit-breaker trip. The fallback applies to each request on its own; there is no open/half-open state.
-3. **Scaling.** KEDA scales the gateway on concurrent HTTP requests and the HPA scales the AKS workers on CPU. The live match stays on one replica so every fan sees the same match state.
+1. **One image, several roles.** The backend image is the same for the gateway (`aca-gateway`), the live match (`SERVICE_ROLE=live`, `LIVE_ENABLED=true`) and the AKS workers (`aks-worker`). Locally, `standalone` runs everything in one process.
+2. **Event-by-event delegation with in-process fallback.** As synthetic match events happen in the live match (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's two independent searches (`optimize(frame, "attack")` and `optimize(frame, "defend")`) in parallel to the AKS worker pool (`POST /api/v1/game/optimize`, guarded by `X-Worker-Token`, 1.5 s timeout), while `xt-whatif-aca-gateway` forwards counterfactual simulations (`POST /api/v1/simulate`, 3.5 s timeout). If any call times out, fails or returns a non-200 status (or when the chaos toggle is active), the caller runs the same engine in-process and records a circuit-breaker trip.
+3. **Scaling.** KEDA scales the gateway on concurrent HTTP requests and the HPA scales the AKS workers on CPU. The live match stays on one replica so every fan sees the same match state, while heavy Validator CPU searches scale across AKS pods.
 
 ---
 
@@ -219,7 +221,7 @@ curl http://localhost:8000/api/v1/cloud/telemetry
 ```bash
 curl -X POST http://localhost:8000/api/v1/cloud/chaos-toggle
 ```
-*Simulates an AKS outage. While it is on, the gateway skips the AKS call and computes every simulation in-process, so client requests keep returning results. The flag is global and switches itself off after 90 seconds (`CHAOS_AUTO_RESET_SECONDS`).*
+*Simulates an AKS outage. While it is on, the gateway and live match service skip the AKS call and compute every simulation and moment Validator search in-process, so client requests and live moments keep running without interruption. The flag switches itself off after 90 seconds (`CHAOS_AUTO_RESET_SECONDS`).*
 
 ### 3. Run KDTree Parallel Stress Burst (25 Parallel Simulations)
 ```bash
@@ -238,7 +240,7 @@ This is the project's entry for the **Best Azure Cloud Native Integration** cate
 | Technology | Where the rules name it | How xT-WhatIf uses it | Status |
 |:-----------|:------------------------|:----------------------|:-------|
 | **Azure Container Apps** | Cloud Native category | Hosts the frontend, the API gateway (scaled by KEDA, 1–10 replicas) and the live match service (1 replica). | Deployed by the Bicep template |
-| **Azure Kubernetes Service (AKS)** | Cloud Native category | Runs geometry workers (`SERVICE_ROLE=aks-worker`) behind a ClusterIP service, scaled by an HPA from 3 to 12 pods. The gateway sends simulations to them and computes in-process if they fail. | Optional: the manifest and the CI step are ready; they run when `AKS_ENABLED` is set and the gateway gets the worker URL through the `aksWorkerUrl` parameter |
+| **Azure Kubernetes Service (AKS)** | Cloud Native category | Runs geometry and optimiser workers (`SERVICE_ROLE=aks-worker`) behind a LoadBalancer service guarded by `X-Worker-Token`, scaled by an HPA from 3 to 12 pods. **As synthetic match events happen in real time** (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's `attack` and `defend` searches in parallel (`POST /api/v1/game/optimize`, 1.5 s timeout) to the AKS worker pool, and the gateway offloads counterfactual simulations (`POST /api/v1/simulate`). If AKS times out, fails or chaos mode is toggled on, both services fall back to in-process computation with identical results. | Optional: the manifest and the CI step are ready; they run when `AKS_ENABLED` is set and both backend apps receive `aksWorkerUrl` and `aksWorkerToken` |
 | **Azure AI Services: Azure OpenAI** | Judging criteria (*"Azure Apps and AI Services"*) | GPT-4o and GPT-4o-mini write the two pundits' debate using function calling: the model calls the engine's tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`) and a deterministic verifier checks every figure in the text against the engine's output, correcting it or falling back to the template text if a number does not match. `gpt-4o-mini-tts` gives each pundit a voice. Without a key, deterministic templates and the browser's speech engine are used instead. | Used when the Azure OpenAI key and endpoint are configured |
 | **MCP (Model Context Protocol)** | Judging criteria (*"Azure MCP"*) | The project ships its own MCP server, which exposes the engine's four tools to any MCP client over stdio (`python -m app.mcp`). It is not the Azure MCP Server product. | In the repo; runs locally |
 
@@ -257,8 +259,8 @@ This is the project's entry for the **Best Azure Cloud Native Integration** cate
 The rules ask for *"effective integration of Azure services, event-driven architectures, automation, operational excellence, and AI capabilities"*:
 
 - **Scalable:** KEDA scales the gateway on concurrent HTTP requests; the HPA scales the AKS workers on CPU.
-- **Resilient:** the gateway falls back to in-process computation when the AKS workers fail, and health probes restart or hold back unhealthy containers.
-- **Event-driven:** scaling reacts to incoming request load, and the live match pushes match events, key moments and results to every fan over WebSockets.
+- **Resilient:** the gateway and live match service fall back to in-process computation when the AKS workers fail, and health probes restart or hold back unhealthy containers.
+- **Event-driven:** as each synthetic match event arrives in real time, the live runner triggers parallel `attack` + `defend` Validator searches on AKS and pushes match events, key moments and reveals to every fan over WebSockets.
 - **Automation:** one Bicep template and one GitHub Actions workflow build, tag and deploy everything.
 - **Operational excellence:** a new Container Apps revision per commit SHA, health probes, central logs, per-client rate limits and hardened containers.
 - **AI capabilities:** Azure OpenAI with tool calling and number verification, and Azure OpenAI TTS.
@@ -271,16 +273,16 @@ Each row describes what is deployed and links to the file that defines it.
 |:-----|:-----------------|:-----------|
 | **Compute** | Three Container Apps in one managed environment: `xt-whatif-frontend` (1–5 replicas), `xt-whatif-aca-gateway` (1–10 replicas) and `xt-whatif-live` (exactly 1 replica, holds the shared live match). | [`infra/main.bicep`](infra/main.bicep#L181) |
 | **Autoscaling** | The gateway uses a KEDA HTTP scale rule with a target of 20 concurrent requests per replica. The optional AKS workers use an HPA v2 targeting 65 % CPU, from 3 to 12 pods. | [`main.bicep`](infra/main.bicep#L240), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L144) |
-| **Fallback** | When the `aksWorkerUrl` parameter is set (it is empty by default), the gateway calls the AKS workers with a 3.5 s timeout. On a timeout, connection error or non-200 status it runs the engine in-process and increments `circuit_breaker_trips`. | [`backend/app/main.py`](backend/app/main.py#L263) |
-| **Chaos toggle** | `POST /api/v1/cloud/chaos-toggle` forces the fallback path. It resets itself after 90 s and is rate-limited to 12 calls per client per minute. | [`main.py`](backend/app/main.py#L374), [`rate_limit.py`](backend/app/core/rate_limit.py#L24) |
+| **Fallback** | When `aksWorkerUrl` is set, the live match service offloads the two Validator searches (`POST /api/v1/game/optimize` for `attack` and `defend` in parallel, 1.5 s timeout, authenticated with `X-Worker-Token`) as candidate events happen, and the gateway calls `POST /api/v1/simulate` (3.5 s timeout). On timeout, connection error, non-200 status or bad payload, they run the engine in-process and increment `circuit_breaker_trips`. | [`aks_client.py`](backend/app/services/aks_client.py), [`game_api.py`](backend/app/services/game_api.py), [`main.py`](backend/app/main.py#L163) |
+| **Chaos toggle** | `POST /api/v1/cloud/chaos-toggle` forces the fallback path on both the gateway and the live match service. It resets itself after 90 s and is rate-limited to 12 calls per client per minute. | [`main.py`](backend/app/main.py#L276), [`rate_limit.py`](backend/app/core/rate_limit.py#L24) |
 | **Registry & identity** | Azure Container Registry with the admin user disabled. All three apps pull images with a user-assigned managed identity that holds the `AcrPull` role, so no registry password is stored. | [`main.bicep`](infra/main.bicep#L54) |
-| **Secrets** | The Azure OpenAI key is a Container Apps secret referenced by the apps (`secretRef`) and a Kubernetes secret on AKS. Without a key, the app uses deterministic templates. | [`main.bicep`](infra/main.bicep#L121) |
+| **Secrets** | The Azure OpenAI key and `AKS_WORKER_TOKEN` are Container Apps secrets referenced by the apps (`secretRef`) and Kubernetes secrets on AKS (`aks-worker-token`). Without an OpenAI key, the app uses deterministic templates. | [`main.bicep`](infra/main.bicep#L121), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L73) |
 | **Ingress** | External HTTPS only (`allowInsecure: false`), `transport: auto` for HTTP/2 and WebSockets. Backend CORS accepts only the frontend's own address. | [`main.bicep`](infra/main.bicep#L49) |
 | **Container hardening** | Both images run as a non-root user. AKS worker pods also run with UID 10001, a read-only root filesystem, all Linux capabilities dropped, no privilege escalation and the `RuntimeDefault` seccomp profile; `/tmp` and the cache folder are `emptyDir` volumes. | [`backend/Dockerfile`](backend/Dockerfile#L23), [`frontend/Dockerfile`](frontend/Dockerfile#L52), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L38) |
 | **Health checks** | Liveness and readiness probes on `/health` for both backend Container Apps and the AKS pods. AKS rolls out with `maxUnavailable: 0`. | [`main.bicep`](infra/main.bicep#L157), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L26) |
 | **Logs** | The Container Apps environment sends container logs to a Log Analytics workspace. In `/api/v1/cloud/telemetry` the gateway replica count comes from Azure Monitor; the AKS pod count and CPU figures are estimated from request load. | [`main.bicep`](infra/main.bicep#L89), [`cloud_telemetry.py`](backend/app/services/cloud_telemetry.py) |
-| **Infrastructure as Code** | Bicep creates the registry, identity, role assignment, Log Analytics, the environment and the three apps, and outputs their URLs. A Kubernetes manifest defines the AKS namespace, deployment, service and HPA. | [`infra/`](infra/) |
-| **CI/CD** | [`deploy-azure.yml`](.github/workflows/deploy-azure.yml) runs the backend tests, a TypeScript check and a Next.js build on every push and pull request. A manual run builds both images, tags them with the commit SHA, pushes them to ACR, deploys the Bicep template and, if `AKS_ENABLED` is set, applies the AKS manifest with the same tag. Each deploy creates a new Container Apps revision. | [`.github/workflows/`](.github/workflows/) |
+| **Infrastructure as Code** | Bicep creates the registry, identity, role assignment, Log Analytics, the environment and the three apps, and outputs their URLs. A Kubernetes manifest defines the AKS namespace, deployment, LoadBalancer service and HPA. | [`infra/`](infra/) |
+| **CI/CD** | [`deploy-azure.yml`](.github/workflows/deploy-azure.yml) runs the backend tests, a TypeScript check and a Next.js build on every push and pull request. A manual run builds both images, tags them with the commit SHA, pushes them to ACR, deploys the Bicep template and, if `AKS_ENABLED` is set, syncs the `aks-worker-token` secret and applies the AKS manifest with the same tag. Each deploy creates a new Container Apps revision. | [`.github/workflows/`](.github/workflows/) |
 | **MCP server** | A Model Context Protocol server (JSON-RPC 2.0, stdio) exposes the engine to external AI agents as four tools: `simulate_counterfactual`, `optimizer/solve`, `xt_at` and `what_if_natural_language`. Start it with `python -m app.mcp` from `backend/`. | [`backend/app/mcp/server.py`](backend/app/mcp/server.py) |
 
 Setup, delivery-day steps, smoke tests and the load test are in **[docs/DEPLOY.md](docs/DEPLOY.md)**.
@@ -306,6 +308,10 @@ python backend/test_synthetic_generator.py
 # Personalised narration (language x audience) and TTS
 python backend/test_narration.py
 python backend/test_tts_service.py
+
+# Game engine & live match (including AKS Validator offload & circuit breaker)
+python backend/test_game_engine.py
+python backend/test_live_match.py
 
 # Public demo guardrails (rate limits, input bounds, chaos auto-reset)
 python backend/test_hardening.py

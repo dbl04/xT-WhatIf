@@ -177,6 +177,8 @@ jobs:
           parameters: >-
             environmentName=xtwhatif-prod
             imageTag=${{ github.sha }}
+            aksWorkerUrl=${{ vars.AKS_WORKER_URL }}
+            aksWorkerToken=${{ secrets.AKS_WORKER_TOKEN || 'disabled-worker-token' }}
             azureOpenAiEndpoint=${{ vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}
             azureOpenAiKey=${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}
 
@@ -199,6 +201,15 @@ jobs:
 
       - name: Deploy AKS Compute Workers & HPA
         if: vars.AKS_ENABLED == 'true'
+        env:
+          AKS_WORKER_TOKEN: ${{ secrets.AKS_WORKER_TOKEN }}
         run: |
+          kubectl create namespace xt-whatif --dry-run=client -o yaml | kubectl apply -f -
+          if [ -n "$AKS_WORKER_TOKEN" ]; then
+            kubectl create secret generic aks-worker-token \
+              --namespace xt-whatif \
+              --from-literal=token="$AKS_WORKER_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+          fi
           kubectl apply -f ./infra/k8s-aks-workers.yaml
           kubectl set image deployment/xt-whatif-aks-worker worker=${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n xt-whatif

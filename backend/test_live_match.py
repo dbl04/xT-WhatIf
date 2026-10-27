@@ -293,5 +293,148 @@ class SocketTest(unittest.TestCase):
             self.assertFalse(ack["payload"]["accepted"])
 
 
+class AksValidatorTest(unittest.TestCase):
+    def setUp(self):
+        from app.core.config import settings
+        from app.services.cloud_telemetry import cloud_metrics_store
+
+        self.settings = settings
+        self.metrics = cloud_metrics_store
+        self._orig_role = settings.SERVICE_ROLE
+        self._orig_url = settings.AKS_WORKER_URL
+        self._orig_token = settings.AKS_WORKER_TOKEN
+        self._orig_chaos = cloud_metrics_store["chaos_force_aks_failure"]
+
+    def tearDown(self):
+        self.settings.SERVICE_ROLE = self._orig_role
+        self.settings.AKS_WORKER_URL = self._orig_url
+        self.settings.AKS_WORKER_TOKEN = self._orig_token
+        self.metrics["chaos_force_aks_failure"] = self._orig_chaos
+
+    def test_optimize_endpoint_rejects_gateway_and_bad_token(self):
+        from app.main import app
+        from app.services.game_engine import optimum_from_dict
+
+        event, expected_report = _first_open(EVENTS)
+        body = {"frame": event.frame.model_dump(mode="json"), "mode": "attack"}
+        client = TestClient(app)
+
+        # 1. 404 on aca-gateway and live roles
+        self.settings.SERVICE_ROLE = "aca-gateway"
+        self.settings.AKS_WORKER_TOKEN = "worker-secret"
+        resp_gw = client.post("/api/v1/game/optimize", json=body, headers={"X-Worker-Token": "worker-secret"})
+        self.assertEqual(resp_gw.status_code, 404)
+
+        self.settings.SERVICE_ROLE = "live"
+        resp_live = client.post("/api/v1/game/optimize", json=body, headers={"X-Worker-Token": "worker-secret"})
+        self.assertEqual(resp_live.status_code, 404)
+
+        # 2. 403 on aks-worker when AKS_WORKER_TOKEN is empty
+        self.settings.SERVICE_ROLE = "aks-worker"
+        self.settings.AKS_WORKER_TOKEN = ""
+        resp_unset = client.post("/api/v1/game/optimize", json=body)
+        self.assertEqual(resp_unset.status_code, 403)
+
+        # 3. 401 when token is missing or wrong
+        self.settings.AKS_WORKER_TOKEN = "worker-secret"
+        resp_missing = client.post("/api/v1/game/optimize", json=body)
+        self.assertEqual(resp_missing.status_code, 401)
+        resp_wrong = client.post("/api/v1/game/optimize", json=body, headers={"X-Worker-Token": "wrong-token"})
+        self.assertEqual(resp_wrong.status_code, 401)
+
+        # 4. 200 with valid token on aks-worker
+        resp_ok = client.post("/api/v1/game/optimize", json=body, headers={"X-Worker-Token": "worker-secret"})
+        self.assertEqual(resp_ok.status_code, 200)
+        restored = optimum_from_dict(resp_ok.json())
+        self.assertEqual(restored.mode, "attack")
+        self.assertEqual(restored.moves, expected_report.attack.moves)
+        self.assertAlmostEqual(restored.best.value, expected_report.attack.best.value, places=9)
+
+    def test_delegated_path_matches_local_analyse_moment(self):
+        import json as _json
+        import httpx
+        from app.services.aks_client import analyse_moment_distributed
+        from app.services.game_engine import optimize, optimum_to_dict
+
+        event, local_report = _first_open(EVENTS)
+        self.settings.SERVICE_ROLE = "live"
+        self.settings.AKS_WORKER_URL = "http://aks-worker.local:8000"
+        self.settings.AKS_WORKER_TOKEN = "test-secret-token"
+        self.metrics["chaos_force_aks_failure"] = False
+
+        seen_modes = []
+        seen_tokens = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_tokens.append(request.headers.get("X-Worker-Token"))
+            payload = _json.loads(request.content.decode("utf-8"))
+            mode = payload["mode"]
+            seen_modes.append(mode)
+            opt = optimize(event.frame, mode)
+            return httpx.Response(200, json=optimum_to_dict(opt))
+
+        transport = httpx.MockTransport(handler)
+        before_calls = self.metrics["aks_delegated_calls"]
+        before_trips = self.metrics["circuit_breaker_trips"]
+
+        dist_report = asyncio.run(analyse_moment_distributed(event.frame, transport=transport))
+
+        self.assertEqual(sorted(seen_modes), ["attack", "defend"])
+        self.assertEqual(seen_tokens, ["test-secret-token", "test-secret-token"])
+        self.assertEqual(self.metrics["aks_delegated_calls"], before_calls + 1)
+        self.assertEqual(self.metrics["circuit_breaker_trips"], before_trips)
+        self.assertEqual(dist_report.event_uuid, local_report.event_uuid)
+        self.assertEqual(dist_report.playable, local_report.playable)
+        self.assertEqual(dist_report.opens, local_report.opens)
+        self.assertEqual(dist_report.attack.moves, local_report.attack.moves)
+        self.assertEqual(dist_report.defend.moves, local_report.defend.moves)
+        self.assertAlmostEqual(dist_report.attack.best.value, local_report.attack.best.value, places=9)
+        self.assertAlmostEqual(dist_report.defend.best.value, local_report.defend.best.value, places=9)
+
+    def test_timeout_500_and_chaos_fallback_and_increment_circuit_breaker(self):
+        import httpx
+        from app.services.aks_client import analyse_moment_distributed
+
+        event, local_report = _first_open(EVENTS)
+        self.settings.SERVICE_ROLE = "live"
+        self.settings.AKS_WORKER_URL = "http://aks-worker.local:8000"
+        self.settings.AKS_WORKER_TOKEN = "test-secret-token"
+        self.metrics["chaos_force_aks_failure"] = False
+
+        # 1. Timeout -> fallback + trip
+        def timeout_handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("worker timed out", request=request)
+
+        trips_0 = self.metrics["circuit_breaker_trips"]
+        r_timeout = asyncio.run(analyse_moment_distributed(event.frame, transport=httpx.MockTransport(timeout_handler)))
+        self.assertEqual(self.metrics["circuit_breaker_trips"], trips_0 + 1)
+        self.assertEqual(r_timeout.attack.moves, local_report.attack.moves)
+        self.assertEqual(r_timeout.defend.moves, local_report.defend.moves)
+
+        # 2. HTTP 500 -> fallback + trip
+        def error_handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"detail": "internal error"})
+
+        r_500 = asyncio.run(analyse_moment_distributed(event.frame, transport=httpx.MockTransport(error_handler)))
+        self.assertEqual(self.metrics["circuit_breaker_trips"], trips_0 + 2)
+        self.assertEqual(r_500.attack.moves, local_report.attack.moves)
+        self.assertEqual(r_500.defend.moves, local_report.defend.moves)
+
+        # 3. Chaos mode -> fallback + trip without calling worker
+        self.metrics["chaos_force_aks_failure"] = True
+        called = False
+
+        def uncalled_handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal called
+            called = True
+            return httpx.Response(200, json={})
+
+        r_chaos = asyncio.run(analyse_moment_distributed(event.frame, transport=httpx.MockTransport(uncalled_handler)))
+        self.assertFalse(called)
+        self.assertEqual(self.metrics["circuit_breaker_trips"], trips_0 + 3)
+        self.assertEqual(r_chaos.attack.moves, local_report.attack.moves)
+        self.assertEqual(r_chaos.defend.moves, local_report.defend.moves)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

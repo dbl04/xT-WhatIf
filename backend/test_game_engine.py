@@ -4,6 +4,7 @@ Tests for the xT Live Challenge game engine: action value, movement rules, optim
 Run: python backend/test_game_engine.py   (PYTHONPATH=./backend)
 """
 
+import json
 import math
 import sys
 import unittest
@@ -26,6 +27,8 @@ from app.services.game_engine import (
     movable_players,
     offside_line,
     optimize,
+    optimum_from_dict,
+    optimum_to_dict,
     score_submission,
     validate_moves,
 )
@@ -180,6 +183,15 @@ class OptimizerTest(unittest.TestCase):
         opens = [r for r in OPTIMA.values() if r.opens]
         self.assertGreaterEqual(len(opens), 5, {r.label: (r.attack.margin, r.defend.margin) for r in OPTIMA.values()})
         self.assertTrue(all(r.defend.margin >= MIN_MARGIN for r in OPTIMA.values()))
+
+    def test_optimum_json_round_trip(self):
+        for f in FRAMES:
+            report = OPTIMA[f.event_uuid]
+            for opt in (report.attack, report.defend):
+                raw = json.loads(json.dumps(optimum_to_dict(opt)))
+                restored = optimum_from_dict(raw)
+                self.assertEqual(restored, opt)
+                self.assertAlmostEqual(restored.margin, opt.margin, places=12)
 
 
 class ScoreTest(unittest.TestCase):

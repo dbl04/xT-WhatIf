@@ -26,6 +26,7 @@ ROUTE_LIMITS: Dict[str, int] = {
     "/api/v1/optimizer/solve": 40,
     # Called while the user drags players during a 30 s challenge.
     "/api/v1/game/preview": 240,
+    "/api/v1/game/optimize": 120,
     "/api/v1/tts/synthesize": 30,
     # Reveal voice of the live match: one request per moment per fan.
     "/api/v1/live/moments": 30,

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { AgentMessage } from "@/types/match";
 import { API_BASE_URL } from "@/lib/api";
 import { Audience, DEFAULT_AUDIENCE, DEFAULT_LANGUAGE, Language, LOCALES } from "@/lib/i18n";
+import { useSfxMuted } from "@/lib/sfx";
 
 export interface UseBroadcastTTSOptions {
   messages: AgentMessage[];
@@ -70,13 +71,15 @@ export function useBroadcastTTS({
   onActiveSpeakerChange,
 }: UseBroadcastTTSOptions) {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useSfxMuted();
   const [activeSpeaker, setActiveSpeaker] = useState<
     "data_scientist" | "classic_coach" | null
   >(null);
   const [activeMessageIndex, setActiveMessageIndex] = useState<number>(-1);
 
   const isPlayingRef = useRef<boolean>(false);
+  const isMutedRef = useRef<boolean>(isMuted);
+  isMutedRef.current = isMuted;
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesRef = useRef<AgentMessage[]>(messages);
@@ -125,6 +128,13 @@ export function useBroadcastTTS({
       onActiveSpeakerChangeRef.current?.(null, []);
     }
   }, []);
+
+  // When the user toggles the header mute button on, immediately silence any active voice.
+  useEffect(() => {
+    if (isMuted) {
+      stopAll();
+    }
+  }, [isMuted, stopAll]);
 
   const speakWithWebSpeech = useCallback(
     (msg: AgentMessage): Promise<void> => {
@@ -197,7 +207,7 @@ export function useBroadcastTTS({
   const speakMessage = useCallback(
     async (msg: AgentMessage, audioPromise: Promise<string | null>, session: number) => {
       const audioBase64 = await audioPromise;
-      if (session !== sessionRef.current) return;
+      if (session !== sessionRef.current || isMutedRef.current) return;
       let handledWithAudio = false;
       if (audioBase64) {
         const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
@@ -211,7 +221,7 @@ export function useBroadcastTTS({
           });
         });
       }
-      if (!handledWithAudio && session === sessionRef.current) {
+      if (!handledWithAudio && session === sessionRef.current && !isMutedRef.current) {
         await speakWithWebSpeech(msg);
       }
     },
@@ -220,7 +230,7 @@ export function useBroadcastTTS({
 
   const playMessageIndex = useCallback(
     async (index: number, session: number) => {
-      if (session !== sessionRef.current) return;
+      if (session !== sessionRef.current || isMutedRef.current) return;
       const queue = queueRef.current;
       if (index >= queue.length) {
         stopAll();
@@ -241,7 +251,7 @@ export function useBroadcastTTS({
         // ignore errors to preserve continuity
       }
 
-      if (session !== sessionRef.current) return;
+      if (session !== sessionRef.current || isMutedRef.current) return;
 
       // 350ms dramatic pause between speakers
       pauseTimeoutRef.current = setTimeout(() => playMessageIndex(index + 1, session), 350);
@@ -258,6 +268,7 @@ export function useBroadcastTTS({
     (msgs: AgentMessage[], audio: (Promise<string | null> | undefined)[] = []) => {
       if (!msgs.length) return;
       stopAll();
+      if (isMutedRef.current) return;
       const session = sessionRef.current;
       queueRef.current = msgs.map((msg, i) => ({ msg, audio: audio[i] ?? fetchAudio(msg) }));
       isPlayingRef.current = true;
@@ -278,14 +289,12 @@ export function useBroadcastTTS({
   }, [stopAll]);
 
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      if (next) {
-        stopAll();
-      }
-      return next;
-    });
-  }, [stopAll]);
+    const next = !isMutedRef.current;
+    setIsMuted(next);
+    if (next) {
+      stopAll();
+    }
+  }, [setIsMuted, stopAll]);
 
   // A new language or audience means new commentary: silence the old one.
   useEffect(() => {

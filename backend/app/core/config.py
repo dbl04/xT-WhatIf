@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     # Cloud Architecture: Dual Runtime Role (ACA Gateway vs AKS Worker)
     SERVICE_ROLE: str = Field(default="standalone", validation_alias=AliasChoices("SERVICE_ROLE", "APP_ROLE"))
     AKS_WORKER_URL: Optional[str] = Field(default=None, validation_alias=AliasChoices("AKS_WORKER_URL", "WORKER_SERVICE_URL"))
+    AKS_WORKER_TOKEN: str = Field(default="", validation_alias="AKS_WORKER_TOKEN")
+    AKS_ANALYSE_TIMEOUT_S: float = Field(default=1.5, validation_alias="AKS_ANALYSE_TIMEOUT_S")
 
     # Azure OpenAI / Azure AI Foundry (Multi-Agent Swarm & Neural TTS)
     AZURE_OPENAI_API_KEY: str = Field(default="mock-key", validation_alias="AZURE_OPENAI_API_KEY")

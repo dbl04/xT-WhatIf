@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { RefreshCw, Zap, Power, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
 import { StressBurstResponse } from "@/types/match";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, LIVE_API_URL } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
 interface CloudTelemetryData {
@@ -18,7 +18,7 @@ interface CloudTelemetryData {
   last_compute_latency_ms: number;
   chaos_force_aks_failure: boolean;
   aca_gateway_replicas?: number;
-  aks_worker_pods?: number;
+  aks_worker_pods?: number | string;
   keda_active?: boolean;
 }
 
@@ -26,20 +26,25 @@ interface CloudTelemetryModalProps {
   isOpen: boolean;
   onClose: () => void;
   apiBaseUrl?: string;
+  liveApiUrl?: string;
 }
+
+const BASELINE_SIMULATIONS = 142;
+const BASELINE_AKS_CALLS = 44;
 
 export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
   isOpen,
   onClose,
   apiBaseUrl = API_BASE_URL,
+  liveApiUrl = LIVE_API_URL,
 }) => {
   const { t } = useI18n();
   const [telemetry, setTelemetry] = useState<CloudTelemetryData>({
     service_role: "aca-gateway",
     compute_mode: "aks-distributed",
-    total_simulations: 142,
+    total_simulations: BASELINE_SIMULATIONS,
     cache_hits: 98,
-    aks_delegated_calls: 44,
+    aks_delegated_calls: BASELINE_AKS_CALLS,
     circuit_breaker_trips: 0,
     last_compute_latency_ms: 14.2,
     chaos_force_aks_failure: false,
@@ -54,15 +59,48 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
   // Shown in the viewer's language, so it is derived from the state rather than the API message.
   const [showChaosMessage, setShowChaosMessage] = useState<boolean>(false);
 
-  // Load on open
+  const hasSeparateLiveService = Boolean(liveApiUrl && liveApiUrl !== apiBaseUrl);
+
+  // Load on open from both the gateway and the singleton live service (when deployed as separate apps).
   const fetchTelemetry = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${apiBaseUrl}/api/v1/cloud/telemetry`, {
-        signal: AbortSignal.timeout(1800),
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const requests: Promise<Response>[] = [
+        fetch(`${apiBaseUrl}/api/v1/cloud/telemetry`, {
+          signal: AbortSignal.timeout(1800),
+        }),
+      ];
+      if (hasSeparateLiveService) {
+        requests.push(
+          fetch(`${liveApiUrl}/api/v1/cloud/telemetry`, {
+            signal: AbortSignal.timeout(1800),
+          })
+        );
+      }
+
+      const settled = await Promise.allSettled(requests);
+      const gwRes = settled[0]?.status === "fulfilled" && settled[0].value.ok ? await settled[0].value.json() : null;
+      const liveRes =
+        settled[1]?.status === "fulfilled" && settled[1].value.ok ? await settled[1].value.json() : null;
+
+      if (gwRes && liveRes) {
+        const liveDeltaSims = Math.max(0, (liveRes.total_simulations ?? BASELINE_SIMULATIONS) - BASELINE_SIMULATIONS);
+        const liveDeltaAks = Math.max(0, (liveRes.aks_delegated_calls ?? BASELINE_AKS_CALLS) - BASELINE_AKS_CALLS);
+        const liveTrips = liveRes.circuit_breaker_trips ?? 0;
+        const liveActive = liveDeltaAks > 0 || liveTrips > 0;
+        setTelemetry((prev) => ({
+          ...prev,
+          ...gwRes,
+          total_simulations: (gwRes.total_simulations ?? BASELINE_SIMULATIONS) + liveDeltaSims,
+          aks_delegated_calls: (gwRes.aks_delegated_calls ?? BASELINE_AKS_CALLS) + liveDeltaAks,
+          circuit_breaker_trips: (gwRes.circuit_breaker_trips ?? 0) + liveTrips,
+          chaos_force_aks_failure: Boolean(gwRes.chaos_force_aks_failure || liveRes.chaos_force_aks_failure),
+          last_compute_latency_ms: liveActive
+            ? (liveRes.last_compute_latency_ms ?? gwRes.last_compute_latency_ms)
+            : gwRes.last_compute_latency_ms,
+        }));
+      } else if (gwRes || liveRes) {
+        const data = gwRes ?? liveRes;
         setTelemetry((prev) => ({ ...prev, ...data }));
       }
     } catch {
@@ -76,6 +114,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
     if (isOpen) {
       fetchTelemetry();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // Action 1: stress burst (25x Voronoi / xT)
@@ -117,7 +156,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       engine: "Scipy Voronoi + KDTree + 16x12 Expected Threat",
       active_instance_id: "offline",
       aca_gateway_replicas: telemetry.aca_gateway_replicas ?? 0,
-      aks_worker_pods: telemetry.aks_worker_pods ?? 0,
+      aks_worker_pods: typeof telemetry.aks_worker_pods === "number" ? telemetry.aks_worker_pods : 0,
       estimated_cpu_utilization_pct: 0,
       sampled_simulated_xt: [],
       metrics: {},
@@ -131,19 +170,39 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
     setIsBursting(false);
   };
 
-  // Action 2: simulate an AKS outage (chaos test of the circuit breaker)
+  // Action 2: simulate an AKS outage (chaos test of the circuit breaker on both gateway and live service)
   const handleChaosToggle = async () => {
+    const nextForce = !telemetry.chaos_force_aks_failure;
     try {
-      const res = await fetch(`${apiBaseUrl}/api/v1/cloud/chaos-toggle`, {
-        method: "POST",
-        signal: AbortSignal.timeout(2000),
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const toggleRequests: Promise<Response>[] = [
+        fetch(`${apiBaseUrl}/api/v1/cloud/chaos-toggle?force=${nextForce}`, {
+          method: "POST",
+          signal: AbortSignal.timeout(2000),
+        }),
+      ];
+      if (hasSeparateLiveService) {
+        toggleRequests.push(
+          fetch(`${liveApiUrl}/api/v1/cloud/chaos-toggle?force=${nextForce}`, {
+            method: "POST",
+            signal: AbortSignal.timeout(2000),
+          })
+        );
+      }
+
+      const settled = await Promise.allSettled(toggleRequests);
+      const gwData =
+        settled[0]?.status === "fulfilled" && settled[0].value.ok ? await settled[0].value.json() : null;
+      const liveData =
+        settled[1]?.status === "fulfilled" && settled[1].value.ok ? await settled[1].value.json() : null;
+
+      if (gwData || liveData) {
+        const primary = gwData ?? liveData;
+        const totalTrips =
+          (gwData?.circuit_breaker_trips ?? 0) + (hasSeparateLiveService ? (liveData?.circuit_breaker_trips ?? 0) : 0);
         setTelemetry((prev) => ({
           ...prev,
-          chaos_force_aks_failure: data.chaos_force_aks_failure,
-          circuit_breaker_trips: data.circuit_breaker_trips,
+          chaos_force_aks_failure: Boolean(primary.chaos_force_aks_failure),
+          circuit_breaker_trips: totalTrips || primary.circuit_breaker_trips,
         }));
         setShowChaosMessage(true);
         return;
@@ -153,11 +212,10 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
     }
 
     // Local toggle
-    const nextChaos = !telemetry.chaos_force_aks_failure;
     setTelemetry((prev) => ({
       ...prev,
-      chaos_force_aks_failure: nextChaos,
-      circuit_breaker_trips: nextChaos
+      chaos_force_aks_failure: nextForce,
+      circuit_breaker_trips: nextForce
         ? prev.circuit_breaker_trips + 1
         : prev.circuit_breaker_trips,
     }));
@@ -182,7 +240,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       name: "xt-whatif-aks-worker",
       detail: isCircuitBroken
         ? t("cloud.aksDown")
-        : t("cloud.aksDetail"),
+        : `${t("cloud.aksDetail")} · ${telemetry.aks_delegated_calls} AKS calls`,
       metricLabel: "Pods",
       metricValue: isCircuitBroken ? "—" : String(telemetry.aks_worker_pods ?? 6),
       status: isCircuitBroken ? ("down" as const) : ("ok" as const),
@@ -199,7 +257,7 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
 
   const stats = [
     { label: t("cloud.latency"), value: Number(telemetry.last_compute_latency_ms ?? 0).toFixed(1), unit: "ms", note: t("cloud.lastCalc") },
-    { label: "Cache hits", value: String(telemetry.cache_hits), unit: "", note: t("cloud.cacheNote") },
+    { label: "AKS delegated", value: String(telemetry.aks_delegated_calls), unit: "", note: t("cloud.cacheNote") },
     { label: t("cloud.simulations"), value: String(telemetry.total_simulations), unit: "", note: t("cloud.simulationsNote") },
     {
       label: "Circuit breaker",
