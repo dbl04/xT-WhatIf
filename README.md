@@ -62,7 +62,8 @@ flowchart TD
         ACR["Azure Container Registry<br/>admin user disabled"]
         MI["User-assigned managed identity<br/>AcrPull role"]
         LOGS["Log Analytics workspace"]
-        AOAI["Azure OpenAI<br/>GPT-4o · GPT-4o-mini · TTS"]
+        AOAI["Azure OpenAI<br/>GPT-4o · GPT-4o-mini"]
+        SPEECH["Azure AI Speech<br/>neural voices"]
     end
 
     BROWSER -->|"HTTPS"| FRONT
@@ -73,8 +74,9 @@ flowchart TD
     SVC --> WORKERS
     GATEWAY -.->|"timeout · error · non-200 · chaos toggle<br/>→ compute in-process"| GATEWAY
     LIVE -.->|"timeout · error · non-200 · chaos toggle<br/>→ compute in-process"| LIVE
-    GATEWAY <-->|"pundit debate · TTS"| AOAI
-    LIVE <-->|"reveal TTS"| AOAI
+    GATEWAY <-->|"pundit debate"| AOAI
+    GATEWAY <-->|"pundit voices"| SPEECH
+    LIVE <-->|"reveal voice, synthesised while a moment is open"| SPEECH
     MI -.->|"image pull"| ACR
     ACAENV -.->|"container logs"| LOGS
 ```
@@ -241,7 +243,8 @@ This is the project's entry for the **Best Azure Cloud Native Integration** cate
 |:-----------|:------------------------|:----------------------|:-------|
 | **Azure Container Apps** | Cloud Native category | Hosts the frontend, the API gateway (scaled by KEDA, 1–10 replicas) and the live match service (1 replica). | Deployed by the Bicep template |
 | **Azure Kubernetes Service (AKS)** | Cloud Native category | Runs geometry and optimiser workers (`SERVICE_ROLE=aks-worker`) behind a LoadBalancer service guarded by `X-Worker-Token`, scaled by an HPA from 3 to 12 pods. **As synthetic match events happen in real time** (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's `attack` and `defend` searches in parallel (`POST /api/v1/game/optimize`, 1.5 s timeout) to the AKS worker pool, and the gateway offloads counterfactual simulations (`POST /api/v1/simulate`). If AKS times out, fails or chaos mode is toggled on, both services fall back to in-process computation with identical results. | Optional: the manifest and the CI step are ready; they run when `AKS_ENABLED` is set and both backend apps receive `aksWorkerUrl` and `aksWorkerToken` |
-| **Azure AI Services: Azure OpenAI** | Judging criteria (*"Azure Apps and AI Services"*) | GPT-4o and GPT-4o-mini write the two pundits' debate using function calling: the model calls the engine's tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`) and a deterministic verifier checks every figure in the text against the engine's output, correcting it or falling back to the template text if a number does not match. `gpt-4o-mini-tts` gives each pundit a voice. Without a key, deterministic templates and the browser's speech engine are used instead. | Used when the Azure OpenAI key and endpoint are configured |
+| **Azure AI Services: Azure OpenAI** | Judging criteria (*"Azure Apps and AI Services"*) | GPT-4o and GPT-4o-mini write the two pundits' debate using function calling: the model calls the engine's tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`) and a deterministic verifier checks every figure in the text against the engine's output, correcting it or falling back to the template text if a number does not match. Without a key, deterministic templates are used instead. | Used when the Azure OpenAI key and endpoint are configured |
+| **Azure AI Services: Azure AI Speech** | Judging criteria (*"Azure Apps and AI Services"*) | Neural voices read the pundits out loud: Dr. Voronoi is `en-GB-RyanNeural` / `es-ES-AlvaroNeural`, Coach Bianchi `en-GB-ThomasNeural` / `es-ES-DarioNeural`, with their own pace and pitch in SSML and a slower pace for the audio-description audience. In the live match the reveal is synthesised while the moment is still open and served only once it closes, so it plays as soon as the result lands. Azure OpenAI TTS (`gpt-4o-mini-tts`) is the second option where that model is deployed, and the browser's speech engine the last. | Used when `AZURE_SPEECH_KEY` is configured |
 | **MCP (Model Context Protocol)** | Judging criteria (*"Azure MCP"*) | The project ships its own MCP server, which exposes the engine's four tools to any MCP client over stdio (`python -m app.mcp`). It is not the Azure MCP Server product. | In the repo; runs locally |
 
 ### Supporting Azure services
@@ -263,7 +266,7 @@ The rules ask for *"effective integration of Azure services, event-driven archit
 - **Event-driven:** as each synthetic match event arrives in real time, the live runner triggers parallel `attack` + `defend` Validator searches on AKS and pushes match events, key moments and reveals to every fan over WebSockets.
 - **Automation:** one Bicep template and one GitHub Actions workflow build, tag and deploy everything.
 - **Operational excellence:** a new Container Apps revision per commit SHA, health probes, central logs, per-client rate limits and hardened containers.
-- **AI capabilities:** Azure OpenAI with tool calling and number verification, and Azure OpenAI TTS.
+- **AI capabilities:** Azure OpenAI with tool calling and number verification, and Azure AI Speech neural voices.
 
 ### Implementation details
 

@@ -35,6 +35,13 @@ param azureOpenAiTtsDeployment string = 'gpt-4o-mini-tts'
 @description('Azure OpenAI API Version for Text-To-Speech (TTS)')
 param azureOpenAiTtsApiVersion string = '2025-03-01-preview'
 
+@description('Azure AI Speech key for the pundits\' neural voices (empty or "disabled": not used)')
+@secure()
+param azureSpeechKey string = ''
+
+@description('Azure AI Speech region')
+param azureSpeechRegion string = 'francecentral'
+
 @description('Azure Container Registry Name')
 param acrName string = replace(toLower('${environmentName}acr'), '-', '')
 
@@ -122,7 +129,9 @@ var registries = [
     identity: containerAppIdentity.id
   }
 ]
-var backendSecrets = [
+// Container Apps rejects empty secret values, so the Speech secret only exists when a key is given.
+var speechEnabled = !empty(azureSpeechKey) && azureSpeechKey != 'disabled'
+var backendSecrets = concat([
   {
     name: 'openai-api-key'
     value: azureOpenAiKey
@@ -131,8 +140,23 @@ var backendSecrets = [
     name: 'aks-worker-token'
     value: aksWorkerToken
   }
-]
-var openAiEnv = [
+], speechEnabled ? [
+  {
+    name: 'speech-api-key'
+    value: azureSpeechKey
+  }
+] : [])
+var speechEnv = speechEnabled ? [
+  {
+    name: 'AZURE_SPEECH_KEY'
+    secretRef: 'speech-api-key'
+  }
+  {
+    name: 'AZURE_SPEECH_REGION'
+    value: azureSpeechRegion
+  }
+] : []
+var openAiEnv = concat(speechEnv, [
   {
     name: 'AZURE_OPENAI_API_KEY'
     secretRef: 'openai-api-key'
@@ -161,7 +185,7 @@ var openAiEnv = [
     name: 'AZURE_OPENAI_TTS_API_VERSION'
     value: azureOpenAiTtsApiVersion
   }
-]
+])
 var healthProbes = [
   {
     type: 'Liveness'

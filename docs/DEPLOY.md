@@ -72,11 +72,13 @@ front, so CORS on both APIs only allows the frontend's origin.
    | `AZURE_SUBSCRIPTION_ID` | Subscription id |
    | `AZURE_OPENAI_API_KEY` | Azure OpenAI / Foundry key (optional: without it the agents use their deterministic fallback) |
    | `AKS_WORKER_TOKEN` | The shared token created in step 3 (`<your-random-worker-token>`) |
+   | `AZURE_SPEECH_KEY` | Azure AI Speech key, Key 1 of the Speech resource (optional: without it the pundits use the browser's voice) |
 5. **Repository variables:**
    | Variable | Value |
    |---|---|
    | `AZURE_RG` | `rg-xt-whatif` (or `rg-xtwhatif-hackathon`) |
    | `AZURE_OPENAI_ENDPOINT` | `https://<your-resource>.openai.azure.com/` |
+   | `AZURE_SPEECH_REGION` | Region of the Speech resource, only if it is not `francecentral` |
    | `ACR_NAME` | Only if the registry is not `xtwhatifprodacr` |
    | `AKS_ENABLED` | `true` once the AKS cluster exists (`AKS_CLUSTER_NAME` if it is not `aks-xtwhatif-prod`) |
    | `AKS_WORKER_URL` | `http://<EXTERNAL-IP>:8000` from `kubectl get svc -n xt-whatif` |

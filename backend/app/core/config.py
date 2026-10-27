@@ -76,6 +76,10 @@ class Settings(BaseSettings):
         default=7.0,
         validation_alias="AZURE_OPENAI_TTS_TIMEOUT_S"
     )
+    # Azure AI Speech neural voices: the first TTS provider tried (available in every region,
+    # unlike the OpenAI TTS models). Empty key -> skipped.
+    AZURE_SPEECH_KEY: str = Field(default="", validation_alias="AZURE_SPEECH_KEY")
+    AZURE_SPEECH_REGION: str = Field(default="francecentral", validation_alias="AZURE_SPEECH_REGION")
     # Optional Azure AI Foundry Agent Service project endpoint / connection string
     AZURE_AI_FOUNDRY_PROJECT_ENDPOINT: Optional[str] = Field(
         default=None,

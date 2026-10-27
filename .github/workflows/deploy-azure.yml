@@ -181,6 +181,8 @@ jobs:
             aksWorkerToken=${{ secrets.AKS_WORKER_TOKEN || 'disabled-worker-token' }}
             azureOpenAiEndpoint=${{ vars.AZURE_OPENAI_ENDPOINT || 'https://xtwhatif-openai.openai.azure.com/' }}
             azureOpenAiKey=${{ secrets.AZURE_OPENAI_API_KEY || 'mock-azure-openai-key' }}
+            azureSpeechKey=${{ secrets.AZURE_SPEECH_KEY || 'disabled' }}
+            azureSpeechRegion=${{ vars.AZURE_SPEECH_REGION || 'francecentral' }}
 
       - name: Deployment URLs
         run: |

@@ -13,6 +13,7 @@ Validates:
 import sys
 import time
 import base64
+import httpx
 import logging
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -32,6 +33,8 @@ from app.services.tts_service import (
     MIN_GPT4O_TTS_API_VERSION,
     TTSRequest,
     TTSResponse,
+    _AUDIO_CACHE,
+    build_ssml,
     check_tts_endpoint_compatibility,
     resolve_tts_api_version,
     router,
@@ -135,6 +138,72 @@ def test_tts_service():
         json={"text": "Bonjour", "agent_role": "classic_coach", "language": "fr"},
     )
     assert res3.status_code == 422
+
+    print("\n--- 6. Azure AI Speech is tried first (mocked REST endpoint) ---")
+    _AUDIO_CACHE.clear()
+    fake_speech_mp3 = b"ID3-FAKE-AZURE-AI-SPEECH-MP3"
+    seen = []
+
+    def speech_handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        return httpx.Response(200, content=fake_speech_mp3)
+
+    real_async_client = httpx.AsyncClient
+    with (
+        patch.object(settings, "AZURE_SPEECH_KEY", "speech-test-key"),
+        patch.object(settings, "AZURE_SPEECH_REGION", "francecentral"),
+        patch.object(settings, "AZURE_OPENAI_API_KEY", "mock-key"),
+        patch(
+            "app.services.tts_service.httpx.AsyncClient",
+            side_effect=lambda **kw: real_async_client(transport=httpx.MockTransport(speech_handler), **kw),
+        ),
+    ):
+        res_speech = client.post(
+            "/api/v1/tts/synthesize",
+            json={"text": "Gap between the <centre-backs> & the full-back.", "agent_role": "data_scientist",
+                  "language": "en"},
+        )
+        data_speech = res_speech.json()
+        assert data_speech["provider"] == "azure-ai-speech", data_speech
+        assert data_speech["deployment"] == "en-GB-RyanNeural"
+        assert base64.b64decode(data_speech["audio_base64"]) == fake_speech_mp3
+        req = seen[0]
+        assert str(req.url) == "https://francecentral.tts.speech.microsoft.com/cognitiveservices/v1"
+        assert req.headers["Ocp-Apim-Subscription-Key"] == "speech-test-key"
+        assert req.headers["X-Microsoft-OutputFormat"] == "audio-24khz-48kbitrate-mono-mp3"
+        body = req.content.decode("utf-8")
+        assert "&lt;centre-backs&gt; &amp; the full-back" in body  # text is XML-escaped
+        # Same line again: served from the cache, no second call.
+        client.post("/api/v1/tts/synthesize", json={"text": "Gap between the <centre-backs> & the full-back.",
+                                                    "agent_role": "data_scientist", "language": "en"})
+        assert len(seen) == 1
+
+    ssml = build_ssml("Hola", "classic_coach", "es", "audio_description")
+    assert 'name="es-ES-DarioNeural"' in ssml and 'xml:lang="es-ES"' in ssml
+    assert 'rate="-14%"' in ssml and 'pitch="-4%"' in ssml  # 0.96 x 0.9 for audio description
+
+    print("\n--- 7. Speech failure falls through to Azure OpenAI, then to the browser ---")
+    _AUDIO_CACHE.clear()
+    with (
+        patch.object(settings, "AZURE_SPEECH_KEY", "speech-test-key"),
+        patch.object(settings, "AZURE_OPENAI_API_KEY", "real-test-key-123"),
+        patch.object(settings, "AZURE_OPENAI_ENDPOINT", "https://xtwhatif-eastus2.openai.azure.com/"),
+        patch("app.services.tts_service._call_azure_ai_speech", AsyncMock(side_effect=RuntimeError("HTTP 401"))),
+        patch("openai.AsyncAzureOpenAI", return_value=mock_azure_client),
+    ):
+        data_fall = client.post("/api/v1/tts/synthesize",
+                                json={"text": "Fall through.", "agent_role": "classic_coach"}).json()
+        assert data_fall["provider"] == "azure-openai-tts", data_fall
+    _AUDIO_CACHE.clear()
+    with (
+        patch.object(settings, "AZURE_SPEECH_KEY", "speech-test-key"),
+        patch.object(settings, "AZURE_OPENAI_API_KEY", "mock-azure-openai-key"),  # CI placeholder: not real
+        patch("app.services.tts_service._call_azure_ai_speech", AsyncMock(side_effect=RuntimeError("HTTP 401"))),
+    ):
+        data_none = client.post("/api/v1/tts/synthesize",
+                                json={"text": "Nobody answers.", "agent_role": "classic_coach"}).json()
+        assert data_none["provider"] == "browser-web-speech-fallback"
+        assert "Azure AI Speech" in data_none["warning"] and "HTTP 401" in data_none["warning"]
 
     print("\n✅ All TTS Service tests passed successfully!")
 
