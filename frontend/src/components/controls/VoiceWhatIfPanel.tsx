@@ -93,6 +93,7 @@ export interface VoiceWhatIfPanelProps {
   currentFrame: MatchFramePayload;
   inPlayMode?: boolean;
   onEnterPlayMode?: () => void;
+  onConfirmChallenge?: () => void;
   onBeforeListen?: () => void;
   onMovePlayer: (playerId: number, x: number, y: number) => void;
   onApplyMoves?: (moves: Array<{ playerId: number; x: number; y: number }>) => void;
@@ -111,6 +112,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   currentFrame,
   inPlayMode = false,
   onEnterPlayMode,
+  onConfirmChallenge,
   onBeforeListen,
   onMovePlayer,
   onApplyMoves,
@@ -676,6 +678,20 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
             </IconButton>
           )}
         </div>
+
+        {inPlayMode && onConfirmChallenge && (
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={onConfirmChallenge}
+            disabled={isProcessing || isListening}
+            className="w-full bg-signal-gain text-ink hover:bg-signal-gain/90 font-semibold h-8"
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden />
+            <span>{t("challenge.confirm")}</span>
+          </Button>
+        )}
 
         {!inPlayMode && (
           <p className="rounded-md border border-white/[0.08] bg-ink-800/40 px-2.5 py-1.5 text-[11px] text-fg-subtle">

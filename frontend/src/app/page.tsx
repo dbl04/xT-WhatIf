@@ -860,20 +860,20 @@ function DashboardPage() {
         {/* 5. Transport Dock */}
         <div className={`pointer-events-none order-2 flex w-full flex-col items-center gap-3 lg:order-2 ${isLiveView ? "lg:hidden" : ""}`}>
           {challengeState && !reveal && (
-            <div className="pointer-events-auto w-full max-w-xl lg:hidden">
+            <div className="pointer-events-auto w-full max-w-xl">
               <ChallengeStrip
                 state={challengeState}
                 secondsLeft={challenge.secondsLeft}
                 notice={challenge.notice}
                 teamInfo={fanSession?.teamInfo}
                 onConfirm={() => challenge.submit(false)}
-                onReset={challenge.reset}
+                onReset={handleVoiceReset}
                 onLeave={leaveChallenge}
                 delivery={liveDelivery}
               />
             </div>
           )}
-          <div className={`pointer-events-auto w-full max-w-5xl ${isLiveView ? "hidden" : challengeState ? "hidden lg:block" : ""}`}>
+          <div className={`pointer-events-auto w-full max-w-5xl ${isLiveView || challengeState ? "hidden" : ""}`}>
             <PlaybackBar
               frames={frames}
               currentFrameIndex={currentFrameIndex}
@@ -1005,6 +1005,7 @@ function DashboardPage() {
                     currentFrame={voiceActiveFrame}
                     inPlayMode={inChallenge}
                     onEnterPlayMode={handleEnterPlayMode}
+                    onConfirmChallenge={challengeState?.status === "open" ? () => challenge.submit(false) : undefined}
                     onBeforeListen={() => {
                       setIsPlaying(false);
                       tts.stop();

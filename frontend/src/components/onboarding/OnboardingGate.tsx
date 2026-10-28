@@ -81,7 +81,7 @@ export const OnboardingGate: React.FC<{ matchId?: number; children: React.ReactN
   );
 
   if (step === "loading") {
-    return <div className="min-h-screen bg-ink" aria-busy="true" />;
+    return <div className="min-h-screen bg-ink" aria-busy="true" suppressHydrationWarning />;
   }
 
   if (step === "profile") {
