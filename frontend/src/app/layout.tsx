@@ -18,6 +18,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`dark ${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
     >
       <head>
@@ -28,7 +29,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
         />
       </head>
-      <body className="bg-ink text-fg min-h-screen antialiased">
+      <body className="bg-ink text-fg min-h-screen antialiased" suppressHydrationWarning>
         {/* Backend URLs from the container's runtime environment (app/runtime-config.js).
             beforeInteractive runs it before any app code, so lib/api.ts always sees it. */}
         <Script src="/runtime-config.js" strategy="beforeInteractive" />

@@ -690,7 +690,10 @@ function DashboardPage() {
                 {liveState.score.home}–{liveState.score.away}
               </span>
             )}
-            <span className="flex min-w-[76px] items-center justify-center bg-ink-800 px-3 tabular-nums text-fg">
+            <span
+              suppressHydrationWarning
+              className="flex min-w-[76px] items-center justify-center bg-ink-800 px-3 tabular-nums text-fg"
+            >
               {clock}
             </span>
             <span className="flex items-center gap-2 bg-fg px-3 text-ink">

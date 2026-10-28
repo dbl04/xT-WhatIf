@@ -57,7 +57,12 @@ export const LiveStatusCard: React.FC<{
           <span className="font-display text-2xl font-extrabold leading-none tabular-nums text-fg" aria-live="polite">
             {live.score.home} – {live.score.away}
           </span>
-          <span className="font-mono text-[10px] tabular-nums text-signal-gain">{clockLabel(clockSeconds)}</span>
+          <span
+            suppressHydrationWarning
+            className="font-mono text-[10px] tabular-nums text-signal-gain"
+          >
+            {clockLabel(clockSeconds)}
+          </span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5 font-display text-lg font-bold uppercase">
           {matchInfo.away.short_name}
