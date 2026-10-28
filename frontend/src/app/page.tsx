@@ -41,7 +41,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ArrowUpRight,
-  Activity,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -581,7 +580,6 @@ function DashboardPage() {
       violationLabels[v.player_id] ??= t(`challenge.rule.${v.rule}`).toUpperCase();
     });
     return {
-      mode: challengeState.mode,
       movableIds: challengeState.movableIds,
       maxRadius: challengeState.rules.max_radius_m,
       maxPlayers: challengeState.rules.max_players,
@@ -658,7 +656,7 @@ function DashboardPage() {
             </span>
           </div>
 
-          <div className="hidden min-w-0 flex-col 2xl:flex">
+          <div className="hidden min-w-0 flex-col xl:flex">
             <span className="truncate text-xs text-fg-muted">
               {fixture.home.name} v {fixture.away.name}
               {currentFrame.is_counterfactual_mode && (
@@ -669,43 +667,11 @@ function DashboardPage() {
               )}
             </span>
           </div>
-
-          {/* 1-Click Mode Switcher: Live Match vs Key Moments & Voice */}
-          <div
-            role="group"
-            aria-label={t("nav.modeAria")}
-            className="hidden items-center rounded-md border border-line-strong bg-ink-800 p-0.5 md:inline-flex"
-          >
-            <button
-              type="button"
-              onClick={goToLive}
-              aria-pressed={isLiveView}
-              className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-semibold transition-colors ${
-                isLiveView
-                  ? "bg-white/[0.12] text-fg shadow-sm"
-                  : "text-fg-muted hover:text-fg"
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${isLiveView ? "bg-signal-gain" : "bg-fg-subtle"}`} />
-              {t("nav.mode.live")}
-            </button>
-            <button
-              type="button"
-              onClick={goToPractice}
-              aria-pressed={!isLiveView}
-              className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-semibold transition-colors ${
-                !isLiveView
-                  ? "bg-white/[0.12] text-fg shadow-sm"
-                  : "text-fg-muted hover:text-fg"
-              }`}
-            >
-              {t("nav.mode.practice")}
-            </button>
-          </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex items-center gap-0.5">
+          {/* Panel and Compare only act on the practice board; Infrastructure is hidden so the fixture line fits. */}
           {!isLiveView && (
             <>
               <Button
@@ -733,16 +699,6 @@ function DashboardPage() {
             </>
           )}
 
-          <Button
-            variant="ghost"
-            onClick={() => setIsCloudTelemetryOpen(true)}
-            title={t("nav.infraTitle")}
-            className="hidden sm:inline-flex"
-          >
-            <Activity className="h-3.5 w-3.5 text-signal-gain" />
-            <span className="hidden xl:inline">{t("nav.infra")}</span>
-          </Button>
-
           <IconButton
             onClick={() => setIsDemoGuideOpen(true)}
             className="hidden sm:inline-flex"
@@ -758,7 +714,7 @@ function DashboardPage() {
 
           <span className="mx-1 hidden h-5 w-px bg-line-strong sm:block" />
 
-          <ProfileSwitcher />
+          <ProfileSwitcher hideAudience={isLiveView} />
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
 

@@ -25,19 +25,6 @@ export interface VoiceWhatIfResult {
   simulatedFrame: MatchFramePayload | null;
 }
 
-export type STTProvider =
-  | "azure-ai-speech"
-  | "azure-openai-whisper"
-  | "browser-web-speech-fallback";
-
-export interface AzureSTTTranscriptionResult {
-  text: string;
-  provider: STTProvider;
-  isFallback: boolean;
-  deployment?: string | null;
-  warning?: string | null;
-}
-
 const SPOKEN_NUMBERS: Record<string, string> = {
   uno: "1",
   dos: "2",
@@ -443,71 +430,5 @@ export async function executeVoiceWhatIf(
     limitReached: false,
     moves: allowedOfflineMoves,
     simulatedFrame: null,
-  };
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const res = typeof reader.result === "string" ? reader.result : "";
-      const commaIdx = res.indexOf(",");
-      resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res);
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("FileReader failed"));
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * Sends recorded microphone audio to `/api/v1/speech/transcribe` (Azure AI Speech Fast STT with
- * Phrase List -> Azure OpenAI Whisper `whisper-1` -> graceful Browser Web Speech fallback).
- */
-export async function transcribeVoiceWithAzure(
-  audioBlob: Blob,
-  frame: MatchFramePayload,
-  language: Language
-): Promise<AzureSTTTranscriptionResult> {
-  try {
-    const audioBase64 = await blobToBase64(audioBlob);
-    if (!audioBase64 || audioBase64.length < 16) {
-      return {
-        text: "",
-        provider: "browser-web-speech-fallback",
-        isFallback: true,
-      };
-    }
-
-    const playerNames = frame.players.map((p) => p.name);
-    const res = await fetch(`${API_BASE_URL}/api/v1/speech/transcribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        audio_base64: audioBase64,
-        mime_type: audioBlob.type || "audio/webm",
-        language,
-        player_names: playerNames,
-      }),
-      signal: AbortSignal.timeout(7000),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        text: typeof data.text === "string" ? data.text.trim() : "",
-        provider: (data.provider as STTProvider) ?? "browser-web-speech-fallback",
-        isFallback: Boolean(data.is_fallback),
-        deployment: data.deployment ?? null,
-        warning: data.warning ?? null,
-      };
-    }
-  } catch {
-    // Graceful fallback to Browser Web Speech API or manual text
-  }
-
-  return {
-    text: "",
-    provider: "browser-web-speech-fallback",
-    isFallback: true,
   };
 }
