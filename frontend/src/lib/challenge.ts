@@ -1,6 +1,10 @@
 import type { MatchFramePayload, PlayerNode, TeamSide } from "@/types/match";
+import type { Audience, Language } from "@/lib/i18n";
+import type { MomentReveal } from "@/hooks/useLiveMatch";
 import { API_BASE_URL } from "@/lib/api";
 import { STATSBOMB_PITCH_LENGTH, STATSBOMB_PITCH_WIDTH } from "@/lib/coordinates";
+import { offlineCounterfactualDebate } from "@/lib/offlineNarration";
+import { xtAt } from "@/lib/xt";
 
 /**
  * xT Live Challenge: rules of a key moment and the preview call.
@@ -199,4 +203,136 @@ export async function fetchPreview(
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as PreviewResponse;
+}
+
+/**
+ * Evaluates a user's challenge submission in Practice / Key Moments mode.
+ * Calls POST /api/v1/game/evaluate on the backend and falls back to a deterministic
+ * client-side evaluation if the backend is offline so the Reveal card always renders.
+ */
+export async function evaluateChallenge(
+  body: {
+    match_id: number;
+    event_uuid: string;
+    team: TeamSide;
+    moves: ChallengeMove[];
+    language: Language;
+    audience: Audience;
+  },
+  frame: MatchFramePayload,
+  baseUrl: string = API_BASE_URL
+): Promise<MomentReveal> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/game/evaluate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      return (await res.json()) as MomentReveal;
+    }
+  } catch {
+    // Fall back to deterministic offline evaluation below.
+  }
+
+  const mode = modeFor(body.team, frame);
+  const movable = movablePlayerIds(frame, mode);
+  const beforePct = Math.round(frame.metrics.original_xt * 100);
+
+  // Build a deterministic machine optimum on the first 2 movable players
+  const optimumMoves: ChallengeMove[] = movable.slice(0, 2).map((pid, idx) => {
+    const p = frame.players.find((pl) => pl.player_id === pid);
+    if (!p) return { player_id: pid, x: 60, y: 40 };
+    const dx = mode === "attack" ? 4.2 : (frame.ball_x - p.x) * 0.35;
+    const dy = mode === "attack" ? (idx === 0 ? -2.8 : 2.8) : (frame.ball_y - p.y) * 0.35;
+    const clamped = clampToRadius(p.original_x ?? p.x, p.original_y ?? p.y, p.x + dx, p.y + dy, 6.0);
+    return { player_id: pid, x: clamped.x, y: clamped.y };
+  });
+
+  const bestPct =
+    mode === "attack"
+      ? Math.min(92, Math.max(beforePct + 8, Math.round(beforePct * 1.32)))
+      : Math.max(4, Math.min(beforePct - 6, Math.round(beforePct * 0.65)));
+
+  // Score the user's moves by proximity to the optimum and tactical improvement
+  let userScore = 360;
+  let yoursPct = beforePct;
+  if (body.moves.length > 0) {
+    let totalBonus = 0;
+    for (const m of body.moves) {
+      const orig = frame.players.find((p) => p.player_id === m.player_id);
+      if (!orig) continue;
+      if (mode === "attack") {
+        const cellDiff = xtAt(m.x, m.y) - xtAt(orig.x, orig.y);
+        totalBonus += Math.max(-4, Math.min(10, Math.round(cellDiff * 140)));
+      } else {
+        const dBefore = Math.hypot(orig.x - frame.ball_x, orig.y - frame.ball_y);
+        const dAfter = Math.hypot(m.x - frame.ball_x, m.y - frame.ball_y);
+        totalBonus += Math.max(-4, Math.min(9, Math.round((dBefore - dAfter) * 1.4)));
+      }
+    }
+    yoursPct =
+      mode === "attack"
+        ? Math.max(2, Math.min(95, beforePct + Math.max(1, totalBonus)))
+        : Math.max(2, Math.min(95, beforePct - Math.max(1, totalBonus)));
+    const denom = Math.max(1, Math.abs(bestPct - beforePct));
+    const ratio =
+      mode === "attack"
+        ? Math.max(0, Math.min(1.08, (yoursPct - beforePct) / denom))
+        : Math.max(0, Math.min(1.08, (beforePct - yoursPct) / denom));
+    userScore = Math.min(1000, Math.max(180, Math.round(ratio * 920)));
+  }
+
+  const movedPlayers = body.moves
+    .map((m) => frame.players.find((p) => p.player_id === m.player_id))
+    .filter((p): p is PlayerNode => Boolean(p));
+  const actor = frame.players.find((p) => p.is_actor) || frame.players[0];
+  const delta = Number(((yoursPct - beforePct) / 100).toFixed(2));
+  const pundits = offlineCounterfactualDebate(frame, body.language, {
+    modifiedNames: movedPlayers.map((p) => p.name).join(", "),
+    modifiedIds: movedPlayers.map((p) => p.player_id),
+    actorId: actor.player_id,
+    delta,
+    simXt: yoursPct / 100,
+    passProb: frame.metrics.pass_completion_prob,
+    audience: body.audience,
+  });
+
+  const isEs = body.language === "es";
+  const voronoiMsg = pundits[0];
+  const bianchiMsg = pundits[1];
+
+  return {
+    moment_id: `practice-${frame.event_uuid}`,
+    mode,
+    optimum_moves: optimumMoves,
+    optimum_target_id: frame.metrics.optimal_pass_target_id ?? null,
+    base_target_id: frame.metrics.optimal_pass_target_id ?? null,
+    your_moves: body.moves,
+    your_score: userScore,
+    beat_machine: userScore >= 950,
+    goal_chance_pct: {
+      before: beforePct,
+      best: bestPct,
+      yours: yoursPct,
+    },
+    explanation: {
+      headline: voronoiMsg?.headline ?? (isEs ? "Resultado de la jugada" : "Play result"),
+      body: bianchiMsg?.analysis_body ?? "",
+      voronoi_comparison: voronoiMsg?.analysis_body ?? "",
+      bianchi_headline: bianchiMsg?.headline ?? "",
+      personal: voronoiMsg?.analysis_body ?? "",
+      voronoi_voice: voronoiMsg?.analysis_body ?? "",
+      bianchi_voice: bianchiMsg?.analysis_body ?? "",
+      community: isEs
+        ? `Tu jugada sumó ${userScore} pts en modo práctica.`
+        : `Your move scored ${userScore} pts in practice mode.`,
+    },
+    pundits,
+    community: {
+      submissions: 1,
+      found_it_pct: userScore >= 700 ? 100 : 42,
+      avg_score: userScore,
+    },
+  };
 }

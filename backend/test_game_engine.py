@@ -217,5 +217,41 @@ class ScoreTest(unittest.TestCase):
                 self.assertEqual(score_submission(opt.mode, opt.base.value, opt.best.value, opt.best.value)[0], MAX_SCORE)
 
 
+class EvaluateApiTest(unittest.TestCase):
+    def test_practice_evaluate_endpoint_and_four_audiences(self):
+        from fastapi.testclient import TestClient
+        from app.main import app
+
+        client = TestClient(app)
+        frame = FRAMES[0]
+        opt = OPTIMA[frame.event_uuid].attack
+        moves = [{"player_id": pid, "x": x, "y": y} for pid, x, y in opt.moves]
+
+        headlines_by_audience = {}
+        for aud in ("casual", "analyst", "coach", "audio_description"):
+            res = client.post(
+                "/api/v1/game/evaluate",
+                json={
+                    "match_id": frame.match_id,
+                    "event_uuid": frame.event_uuid,
+                    "team": frame.possession_team,
+                    "moves": moves,
+                    "language": "es",
+                    "audience": aud,
+                },
+            )
+            self.assertEqual(res.status_code, 200, res.text)
+            payload = res.json()
+            self.assertEqual(payload["your_score"], MAX_SCORE)
+            self.assertEqual(len(payload["pundits"]), 2)
+            headlines_by_audience[aud] = (
+                payload["explanation"]["voronoi_comparison"],
+                payload["explanation"]["bianchi_headline"],
+            )
+
+        # Verify that the 4 audience modes generate distinct tailored commentary
+        self.assertEqual(len(set(headlines_by_audience.values())), 4, headlines_by_audience)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

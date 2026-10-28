@@ -18,6 +18,7 @@ Features (Persona 2):
 """
 
 import re
+import json
 import base64
 import logging
 import asyncio
@@ -411,6 +412,300 @@ async def synthesize_speech(request: TTSRequest) -> TTSResponse:
         warning=warn_msg,
         fallback_warning=warn_msg,
         deployment=deployment,
+    )
+
+
+# ==============================================================================
+# Azure Speech-To-Text (STT) Service for Voice What-If (Key Moments Mode)
+# ==============================================================================
+# Providers, in order:
+# 1. Azure AI Speech Fast Transcription REST API (`AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`)
+#    with domain-specific Phrase List (synthetic player names + football tactical vocabulary).
+# 2. Azure OpenAI Audio Transcriptions (`AZURE_OPENAI_STT_DEPLOYMENT`, default `whisper-1`)
+#    with domain prompt conditioning.
+# 3. Browser Web Speech API fallback (`browser-web-speech-fallback`).
+
+DEFAULT_STT_TIMEOUT_S: float = 6.5
+
+TACTICAL_PHRASE_LIST: Tuple[str, ...] = (
+    "Dr. Voronoi",
+    "Coach Bianchi",
+    "Míster Bianchi",
+    "Expected Threat",
+    "xT",
+    "half-space",
+    "rest defense",
+    "full-back",
+    "centre-back",
+    "holding midfielder",
+    "lateral derecho",
+    "lateral izquierdo",
+    "mediocentro",
+    "central",
+    "extremo",
+    "cierra por dentro",
+    "sale a presionar",
+    "adelanta la línea",
+    "línea de pase",
+)
+
+
+class STTRequest(BaseModel):
+    audio_base64: str = Field(..., min_length=8, max_length=6_000_000, description="Base64-encoded recorded audio blob")
+    mime_type: str = Field(default="audio/webm", max_length=80)
+    language: Literal["en", "es"] = "es"
+    player_names: List[str] = Field(
+        default_factory=list,
+        max_length=30,
+        description="Optional active player names on the pitch to inject into Azure Phrase List / Whisper prompt",
+    )
+
+
+class STTResponse(BaseModel):
+    text: str = ""
+    provider: Literal["azure-ai-speech", "azure-openai-whisper", "browser-web-speech-fallback"]
+    language: Literal["en", "es"] = "es"
+    is_fallback: bool = False
+    warning: Optional[str] = None
+    deployment: Optional[str] = None
+    phrase_boost_count: int = 0
+
+
+def build_stt_phrases(player_names: Optional[List[str]] = None) -> List[str]:
+    """Combines active pitch player names with football tactical terms for Azure Phrase List boosting."""
+    seen: set = set()
+    phrases: List[str] = []
+    for raw in list(player_names or []) + list(TACTICAL_PHRASE_LIST):
+        clean = (raw or "").strip()
+        if clean and clean.lower() not in seen:
+            seen.add(clean.lower())
+            phrases.append(clean)
+    return phrases[:60]
+
+
+def build_whisper_prompt(language: str, phrases: List[str]) -> str:
+    """Builds a concise tactical prompt for Azure OpenAI Whisper to prevent misspelling player names."""
+    joined = ", ".join(phrases[:35])
+    if language == "es":
+        return f"Orden táctica de fútbol (xT-WhatIf). Jugadores y términos clave: {joined}."
+    return f"Football tactical command (xT-WhatIf). Players and key terms: {joined}."
+
+
+def _audio_filename_for_mime(mime_type: str) -> Tuple[str, str]:
+    m = (mime_type or "audio/webm").lower().split(";")[0].strip()
+    if "wav" in m:
+        return "voice_command.wav", "audio/wav"
+    if "ogg" in m:
+        return "voice_command.ogg", "audio/ogg"
+    if "mp4" in m or "m4a" in m or "aac" in m:
+        return "voice_command.m4a", "audio/mp4"
+    if "mpeg" in m or "mp3" in m:
+        return "voice_command.mp3", "audio/mpeg"
+    return "voice_command.webm", "audio/webm"
+
+
+async def _call_azure_ai_speech_stt(
+    audio_bytes: bytes,
+    mime_type: str,
+    language: str,
+    phrases: List[str],
+    timeout_s: float,
+) -> str:
+    """
+    Calls Azure AI Speech Fast Transcription REST API with a domain-specific Phrase List,
+    and falls back to the classic Short-Audio STT REST endpoint if needed.
+    """
+    region = (getattr(settings, "AZURE_SPEECH_REGION", "") or "francecentral").strip()
+    locale = _SPEECH_LOCALES.get(language, "es-ES")
+    filename, clean_mime = _audio_filename_for_mime(mime_type)
+
+    definition = {
+        "locales": [locale],
+        "phraseList": {"phrases": phrases},
+    }
+    fast_url = (
+        f"https://{region}.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe"
+        "?api-version=2024-11-15"
+    )
+
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        response = await client.post(
+            fast_url,
+            headers={
+                "Ocp-Apim-Subscription-Key": settings.AZURE_SPEECH_KEY,
+                "User-Agent": "xt-whatif",
+            },
+            files={
+                "audio": (filename, audio_bytes, clean_mime),
+                "definition": (None, json.dumps(definition), "application/json"),
+            },
+        )
+        if response.status_code == 200:
+            payload = response.json()
+            combined = payload.get("combinedPhrases") or []
+            if combined and isinstance(combined[0], dict) and combined[0].get("text"):
+                return str(combined[0]["text"]).strip()
+            phrases_out = payload.get("phrases") or []
+            text = " ".join(str(p.get("text", "")).strip() for p in phrases_out if isinstance(p, dict)).strip()
+            if text:
+                return text
+
+        # Fallback to Azure AI Speech Short-Audio Recognition v1 REST endpoint (for WAV/OGG streams)
+        short_url = (
+            f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
+            f"?language={locale}&format=detailed"
+        )
+        short_resp = await client.post(
+            short_url,
+            headers={
+                "Ocp-Apim-Subscription-Key": settings.AZURE_SPEECH_KEY,
+                "Content-Type": clean_mime,
+                "Accept": "application/json",
+                "User-Agent": "xt-whatif",
+            },
+            content=audio_bytes,
+        )
+        if short_resp.status_code == 200:
+            short_data = short_resp.json()
+            display = (short_data.get("DisplayText") or "").strip()
+            if display:
+                return display
+            nbest = short_data.get("NBest") or []
+            if nbest and isinstance(nbest[0], dict) and nbest[0].get("Display"):
+                return str(nbest[0]["Display"]).strip()
+
+        raise RuntimeError(
+            f"Azure AI Speech STT HTTP {response.status_code}: {response.text[:180]}"
+        )
+
+
+async def _call_azure_openai_whisper(
+    audio_bytes: bytes,
+    mime_type: str,
+    language: str,
+    phrases: List[str],
+    deployment: str,
+    timeout_s: float,
+) -> str:
+    """Calls Azure OpenAI Audio Transcriptions (`whisper-1` or `gpt-4o-mini-transcribe`)."""
+    from openai import AsyncAzureOpenAI
+
+    api_version = getattr(settings, "AZURE_OPENAI_API_VERSION", "2024-10-21")
+    client = AsyncAzureOpenAI(
+        api_key=settings.AZURE_OPENAI_API_KEY,
+        api_version=api_version,
+        azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+    )
+    filename, clean_mime = _audio_filename_for_mime(mime_type)
+    prompt = build_whisper_prompt(language, phrases)
+
+    transcription = await asyncio.wait_for(
+        client.audio.transcriptions.create(
+            model=deployment,
+            file=(filename, audio_bytes, clean_mime),
+            language=language,
+            prompt=prompt,
+        ),
+        timeout=timeout_s,
+    )
+    text = getattr(transcription, "text", None)
+    if text is None and isinstance(transcription, dict):
+        text = transcription.get("text")
+    cleaned = str(text or "").strip()
+    if not cleaned:
+        raise RuntimeError("Empty transcription from Azure OpenAI Whisper")
+    return cleaned
+
+
+@router.post("/api/v1/speech/transcribe", response_model=STTResponse, tags=["tts"])
+async def transcribe_speech(request: STTRequest) -> STTResponse:
+    """
+    Transcribes a recorded tactical voice command using Azure Cognitive Services:
+    1. Tries Azure AI Speech Fast Transcription REST API (`AZURE_SPEECH_KEY`) with custom Phrase List.
+    2. Tries Azure OpenAI Whisper (`AZURE_OPENAI_STT_DEPLOYMENT`, default `whisper-1`) with tactical prompt.
+    3. Returns `browser-web-speech-fallback` metadata if neither cloud provider is configured or reachable.
+    """
+    phrases = build_stt_phrases(request.player_names)
+    deployment = getattr(settings, "AZURE_OPENAI_STT_DEPLOYMENT", None) or "whisper-1"
+    timeout_s = float(getattr(settings, "AZURE_OPENAI_STT_TIMEOUT_S", DEFAULT_STT_TIMEOUT_S) or DEFAULT_STT_TIMEOUT_S)
+
+    try:
+        raw_b64 = request.audio_base64.split(",")[-1].strip()
+        audio_bytes = base64.b64decode(raw_b64)
+        if not audio_bytes:
+            raise ValueError("decoded audio is empty")
+    except Exception as exc:
+        warn = f"Invalid base64 audio payload: {exc}. Falling back to browser Web Speech API."
+        logger.warning(warn)
+        return STTResponse(
+            text="",
+            provider="browser-web-speech-fallback",
+            language=request.language,
+            is_fallback=True,
+            warning=warn,
+            deployment=deployment,
+            phrase_boost_count=len(phrases),
+        )
+
+    failures: List[str] = []
+
+    if speech_configured():
+        region = (getattr(settings, "AZURE_SPEECH_REGION", "") or "francecentral").strip()
+        try:
+            text = await asyncio.wait_for(
+                _call_azure_ai_speech_stt(audio_bytes, request.mime_type, request.language, phrases, timeout_s),
+                timeout=timeout_s + 0.5,
+            )
+            return STTResponse(
+                text=text,
+                provider="azure-ai-speech",
+                language=request.language,
+                is_fallback=False,
+                warning=None,
+                deployment=f"azure-speech-stt-{region}",
+                phrase_boost_count=len(phrases),
+            )
+        except Exception as e:
+            note = f"Azure AI Speech STT ({region}, timeout={timeout_s}s) failed: {e}"
+            logger.warning(note)
+            failures.append(note)
+
+    if openai_tts_configured():
+        try:
+            text = await _call_azure_openai_whisper(
+                audio_bytes, request.mime_type, request.language, phrases, deployment, timeout_s
+            )
+            return STTResponse(
+                text=text,
+                provider="azure-openai-whisper",
+                language=request.language,
+                is_fallback=False,
+                warning=None,
+                deployment=deployment,
+                phrase_boost_count=len(phrases),
+            )
+        except Exception as e:
+            note = f"Azure OpenAI Whisper ({deployment}, timeout={timeout_s}s) failed: {e}"
+            logger.warning(note)
+            failures.append(note)
+
+    if failures:
+        warn_msg = "; ".join(failures) + ". Falling back to browser Web Speech API."
+    else:
+        warn_msg = (
+            f"Azure STT not configured (no Azure AI Speech key; Azure OpenAI deployment={deployment}). "
+            "Using browser Web Speech API fallback."
+        )
+        logger.warning(warn_msg)
+
+    return STTResponse(
+        text="",
+        provider="browser-web-speech-fallback",
+        language=request.language,
+        is_fallback=True,
+        warning=warn_msg,
+        deployment=deployment,
+        phrase_boost_count=len(phrases),
     )
 
 

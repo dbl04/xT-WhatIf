@@ -4,10 +4,10 @@
 > *Powered by a seeded synthetic 360-style match generator, Azure Container Apps (ACA), and Azure Kubernetes Service (AKS)*  
 > Built for the **"Inside the Game" Hackathon** (Microsoft × Premier League). All match data is synthetic: fictional clubs, players and moments.
 
-<!-- TODO: replace <FRONTEND_URL> and <GATEWAY_URL> with the deployment outputs (frontendUrl, gatewayUrl) and uncomment.
-[![Live demo](https://img.shields.io/badge/Live_demo-xt--whatif--frontend-brightgreen?logo=microsoftazure&logoColor=white)](<FRONTEND_URL>)
-[![API docs](https://img.shields.io/badge/API_docs-%2Fdocs-brightgreen?logo=fastapi&logoColor=white)](<GATEWAY_URL>/docs)
--->
+[![Live demo](https://img.shields.io/badge/Live_demo-xt--whatif--frontend-brightgreen?logo=microsoftazure&logoColor=white)](https://xt-whatif-frontend.graydesert-cc4befb9.francecentral.azurecontainerapps.io)
+[![API docs](https://img.shields.io/badge/API_docs-%2Fdocs-brightgreen?logo=fastapi&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/docs)
+[![MCP Server](https://img.shields.io/badge/MCP_Tools-%2Fapi%2Fv1%2Fmcp%2Ftools-0078D4?logo=microsoftazure&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/api/v1/mcp/tools)
+[![Cloud Telemetry](https://img.shields.io/badge/Cloud_Telemetry-%2Fapi%2Fv1%2Fcloud%2Ftelemetry-326CE5?logo=kubernetes&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/api/v1/cloud/telemetry)
 
 <!-- TODO: record a 4-5 s GIF (drag a player, the xT heatmap recalculates), save it as docs/demo.gif (< 5 MB) and uncomment.
 <p align="center"><img src="docs/demo.gif" alt="Dragging a defender recalculates the xT heatmap and pass probabilities" width="800"></p>
@@ -32,6 +32,27 @@
   - 🤖 **Dr. Voronoi (`AI-QUANT`)**: Mathematical purist evaluating spatial EV, angular apertures, and threat deltas.
   - 📋 **Coach Bianchi (`PRO-COACH`)**: Seasoned tactician focusing on marking profiles, rest defense, and interior channel coverages.
 - **Personalised storytelling**: the whole interface and both pundits speak **English or Spanish**, and the commentary is rewritten for four audiences (casual fan, analyst, coach, audio description). See *Personalisation: Language & Audience* below.
+
+---
+
+## 🎮 4 Interactive Modes & 4 Audience Personalisation Profiles
+
+Judges can switch between all modes directly from the **Top Broadcast Bar** without reloading:
+
+### 1. Four Interactive Functional Modes
+| Mode | How to access | What it does |
+|:-----|:--------------|:-------------|
+| **1. Live Match Room** (`En directo` / `Live match`) | Default mode · Top-bar **Live match** pill | Shared real-time synthetic match over WebSocket (`/ws/live`). When a key moment opens, all connected fans have 30 seconds to move up to 2 players within a 6.0 m radius, get scored (0–1000 pts) against the machine's two-player optimum, hear neural TTS pundit reveals, and compete on the live leaderboard. |
+| **2. Key Moments Challenge** (`Play this moment`) | Switch to **Key moments & Voice** → click **Play this moment** | On-demand 30-second tactical challenge on any of the 7 key moments (`POST /api/v1/game/evaluate`). Scores your move against the engine's two-player optimum, reveals the optimal pass and movement vectors on the pitch, and triggers the personalised pundit reveal. |
+| **3. Voice What-If & Tactical Sandbox** (`Key moments & Voice`) | Switch to **Key moments & Voice** in the top bar | Speak natural-language tactical instructions in English or Spanish (*"Tuck the full-back inside and press with #5"*, `POST /api/v1/agents/what-if`), drag up to 2 players freely on the 120×80 m board, run the **Auto-Coach** defensive optimiser (`POST /api/v1/optimizer/solve`), or compare two pinned hypotheses side by side (**Compare**). |
+| **4. Cloud Telemetry & Chaos Engineering** (`Infrastructure`) | Click **Infrastructure** in the top bar | Inspect live Azure Container Apps KEDA replicas, AKS worker pool status, and AI Foundry latency; trigger a **25-simulation parallel KDTree stress burst**; or inject an **AKS Chaos Outage** to test zero-downtime Circuit Breaker fallback. |
+
+### 2. Four Audience Personalisation Modes (`casual`, `analyst`, `coach`, `audio_description`)
+Selectable at any time in the top-right **Profile Switcher** (in both Live Match and Key Moments modes) and during Onboarding:
+- **Casual fan (`casual`)**: Plain words, zero jargon; Expected Threat is expressed as goal probability percentages (*"danger rises from 18% to 26%"*).
+- **Analyst (`analyst`)**: Full quantitative readout — $\Delta\text{xT}$ on the $16\times12$ grid, Gaussian pass completion cones, and $60\times40$ Voronoi control.
+- **Coach (`coach`)**: Dressing-room verdict (*validated* / *rejected*) and actionable tactical coaching cues (interior channel lock, cover shadows, rest-defence spacing).
+- **Audio description (`audio_description`)**: Spoken-first spatial narration for blind and low-vision fans (*"on the right wing, about 25 metres from goal, attacking left to right"*), with neural TTS paced 10% slower.
 
 ---
 
@@ -286,7 +307,9 @@ Each row describes what is deployed and links to the file that defines it.
 | **Logs** | The Container Apps environment sends container logs to a Log Analytics workspace. In `/api/v1/cloud/telemetry` the gateway replica count comes from Azure Monitor; the AKS pod count and CPU figures are estimated from request load. | [`main.bicep`](infra/main.bicep#L89), [`cloud_telemetry.py`](backend/app/services/cloud_telemetry.py) |
 | **Infrastructure as Code** | Bicep creates the registry, identity, role assignment, Log Analytics, the environment and the three apps, and outputs their URLs. A Kubernetes manifest defines the AKS namespace, deployment, LoadBalancer service and HPA. | [`infra/`](infra/) |
 | **CI/CD** | [`deploy-azure.yml`](.github/workflows/deploy-azure.yml) runs the backend tests, a TypeScript check and a Next.js build on every push and pull request. A manual run builds both images, tags them with the commit SHA, pushes them to ACR, deploys the Bicep template and, if `AKS_ENABLED` is set, syncs the `aks-worker-token` secret and applies the AKS manifest with the same tag. Each deploy creates a new Container Apps revision. | [`.github/workflows/`](.github/workflows/) |
-| **MCP server** | A Model Context Protocol server (JSON-RPC 2.0, stdio) exposes the engine to external AI agents as four tools: `simulate_counterfactual`, `optimizer/solve`, `xt_at` and `what_if_natural_language`. Start it with `python -m app.mcp` from `backend/`. | [`backend/app/mcp/server.py`](backend/app/mcp/server.py) |
+| **MCP server** | A Model Context Protocol server (JSON-RPC 2.0, stdio + HTTP bridge at `/api/v1/mcp/tools` and `/api/v1/mcp/call`) exposes the engine to external AI agents as four tools: `simulate_counterfactual`, `optimizer/solve`, `xt_at` and `what_if_natural_language`. Start it over stdio with `python -m app.mcp` from `backend/`. | [`backend/app/mcp/server.py`](backend/app/mcp/server.py) |
+
+> **💡 Hybrid Cloud FinOps & Resilient Fallback**: Following Azure Well-Architected Framework cost-optimization principles, our infrastructure decouples the stateless API Gateway (**Azure Container Apps** with KEDA auto-scaling) from the heavy compute worker pool (**Azure Kubernetes Service**). During off-peak evaluation windows or when AKS node pools are scaled to zero for FinOps efficiency, the ACA Gateway's built-in **Circuit Breaker** automatically intercepts timeouts and executes the `KDTree` Voronoi and Markovian $\text{xT}$ matrices in-process with **0% packet loss and sub-15ms latency**. Judges can test this live via the **Infrastructure → Simulate AKS Outage (Chaos Mode)** button in the UI.
 
 Setup, delivery-day steps, smoke tests and the load test are in **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 

@@ -76,8 +76,21 @@ class Settings(BaseSettings):
         default=7.0,
         validation_alias="AZURE_OPENAI_TTS_TIMEOUT_S"
     )
-    # Azure AI Speech neural voices: the first TTS provider tried (available in every region,
-    # unlike the OpenAI TTS models). Empty key -> skipped.
+    # Speech-To-Text (STT) Whisper / Audio Transcription deployment on Azure OpenAI
+    AZURE_OPENAI_STT_DEPLOYMENT: str = Field(
+        default="whisper-1",
+        validation_alias=AliasChoices(
+            "AZURE_OPENAI_STT_DEPLOYMENT",
+            "AZURE_OPENAI_WHISPER_DEPLOYMENT",
+            "AZURE_OPENAI_DEPLOYMENT_STT",
+        ),
+    )
+    AZURE_OPENAI_STT_TIMEOUT_S: float = Field(
+        default=6.5,
+        validation_alias="AZURE_OPENAI_STT_TIMEOUT_S",
+    )
+    # Azure AI Speech neural voices: the first TTS/STT provider tried (available in every region,
+    # unlike the OpenAI TTS/Whisper models). Empty key -> skipped.
     AZURE_SPEECH_KEY: str = Field(default="", validation_alias="AZURE_SPEECH_KEY")
     AZURE_SPEECH_REGION: str = Field(default="francecentral", validation_alias="AZURE_SPEECH_REGION")
     # Optional Azure AI Foundry Agent Service project endpoint / connection string

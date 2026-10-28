@@ -30,9 +30,18 @@ from app.services.game_engine import (
     offside_line,
     optimize,
     optimum_to_dict,
+    score_submission,
     validate_moves,
 )
 from app.services.match_loader import loader
+from app.services.narration import (
+    DEFAULT_AUDIENCE,
+    DEFAULT_LANGUAGE,
+    REVEAL_TEXT,
+    normalize_audience,
+    normalize_language,
+    reveal_pundits_and_comparison,
+)
 
 router = APIRouter(prefix="/api/v1/game", tags=["game"])
 
@@ -51,6 +60,15 @@ class PreviewRequest(BaseModel):
     event_uuid: str = Field(..., max_length=64)
     team: TeamSide  # the team the user supports
     moves: List[MoveIn] = Field(default_factory=list, max_length=11)
+
+
+class EvaluateRequest(BaseModel):
+    match_id: int
+    event_uuid: str = Field(..., max_length=64)
+    team: TeamSide
+    moves: List[MoveIn] = Field(default_factory=list, max_length=11)
+    language: str = DEFAULT_LANGUAGE
+    audience: str = DEFAULT_AUDIENCE
 
 
 class OptimizeRequest(BaseModel):
@@ -146,3 +164,75 @@ async def optimize_mode(
 
     opt = await asyncio.to_thread(optimize, request.frame, request.mode)
     return optimum_to_dict(opt)
+
+
+@router.post("/evaluate")
+async def evaluate_practice_challenge(request: EvaluateRequest) -> Dict[str, Any]:
+    """
+    Evaluates a user's challenge submission in Practice / Key Moments mode on demand.
+    Computes the optimal moves for the supported team, scores the user's legal moves (/1000),
+    and builds the audience-personalized MomentReveal payload.
+    """
+    frame = _moment(request.match_id, request.event_uuid)
+    mode = mode_for(request.team, frame)
+    lang = normalize_language(request.language)
+    aud = normalize_audience(request.audience)
+
+    raw_moves = [(m.player_id, round(m.x, 1), round(m.y, 1)) for m in request.moves]
+    violations = validate_moves(frame, mode, raw_moves)
+    broken_ids = {v.player_id for v in violations}
+    legal_moves = [(pid, x, y) for pid, x, y in raw_moves if pid not in broken_ids]
+
+    opt = await asyncio.to_thread(optimize, frame, mode)
+    user_val = frame_value(frame, legal_moves).value
+    score, beat_machine = score_submission(opt.mode, opt.base.value, opt.best.value, user_val)
+
+    moment_id = f"practice-{frame.event_uuid}"
+    pack = reveal_pundits_and_comparison(
+        frame=frame,
+        moment_id=moment_id,
+        mode=opt.mode,
+        opt_moves=opt.moves,
+        base_value=opt.base.value,
+        best_value=opt.best.value,
+        best_target_id=opt.best.target_id,
+        user_moves=legal_moves,
+        user_value=user_val,
+        user_score=score,
+        beat_machine=beat_machine,
+        lang=lang,
+        audience=aud,
+    )
+    share = 38 if score >= 900 else 24
+    text = REVEAL_TEXT[lang]
+    return {
+        "moment_id": moment_id,
+        "mode": opt.mode,
+        "optimum_moves": [{"player_id": p, "x": x, "y": y} for p, x, y in opt.moves],
+        "optimum_target_id": opt.best.target_id,
+        "base_target_id": opt.base.target_id,
+        "your_moves": [{"player_id": p, "x": x, "y": y} for p, x, y in legal_moves],
+        "your_score": score,
+        "beat_machine": beat_machine,
+        "goal_chance_pct": {
+            "before": round(opt.base.value * 100),
+            "best": round(opt.best.value * 100),
+            "yours": round(user_val * 100),
+        },
+        "explanation": {
+            "headline": pack["headline"],
+            "body": pack["body"],
+            "voronoi_comparison": pack["voronoi_comparison"],
+            "bianchi_headline": pack["bianchi_headline"],
+            "personal": pack["personal"],
+            "voronoi_voice": pack["voronoi_voice"],
+            "bianchi_voice": pack["bianchi_voice"],
+            "community": text["community"].format(share=share),
+        },
+        "pundits": pack["pundits"],
+        "community": {
+            "submissions": 1,
+            "found_it_pct": share,
+            "avg_score": max(520, min(920, round((score + 680) / 2))),
+        },
+    }

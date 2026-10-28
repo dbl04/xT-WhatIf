@@ -240,6 +240,8 @@ export const CloudTelemetryModal: React.FC<CloudTelemetryModalProps> = ({
       name: "xt-whatif-aks-worker",
       detail: isCircuitBroken
         ? t("cloud.aksDown")
+        : telemetry.aks_delegated_calls === 0
+        ? `${t("cloud.aksDetail")} · Scaled-to-zero (FinOps — ACA Local Compute Active)`
         : `${t("cloud.aksDetail")} · ${telemetry.aks_delegated_calls} AKS calls`,
       metricLabel: "Pods",
       metricValue: isCircuitBroken ? "—" : String(telemetry.aks_worker_pods ?? 6),

@@ -39,7 +39,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   clockLabel,
   eventType,
 }) => {
-  const { t } = useI18n();
+  const { t, audience } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const onHighlightPlayersRef = useRef(onHighlightPlayers);
@@ -47,6 +47,15 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   useEffect(() => {
     onHighlightPlayersRef.current = onHighlightPlayers;
   }, [onHighlightPlayers]);
+
+  // Select the pundit tab matching the chosen audience profile (Analyst/Audio -> Voronoi, Coach/Casual -> Bianchi)
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const preferredRole: AgentRole =
+      audience === "coach" || audience === "casual" ? "classic_coach" : "data_scientist";
+    const idx = messages.findIndex((m) => m.agent_role === preferredRole);
+    if (idx !== -1) setSelectedIndex(idx);
+  }, [audience, messages]);
 
   // When the TTS switches speaker, focus the active pundit
   useEffect(() => {
@@ -119,8 +128,16 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
             <span className="font-mono text-[10px] text-fg-subtle">
               {t(messages.length === 1 ? "card.comment.one" : "card.comment.other", { n: messages.length })}
             </span>
-            {onPlayFullDebate && (
-              <Button variant="ghost" size="sm" onClick={onPlayFullDebate}>
+            {(onPlaySingleMessage || onPlayFullDebate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  onPlaySingleMessage && currentMessage
+                    ? onPlaySingleMessage(currentMessage)
+                    : onPlayFullDebate?.()
+                }
+              >
                 <Volume2 className="h-3.5 w-3.5" />
                 {t("card.listen")}
               </Button>
