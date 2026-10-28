@@ -24,14 +24,14 @@
 
 ## 🎯 Executive Vision
 
-**xT-WhatIf** transforms traditional post-match football analytics into an interactive, real-time counterfactual simulator. Instead of passively analyzing what happened, analysts and coaching staffs can **pause key match moments, drag and drop defenders or attackers on a canonical 120×80m pitch, and instantly recalculate tactical metrics**:
+**xT-WhatIf** transforms traditional post-match football analytics into an interactive, real-time counterfactual simulator. Instead of passively analyzing what happened, analysts, coaching staffs, and fans can **pause key match moments, drag and drop defenders or attackers (or issue natural-language voice commands) on a canonical 120×80m pitch, and instantly recalculate tactical metrics**:
 - **Expected Threat ($\Delta\text{xT}$)** on a $16 \times 12$ canonical transition matrix.
 - **Spatial Dominance ($60 \times 40$)** through vector-accelerated Voronoi tessellations via `scipy.spatial.KDTree`.
 - **Passing Lane Shadows** with dynamic Gaussian interception dispersion cones.
-- **Dialectical AI Debate**: Two contrasting AI personas analyze the repositioned scenario:
+- **Dialectical AI Debate**: Two contrasting AI personas analyze the repositioned scenario using Azure OpenAI tool calling (`xt_at`, `simulate_counterfactual`, `optimizer/solve`) and deterministic numerical verification:
   - 🤖 **Dr. Voronoi (`AI-QUANT`)**: Mathematical purist evaluating spatial EV, angular apertures, and threat deltas.
   - 📋 **Coach Bianchi (`PRO-COACH`)**: Seasoned tactician focusing on marking profiles, rest defense, and interior channel coverages.
-- **Personalised storytelling**: the whole interface and both pundits speak **English or Spanish**, and the commentary is rewritten for four audiences (casual fan, analyst, coach, audio description). See *Personalisation: Language & Audience* below.
+- **Personalised storytelling & neural audio**: the whole interface and both pundits speak **English or Spanish** (`en-GB` / `es-ES` neural TTS + STT), and the commentary is rewritten for four audiences (`casual`, `analyst`, `coach`, `audio_description`). See *Personalisation: Language & Audience* below.
 
 ---
 
@@ -42,13 +42,13 @@ Judges can switch between all modes directly from the **Top Broadcast Bar** with
 ### 1. Four Interactive Functional Modes
 | Mode | How to access | What it does |
 |:-----|:--------------|:-------------|
-| **1. Live Match Room** (`En directo` / `Live match`) | Default mode · Top-bar **Live match** pill | Shared real-time synthetic match over WebSocket (`/ws/live`). When a key moment opens, all connected fans have 30 seconds to move up to 2 players within a 6.0 m radius, get scored (0–1000 pts) against the machine's two-player optimum, hear neural TTS pundit reveals, and compete on the live leaderboard. |
-| **2. Key Moments Challenge** (`Play this moment`) | Switch to **Key moments & Voice** → click **Play this moment** | On-demand 30-second tactical challenge on any of the 7 key moments (`POST /api/v1/game/evaluate`). Scores your move against the engine's two-player optimum, reveals the optimal pass and movement vectors on the pitch, and triggers the personalised pundit reveal. |
-| **3. Voice What-If & Tactical Sandbox** (`Key moments & Voice`) | Switch to **Key moments & Voice** in the top bar | Speak natural-language tactical instructions in English or Spanish (*"Tuck the full-back inside and press with #5"*, `POST /api/v1/agents/what-if`), drag up to 2 players freely on the 120×80 m board, run the **Auto-Coach** defensive optimiser (`POST /api/v1/optimizer/solve`), or compare two pinned hypotheses side by side (**Compare**). |
-| **4. Cloud Telemetry & Chaos Engineering** (`Infrastructure`) | Click **Infrastructure** in the top bar | Inspect live Azure Container Apps KEDA replicas, AKS worker pool status, and AI Foundry latency; trigger a **25-simulation parallel KDTree stress burst**; or inject an **AKS Chaos Outage** to test zero-downtime Circuit Breaker fallback. |
+| **1. Live Match Room** (`En directo` / `Live match`) | Default mode · Top-bar **Live match** pill | Shared real-time synthetic match (`90'` in `300s`, with 200 simulated bot fans) over WebSocket (`/ws/live`) and REST (`/api/v1/live/state`). Outside key moments the board stays locked with a live status banner; when a candidate event passes the Detector + Validator (`MOMENT_OPEN`), all connected fans have 30 seconds to move up to 2 players within a 6.0 m radius (with live trend feedback via `POST /api/v1/game/preview`), get scored (0–1000 pts) against the machine's two-player optimum, hear pre-synthesised neural TTS pundit reveals (`GET /api/v1/live/moments/{id}/voice`), compete on the live leaderboard, and download a **1600×1200 Full-Time Tactical Report PNG** with badges at the final whistle (`MATCH_END`). |
+| **2. Key Moments Challenge** (`Play this moment`) | Switch to **Key moments & Voice** → click **Play this moment** | On-demand 30-second tactical challenge on any of the 7 key moments (`POST /api/v1/game/evaluate`). Scores your move against the engine's two-player optimum, reveals the optimal pass and movement vectors on the pitch, and triggers the AI-verified, audience-personalised pundit reveal. |
+| **3. Voice What-If & Tactical Sandbox** (`Key moments & Voice`) | Switch to **Key moments & Voice** in the top bar | Speak natural-language tactical instructions in English or Spanish via microphone (`POST /api/v1/speech/transcribe` → `POST /api/v1/agents/what-if`, e.g., *"Que el lateral cierre por dentro y el central salga a presionar"* / *"Tuck the full-back inside and press with #5"*), or drag up to 2 players (`MAX_VOICE_MOVES = 2`) on the 120×80 m board. Spoken commands smoothly animate 1 or 2 players across the pitch (`650 ms` cubic ease-out) and automatically trigger spoken pundit commentary. Also includes the **Auto-Coach** inverse defensive optimiser (`POST /api/v1/optimizer/solve`), side-by-side **Scenario Comparator**, and **1600×1200 PNG Export**. |
+| **4. Cloud Telemetry & Chaos Engineering** (`Infrastructure`) | Click **Infrastructure** in the top bar | Inspect live Azure Container Apps KEDA replicas, AKS worker pool status, and AI Foundry latency; trigger a **25-simulation parallel KDTree stress burst** (`POST /api/v1/cloud/stress-burst`); or inject an **AKS Chaos Outage** (`POST /api/v1/cloud/chaos-toggle`) to test zero-downtime Circuit Breaker fallback. |
 
 ### 2. Four Audience Personalisation Modes (`casual`, `analyst`, `coach`, `audio_description`)
-Selectable at any time in the top-right **Profile Switcher** (in both Live Match and Key Moments modes) and during Onboarding:
+Chosen during **Onboarding** and selectable at any time in the top-right **Profile Switcher** in **Key Moments & Voice** mode (during **Live Match**, the top bar keeps the view focused by showing only the **Language (`EN`/`ES`)** and **Audio Mute/Unmute** controls with instant speech pause/resume):
 - **Casual fan (`casual`)**: Plain words, zero jargon; Expected Threat is expressed as goal probability percentages (*"danger rises from 18% to 26%"*).
 - **Analyst (`analyst`)**: Full quantitative readout — $\Delta\text{xT}$ on the $16\times12$ grid, Gaussian pass completion cones, and $60\times40$ Voronoi control.
 - **Coach (`coach`)**: Dressing-room verdict (*validated* / *rejected*) and actionable tactical coaching cues (interior channel lock, cover shadows, rest-defence spacing).
@@ -66,9 +66,9 @@ flowchart TD
 
     subgraph ACAENV ["Azure Container Apps environment · HTTPS only, HTTP/2 + WebSocket"]
         FRONT["xt-whatif-frontend<br/>Next.js · 1–5 replicas"]
-        GATEWAY["xt-whatif-aca-gateway<br/>SERVICE_ROLE=aca-gateway · LIVE_ENABLED=false<br/>simulate · optimiser · game preview · TTS · telemetry · chaos"]
+        GATEWAY["xt-whatif-aca-gateway<br/>SERVICE_ROLE=aca-gateway · LIVE_ENABLED=false<br/>simulate · optimiser · game preview/evaluate · voice what-if · TTS/STT · MCP · telemetry · chaos"]
         KEDA["KEDA HTTP scale rule<br/>20 concurrent requests per replica · 1–10 replicas"]
-        LIVE["xt-whatif-live<br/>live match room · WS /ws/live<br/>exactly 1 replica"]
+        LIVE["xt-whatif-live<br/>live match room · WS /ws/live · /api/v1/live/*<br/>exactly 1 replica"]
         KEDA -.-> GATEWAY
     end
 
@@ -81,29 +81,30 @@ flowchart TD
 
     subgraph SHARED ["Shared Azure resources"]
         ACR["Azure Container Registry<br/>admin user disabled"]
-        MI["User-assigned managed identity<br/>AcrPull role"]
+        MI["User-assigned managed identity<br/>AcrPull + Monitoring Reader"]
         LOGS["Log Analytics workspace"]
-        AOAI["Azure OpenAI<br/>GPT-4o · GPT-4o-mini"]
-        SPEECH["Azure AI Speech<br/>neural voices"]
+        AOAI["Azure OpenAI<br/>GPT-4o · GPT-4o-mini · gpt-4o-mini-tts · whisper-1"]
+        SPEECH["Azure AI Speech<br/>neural TTS voices + Fast Transcription STT"]
     end
 
     BROWSER -->|"HTTPS"| FRONT
     BROWSER <-->|"REST /api/v1/* · WS /ws/match/{id}"| GATEWAY
-    BROWSER <-->|"WS /ws/live"| LIVE
+    BROWSER <-->|"WS /ws/live · GET /api/v1/live/*"| LIVE
     GATEWAY -->|"POST /api/v1/simulate · 3.5 s timeout"| SVC
     LIVE -->|"2× POST /api/v1/game/optimize (attack + defend)<br/>as events happen · 1.5 s timeout"| SVC
     SVC --> WORKERS
     GATEWAY -.->|"timeout · error · non-200 · chaos toggle<br/>→ compute in-process"| GATEWAY
     LIVE -.->|"timeout · error · non-200 · chaos toggle<br/>→ compute in-process"| LIVE
-    GATEWAY <-->|"pundit debate"| AOAI
-    GATEWAY <-->|"pundit voices"| SPEECH
+    GATEWAY <-->|"pundit debate + tool calling · Whisper STT / TTS fallback"| AOAI
+    GATEWAY <-->|"neural TTS voices + Fast Transcription STT"| SPEECH
+    LIVE <-->|"verified reveal debate"| AOAI
     LIVE <-->|"reveal voice, synthesised while a moment is open"| SPEECH
     MI -.->|"image pull"| ACR
     ACAENV -.->|"container logs"| LOGS
 ```
 
 ### How the pieces fit together
-1. **One image, several roles.** The backend image is the same for the gateway (`aca-gateway`), the live match (`SERVICE_ROLE=live`, `LIVE_ENABLED=true`) and the AKS workers (`aks-worker`). Locally, `standalone` runs everything in one process.
+1. **One image, several roles.** The backend image is the same for the gateway (`aca-gateway`), the live match (`SERVICE_ROLE=live`, `LIVE_ENABLED=true`) and the AKS workers (`aks-worker`). Locally, `standalone` runs everything in one process, or `docker compose up --build` mirrors the multi-service layout (`gateway` on `:8000`, `live` on `:8001`, `frontend` on `:3000`).
 2. **Event-by-event delegation with in-process fallback.** As synthetic match events happen in the live match (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's two independent searches (`optimize(frame, "attack")` and `optimize(frame, "defend")`) in parallel to the AKS worker pool (`POST /api/v1/game/optimize`, guarded by `X-Worker-Token`, 1.5 s timeout), while `xt-whatif-aca-gateway` forwards counterfactual simulations (`POST /api/v1/simulate`, 3.5 s timeout). If any call times out, fails or returns a non-200 status (or when the chaos toggle is active), the caller runs the same engine in-process and records a circuit-breaker trip.
 3. **Scaling.** KEDA scales the gateway on concurrent HTTP requests and the HPA scales the AKS workers on CPU. The live match stays on one replica so every fan sees the same match state, while heavy Validator CPU searches scale across AKS pods.
 
@@ -153,7 +154,7 @@ $$\text{xT}_{\text{simulated}} = \max(0.02, \; \text{xT}_{\text{raw}} - \text{Pe
 
 ## 🧪 Synthetic Match Data
 
-All data is **synthetic and football-realistic**, generated by [`backend/app/services/synthetic_generator.py`](backend/app/services/synthetic_generator.py). No real clubs, players or match feeds are used.
+All data is **synthetic and football-realistic**, generated by [`backend/app/services/synthetic_generator.py`](backend/app/services/synthetic_generator.py) and [`backend/app/services/full_match.py`](backend/app/services/full_match.py). No real clubs, players or match feeds are used.
 
 - **Fixture:** Redmoor Albion vs Saltmarsh Rovers (fictional), match id `900001`, seed `7`. Same seed, same match.
 - **Full freeze-frames:** all 22 players plus the ball in every moment, in 120×80 coordinates with the team in possession attacking towards x = 120.
@@ -184,13 +185,13 @@ cd backend && python -m app.services.synthetic_generator --write
 
 ---
 
-## 🗣️ Personalisation: Language & Audience
+## 🗣️ Personalisation: Language, Audience & Voice What-If
 
-The challenge asks to *personalize* the explanation. xT-WhatIf does it on two axes, chosen at the top right of the dashboard and remembered per browser:
+The challenge asks to *personalize* the explanation. xT-WhatIf does it on two axes, chosen during Onboarding and in the top-right **Profile Switcher** (remembered per browser):
 
 | Axis | Options | What changes |
 |:-----|:--------|:-------------|
-| **Language** | English (default) · Spanish | Every interface string, the moment names, both pundits' debate, the exported PNG report and the commentator voices (`en-GB` / `es-ES`). |
+| **Language** | English (default) · Spanish | Every interface string, recent event badges (`Pass`/`Pase`, `Carry`/`Conducción`, `Shot`/`Disparo`), moment names, both pundits' debate, the exported PNG reports and the commentator voices & voice-command recognition (`en-GB` / `es-ES`). |
 | **Audience** | Casual fan · Analyst (default) · Coach · Audio description | How the pundits explain the same numbers. |
 
 - **Casual fan:** plain words, no jargon; xT is told as *"a 10% chance of leading to a goal"*.
@@ -198,19 +199,61 @@ The challenge asks to *personalize* the explanation. xT-WhatIf does it on two ax
 - **Coach:** a verdict on the adjustment (*validated* / *rejected*) and one actionable coaching point.
 - **Audio description:** spoken-first, spatial narration for blind and low-vision fans (*"on the right wing, about 25 metres from goal"*), no symbols or coordinates, read about 10% slower.
 
-**Code calculates, AI explains.** All wording lives in [`backend/app/services/narration.py`](backend/app/services/narration.py) and is filled only with numbers computed by the engine. With Azure OpenAI configured, the same profile is turned into style instructions for GPT-4o, which is told to use only the numbers it is given; without it, the deterministic templates answer instantly.
+**Code calculates, AI explains.** All deterministic templates and reveal comparison builders live in [`backend/app/services/narration.py`](backend/app/services/narration.py) and are filled only with numbers computed by the engine. With Azure OpenAI configured, the multi-agent orchestrator ([`backend/app/agents/orchestrator.py`](backend/app/agents/orchestrator.py)) invokes the engine tools (`xt_at`, `simulate_counterfactual`, `optimizer/solve`) and passes the generated commentary through a deterministic numerical verifier ([`backend/app/agents/verifier.py`](backend/app/agents/verifier.py)) that checks every figure against ground truth before serving it (or falls back to the verified template if any number diverges).
 
-API:
+**Natural-Language Voice What-If (`Key moments & Voice` mode):**
+- Users can speak into their microphone (`POST /api/v1/speech/transcribe`, backed by **Azure AI Speech Fast Transcription** with a custom football + player-name **Phrase List**, **Azure OpenAI Whisper `whisper-1`**, and browser `SpeechRecognition` fallback) or type a tactical question (`POST /api/v1/agents/what-if`).
+- Understands jersey numbers (digits or spoken words like *"el cinco"*, *"#5"*), player names, tactical roles (*full-back/lateral, centre-back/central, holding midfielder/mediocentro, winger/extremo, striker/delantero*), and compound 1- or 2-player instructions (strictly capped at **2 moved players** per moment, `MAX_VOICE_MOVES = 2`).
+- Smoothly animates the interpreted player moves on the pitch (`650 ms` cubic ease-out) and automatically plays the spoken reaction from **Dr. Voronoi** and **Coach Bianchi**.
+
+API examples:
 
 ```bash
 # Key moments with labels and pre-move debate in Spanish, for casual fans
 curl "http://localhost:8000/api/v1/match/900001/frames?lang=es&audience=casual"
 
 # Counterfactual with the debate written for coaches
-curl -X POST http://localhost:8000/api/v1/simulate -H "Content-Type: application/json"   -d '{"match_id": 900001, "event_uuid": "...", "modified_players": [...], "language": "en", "audience": "coach"}'
+curl -X POST http://localhost:8000/api/v1/simulate -H "Content-Type: application/json" \
+  -d '{"match_id": 900001, "event_uuid": "...", "modified_players": [...], "language": "en", "audience": "coach"}'
+
+# Natural-language Voice / Text What-If (supports 1 or 2 player moves)
+curl -X POST http://localhost:8000/api/v1/agents/what-if -H "Content-Type: application/json" \
+  -d '{"query": "Que el lateral cierre por dentro y el central salga a presionar", "match_id": 900001, "language": "es", "audience": "coach"}'
 ```
 
-The WebSocket takes the same profile as query parameters: `ws://localhost:8000/ws/match/900001?lang=es&audience=audio_description`. The TTS endpoint (`POST /api/v1/tts/synthesize`) accepts `language` and `audience` too.
+The WebSocket takes the same profile as query parameters: `ws://localhost:8000/ws/match/900001?lang=es&audience=audio_description` (and `ws://localhost:8001/ws/live?user_id=...&nickname=...&team=home&lang=es&audience=analyst` for the live match room). Both `POST /api/v1/tts/synthesize` and `POST /api/v1/speech/transcribe` accept `language` too.
+
+---
+
+## 🗂️ Repository Structure & API Overview
+
+```text
+xT-WhatIf/
+├── backend/
+│   ├── app/
+│   │   ├── agents/          # Multi-agent orchestrator, tool registry, numerical verifier & NL What-If parser
+│   │   ├── core/            # Settings (Pydantic) & sliding-window per-client rate limiter
+│   │   ├── data/cache/      # Committed synthetic match freeze-frames (match 900001)
+│   │   ├── mcp/             # Model Context Protocol (MCP) server (stdio + HTTP JSON-RPC 2.0)
+│   │   ├── schemas/         # Canonical 120×80m Pydantic models & live room contracts
+│   │   ├── services/        # Tactical math (xT, Voronoi KDTree, Gaussian cones), optimizer, game & live engine,
+│   │   │                    # AKS client, cloud telemetry, synthetic generator, narration & TTS/STT service
+│   │   └── main.py          # FastAPI entrypoint, REST routes & WebSocket manager
+│   ├── scripts/             # WebSocket live match load tester (live_load_test.py)
+│   └── test_*.py            # 10 comprehensive test suites (math, agents, MCP, game, live, TTS/STT, cloud, hardening)
+├── frontend/
+│   └── src/
+│       ├── app/             # Next.js 15 App Router dashboard & runtime config endpoint
+│       ├── components/      # 2D SVG Tactical Pitch, Live/Challenge cards, Voice What-If, Auto-Coach,
+│       │                    # Cloud Telemetry modal, Scenario Comparator, PNG Report exporters & Onboarding
+│       ├── hooks/           # Match engine, Live match WS, Challenge timer, Broadcast TTS & Full-time report hooks
+│       ├── lib/             # API/WS client, client-side Voronoi/xT fallback, i18n (EN/ES) & voice parser
+│       └── mocks/           # Offline fallback fixtures & pre-generated multi-audience narrations
+├── contracts/               # Shared API contract models & JSON schema v1
+├── infra/                   # Azure Bicep IaC (main.bicep) & AKS worker + HPA manifests (k8s-aks-workers.yaml)
+├── docs/                    # Cloud deployment, smoke-test & rehearsal guide (DEPLOY.md)
+└── docker-compose.yml       # Local multi-service orchestration (gateway :8000, live :8001, frontend :3000)
+```
 
 ---
 
@@ -226,8 +269,9 @@ docker compose up --build
 
 Access the applications:
 - **Frontend Dashboard**: [http://localhost:3000](http://localhost:3000)
-- **FastAPI Interactive Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Live WebSocket**: `ws://localhost:8000/ws/match/900001`
+- **Gateway FastAPI Interactive Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Live Match Service**: `http://localhost:8001/api/v1/live/state` · WebSocket `ws://localhost:8001/ws/live`
+- **Match Sandbox WebSocket**: `ws://localhost:8000/ws/match/900001`
 - **Cloud Architecture Telemetry**: [http://localhost:8000/api/v1/cloud/telemetry](http://localhost:8000/api/v1/cloud/telemetry)
 
 ---
@@ -266,9 +310,9 @@ This is the project's entry for the **Best Azure Cloud Native Integration** cate
 |:-----------|:------------------------|:----------------------|:-------|
 | **Azure Container Apps** | Cloud Native category | Hosts the frontend, the API gateway (scaled by KEDA, 1–10 replicas) and the live match service (1 replica). | Deployed by the Bicep template |
 | **Azure Kubernetes Service (AKS)** | Cloud Native category | Runs geometry and optimiser workers (`SERVICE_ROLE=aks-worker`) behind a LoadBalancer service guarded by `X-Worker-Token`, scaled by an HPA from 3 to 12 pods. **As synthetic match events happen in real time** (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's `attack` and `defend` searches in parallel (`POST /api/v1/game/optimize`, 1.5 s timeout) to the AKS worker pool, and the gateway offloads counterfactual simulations (`POST /api/v1/simulate`). If AKS times out, fails or chaos mode is toggled on, both services fall back to in-process computation with identical results. | Optional: the manifest and the CI step are ready; they run when `AKS_ENABLED` is set and both backend apps receive `aksWorkerUrl` and `aksWorkerToken` |
-| **Azure AI Services: Azure OpenAI** | Judging criteria (*"Azure Apps and AI Services"*) | GPT-4o and GPT-4o-mini write the two pundits' debate using function calling: the model calls the engine's tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`) and a deterministic verifier checks every figure in the text against the engine's output, correcting it or falling back to the template text if a number does not match. Without a key, deterministic templates are used instead. | Used when the Azure OpenAI key and endpoint are configured |
-| **Azure AI Services: Azure AI Speech** | Judging criteria (*"Azure Apps and AI Services"*) | Neural voices read the pundits out loud: Dr. Voronoi is `en-GB-RyanNeural` / `es-ES-AlvaroNeural`, Coach Bianchi `en-GB-ThomasNeural` / `es-ES-DarioNeural`, with their own pace and pitch in SSML and a slower pace for the audio-description audience. In the live match the reveal is synthesised while the moment is still open and served only once it closes, so it plays as soon as the result lands. Azure OpenAI TTS (`gpt-4o-mini-tts`) is the second option where that model is deployed, and the browser's speech engine the last. | Used when `AZURE_SPEECH_KEY` is configured |
-| **MCP (Model Context Protocol)** | Judging criteria (*"Azure MCP"*) | The project ships its own MCP server, which exposes the engine's four tools to any MCP client over stdio (`python -m app.mcp`). It is not the Azure MCP Server product. | In the repo; runs locally |
+| **Azure AI Services: Azure OpenAI** | Judging criteria (*"Azure Apps and AI Services"*) | GPT-4o and GPT-4o-mini write the two pundits' debate and live/practice challenge reveals using function calling: the model calls the engine's tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`) and a deterministic verifier checks every figure in the text against the engine's output, correcting it or falling back to the template text if a number does not match. Also provides `whisper-1` for Speech-to-Text and `gpt-4o-mini-tts` for Text-to-Speech fallback. Without a key, deterministic templates are used instead. | Used when the Azure OpenAI key and endpoint are configured |
+| **Azure AI Services: Azure AI Speech** | Judging criteria (*"Azure Apps and AI Services"*) | **TTS & STT:** Neural voices read the pundits out loud (`POST /api/v1/tts/synthesize`): Dr. Voronoi is `en-GB-RyanNeural` / `es-ES-AlvaroNeural`, Coach Bianchi `en-GB-ThomasNeural` / `es-ES-DarioNeural`, with their own pace and pitch in SSML and a slower pace for the audio-description audience. In the live match the reveal is synthesised while the moment is still open and served only once it closes (`GET /api/v1/live/moments/{id}/voice`). For **Voice What-If** (`POST /api/v1/speech/transcribe`), Azure AI Speech Fast Transcription transcribes spoken commands using a custom football + active player-name **Phrase List** (falling back to Azure OpenAI Whisper `whisper-1` and browser Web Speech API). | Used when `AZURE_SPEECH_KEY` is configured |
+| **MCP (Model Context Protocol)** | Judging criteria (*"Azure MCP"*) | The project ships its own MCP server, which exposes the engine's four tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`, `what_if_natural_language`) to any MCP client over stdio (`python -m app.mcp`) and over HTTP JSON-RPC 2.0 (`/api/v1/mcp`, `/api/v1/mcp/tools`, `/api/v1/mcp/call`). It is not the Azure MCP Server product. | In the repo; runs locally and on the gateway |
 
 ### Supporting Azure services
 
@@ -289,7 +333,7 @@ The rules ask for *"effective integration of Azure services, event-driven archit
 - **Event-driven:** as each synthetic match event arrives in real time, the live runner triggers parallel `attack` + `defend` Validator searches on AKS and pushes match events, key moments and reveals to every fan over WebSockets.
 - **Automation:** one Bicep template and one GitHub Actions workflow build, tag and deploy everything.
 - **Operational excellence:** a new Container Apps revision per commit SHA, health probes, central logs, per-client rate limits and hardened containers.
-- **AI capabilities:** Azure OpenAI with tool calling and number verification, and Azure AI Speech neural voices.
+- **AI capabilities:** Azure OpenAI with tool calling and number verification, plus Azure AI Speech neural TTS voices and Phrase-List-boosted Fast Transcription STT.
 
 ### Implementation details
 
@@ -297,19 +341,19 @@ Each row describes what is deployed and links to the file that defines it.
 
 | Area | What is deployed | Defined in |
 |:-----|:-----------------|:-----------|
-| **Compute** | Three Container Apps in one managed environment: `xt-whatif-frontend` (1–5 replicas), `xt-whatif-aca-gateway` (1–10 replicas) and `xt-whatif-live` (exactly 1 replica, holds the shared live match). | [`infra/main.bicep`](infra/main.bicep#L181) |
-| **Autoscaling** | The gateway uses a KEDA HTTP scale rule with a target of 20 concurrent requests per replica. The optional AKS workers use an HPA v2 targeting 65 % CPU, from 3 to 12 pods. | [`main.bicep`](infra/main.bicep#L240), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L144) |
-| **Fallback** | When `aksWorkerUrl` is set, the live match service offloads the two Validator searches (`POST /api/v1/game/optimize` for `attack` and `defend` in parallel, 1.5 s timeout, authenticated with `X-Worker-Token`) as candidate events happen, and the gateway calls `POST /api/v1/simulate` (3.5 s timeout). On timeout, connection error, non-200 status or bad payload, they run the engine in-process and increment `circuit_breaker_trips`. | [`aks_client.py`](backend/app/services/aks_client.py), [`game_api.py`](backend/app/services/game_api.py), [`main.py`](backend/app/main.py#L163) |
-| **Chaos toggle** | `POST /api/v1/cloud/chaos-toggle` forces the fallback path on both the gateway and the live match service. It resets itself after 90 s and is rate-limited to 12 calls per client per minute. | [`main.py`](backend/app/main.py#L276), [`rate_limit.py`](backend/app/core/rate_limit.py#L24) |
-| **Registry & identity** | Azure Container Registry with the admin user disabled. All three apps pull images with a user-assigned managed identity that holds the `AcrPull` role, so no registry password is stored. | [`main.bicep`](infra/main.bicep#L54) |
-| **Secrets** | The Azure OpenAI key and `AKS_WORKER_TOKEN` are Container Apps secrets referenced by the apps (`secretRef`) and Kubernetes secrets on AKS (`aks-worker-token`). Without an OpenAI key, the app uses deterministic templates. | [`main.bicep`](infra/main.bicep#L121), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L73) |
-| **Ingress** | External HTTPS only (`allowInsecure: false`), `transport: auto` for HTTP/2 and WebSockets. Backend CORS accepts only the frontend's own address. | [`main.bicep`](infra/main.bicep#L49) |
+| **Compute** | Three Container Apps in one managed environment: `xt-whatif-frontend` (1–5 replicas), `xt-whatif-aca-gateway` (1–10 replicas) and `xt-whatif-live` (exactly 1 replica, holds the shared live match). | [`infra/main.bicep`](infra/main.bicep#L221) |
+| **Autoscaling** | The gateway uses a KEDA HTTP scale rule with a target of 20 concurrent requests per replica. The optional AKS workers use an HPA v2 targeting 65 % CPU, from 3 to 12 pods. | [`main.bicep`](infra/main.bicep#L303), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L153) |
+| **Fallback** | When `aksWorkerUrl` is set, the live match service offloads the two Validator searches (`POST /api/v1/game/optimize` for `attack` and `defend` in parallel, 1.5 s timeout, authenticated with `X-Worker-Token`) as candidate events happen, and the gateway calls `POST /api/v1/simulate` (3.5 s timeout). On timeout, connection error, non-200 status or bad payload, they run the engine in-process and increment `circuit_breaker_trips`. | [`aks_client.py`](backend/app/services/aks_client.py), [`game_api.py`](backend/app/services/game_api.py), [`main.py`](backend/app/main.py#L167) |
+| **Chaos toggle** | `POST /api/v1/cloud/chaos-toggle` forces the fallback path on both the gateway and the live match service. It resets itself after 90 s and is rate-limited to 12 calls per client per minute. | [`main.py`](backend/app/main.py#L280), [`rate_limit.py`](backend/app/core/rate_limit.py#L24) |
+| **Registry & identity** | Azure Container Registry with the admin user disabled. All three apps pull images with a user-assigned managed identity that holds the `AcrPull` role, so no registry password is stored. | [`main.bicep`](infra/main.bicep#L68) |
+| **Secrets** | The Azure OpenAI key, Azure AI Speech key, and `AKS_WORKER_TOKEN` are Container Apps secrets referenced by the apps (`secretRef`) and Kubernetes secrets on AKS (`aks-worker-token`). Without an OpenAI key, the app uses deterministic templates. | [`main.bicep`](infra/main.bicep#L137), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L73) |
+| **Ingress** | External HTTPS only (`allowInsecure: false`), `transport: auto` for HTTP/2 and WebSockets. Backend CORS accepts only the frontend's own address. | [`main.bicep`](infra/main.bicep#L63) |
 | **Container hardening** | Both images run as a non-root user. AKS worker pods also run with UID 10001, a read-only root filesystem, all Linux capabilities dropped, no privilege escalation and the `RuntimeDefault` seccomp profile; `/tmp` and the cache folder are `emptyDir` volumes. | [`backend/Dockerfile`](backend/Dockerfile#L23), [`frontend/Dockerfile`](frontend/Dockerfile#L52), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L38) |
-| **Health checks** | Liveness and readiness probes on `/health` for both backend Container Apps and the AKS pods. AKS rolls out with `maxUnavailable: 0`. | [`main.bicep`](infra/main.bicep#L157), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L26) |
-| **Logs** | The Container Apps environment sends container logs to a Log Analytics workspace. In `/api/v1/cloud/telemetry` the gateway replica count comes from Azure Monitor; the AKS pod count and CPU figures are estimated from request load. | [`main.bicep`](infra/main.bicep#L89), [`cloud_telemetry.py`](backend/app/services/cloud_telemetry.py) |
+| **Health checks** | Liveness and readiness probes on `/health` for both backend Container Apps and the AKS pods. AKS rolls out with `maxUnavailable: 0`. | [`main.bicep`](infra/main.bicep#L197), [`k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml#L26) |
+| **Logs** | The Container Apps environment sends container logs to a Log Analytics workspace. In `/api/v1/cloud/telemetry` the gateway replica count comes from Azure Monitor; the AKS pod count and CPU figures are estimated from request load. | [`main.bicep`](infra/main.bicep#L103), [`cloud_telemetry.py`](backend/app/services/cloud_telemetry.py) |
 | **Infrastructure as Code** | Bicep creates the registry, identity, role assignment, Log Analytics, the environment and the three apps, and outputs their URLs. A Kubernetes manifest defines the AKS namespace, deployment, LoadBalancer service and HPA. | [`infra/`](infra/) |
 | **CI/CD** | [`deploy-azure.yml`](.github/workflows/deploy-azure.yml) runs the backend tests, a TypeScript check and a Next.js build on every push and pull request. A manual run builds both images, tags them with the commit SHA, pushes them to ACR, deploys the Bicep template and, if `AKS_ENABLED` is set, syncs the `aks-worker-token` secret and applies the AKS manifest with the same tag. Each deploy creates a new Container Apps revision. | [`.github/workflows/`](.github/workflows/) |
-| **MCP server** | A Model Context Protocol server (JSON-RPC 2.0, stdio + HTTP bridge at `/api/v1/mcp/tools` and `/api/v1/mcp/call`) exposes the engine to external AI agents as four tools: `simulate_counterfactual`, `optimizer/solve`, `xt_at` and `what_if_natural_language`. Start it over stdio with `python -m app.mcp` from `backend/`. | [`backend/app/mcp/server.py`](backend/app/mcp/server.py) |
+| **MCP server** | A Model Context Protocol server (JSON-RPC 2.0, stdio + HTTP bridge at `/api/v1/mcp`, `/api/v1/mcp/tools` and `/api/v1/mcp/call`) exposes the engine to external AI agents as four tools: `simulate_counterfactual`, `optimizer/solve`, `xt_at` and `what_if_natural_language`. Start it over stdio with `python -m app.mcp` from `backend/`. | [`backend/app/mcp/server.py`](backend/app/mcp/server.py) |
 
 > **💡 Hybrid Cloud FinOps & Resilient Fallback**: Following Azure Well-Architected Framework cost-optimization principles, our infrastructure decouples the stateless API Gateway (**Azure Container Apps** with KEDA auto-scaling) from the heavy compute worker pool (**Azure Kubernetes Service**). During off-peak evaluation windows or when AKS node pools are scaled to zero for FinOps efficiency, the ACA Gateway's built-in **Circuit Breaker** automatically intercepts timeouts and executes the `KDTree` Voronoi and Markovian $\text{xT}$ matrices in-process with **0% packet loss and sub-15ms latency**. Judges can test this live via the **Infrastructure → Simulate AKS Outage (Chaos Mode)** button in the UI.
 
@@ -330,12 +374,18 @@ python scripts/live_load_test.py --url ws://localhost:8001 --fans 300 --duration
 ## 🧪 Test Suite Execution
 
 ```bash
-# Synthetic data generator
+# Synthetic data generator & full match events
 python backend/test_synthetic_generator.py
 
-# Personalised narration (language x audience) and TTS
+# Personalised narration (language x audience), TTS & STT (Azure Speech + Whisper + fallback)
 python backend/test_narration.py
 python backend/test_tts_service.py
+
+# Multi-Agent Orchestrator, numerical verifier, Voice What-If NL & MCP server
+python backend/test_agents_and_mcp.py
+
+# Inverse defensive Auto-Coach optimizer
+python backend/test_optimizer.py
 
 # Game engine & live match (including AKS Validator offload & circuit breaker)
 python backend/test_game_engine.py
