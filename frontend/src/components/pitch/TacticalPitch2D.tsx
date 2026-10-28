@@ -891,21 +891,12 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                 );
               })}
 
-            {/* REVEAL: the optimum's pass, labelled when the moves send the ball to a new receiver */}
-            {challenge?.optimumPass && (() => {
-              const pass = challenge.optimumPass;
-              const label = t(pass.changed ? "pitch.newPass" : "pitch.bestOption");
-              const w = label.length * 1.15 + 2;
-              return (
-                <g id="optimumPassLine" pointerEvents="none" data-changed={pass.changed ? "true" : "false"}>
-                  <line x1={pass.fromX} y1={pass.fromY} x2={pass.toX} y2={pass.toY} stroke={C.gain} markerEnd="url(#optimalArrowHead)" {...hair(1.5)} />
-                  <g transform={`translate(${(pass.fromX + pass.toX) / 2}, ${(pass.fromY + pass.toY) / 2 - 2.8})`}>
-                    <rect x={-w / 2} y="-1.8" width={w} height="3.6" fill={C.gain} />
-                    <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">{label}</text>
-                  </g>
-                </g>
-              );
-            })()}
+            {/* REVEAL: the optimum's pass */}
+            {challenge?.optimumPass && (
+              <g id="optimumPassLine" pointerEvents="none" data-changed={challenge.optimumPass.changed ? "true" : "false"}>
+                <line x1={challenge.optimumPass.fromX} y1={challenge.optimumPass.fromY} x2={challenge.optimumPass.toX} y2={challenge.optimumPass.toY} stroke={C.gain} markerEnd="url(#optimalArrowHead)" {...hair(1.5)} />
+              </g>
+            )}
 
             {/* REVEAL: optimum moves (green arrow from the original spot to the best spot) */}
             {challenge?.optimum?.map((m) => (
