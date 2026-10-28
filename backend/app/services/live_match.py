@@ -154,6 +154,7 @@ class MatchRoom:
         self.cooldown_s = cooldown_s
         self.min_moment_gap_s = min_moment_gap_s
         self.kickoff_at: Optional[float] = None
+        self.paused_s: float = 0.0
         self.next_index = 0
         self.moment: Optional[Moment] = None
         self.moments: List[Moment] = []
@@ -164,17 +165,22 @@ class MatchRoom:
     # --- clock -------------------------------------------------------------
     def kickoff(self, now: float) -> None:
         self.kickoff_at = now
+        self.paused_s = 0.0
         self.next_moment_allowed_at = now + self.min_moment_gap_s
 
     def real_time_of(self, event: LiveEvent) -> float:
-        return (self.kickoff_at or 0.0) + event.match_seconds / MATCH_SECONDS * self.duration_s
+        return (self.kickoff_at or 0.0) + self.paused_s + event.match_seconds / MATCH_SECONDS * self.duration_s
 
     def match_clock(self, now: float) -> float:
         if self.kickoff_at is None:
             return 0.0
-        return min(MATCH_SECONDS, (now - self.kickoff_at) / self.duration_s * MATCH_SECONDS)
+        eff_now = self.moment.opened_at if self.moment is not None else now
+        elapsed = max(0.0, eff_now - self.kickoff_at - self.paused_s)
+        return min(MATCH_SECONDS, elapsed / self.duration_s * MATCH_SECONDS)
 
     def due_events(self, now: float) -> List[LiveEvent]:
+        if self.moment is not None:
+            return []
         out = []
         while self.next_index < len(self.events) and self.real_time_of(self.events[self.next_index]) <= now:
             out.append(self.events[self.next_index])
@@ -193,8 +199,8 @@ class MatchRoom:
         """Detector rules: a candidate event, no moment open, cooldown over, time left to play it."""
         if not event.candidate or self.moment is not None or now < self.next_moment_allowed_at:
             return False
-        # The window must close before the final whistle.
-        return self.kickoff_at is not None and now + self.window_s <= self.kickoff_at + self.duration_s
+        # The window must close before the final whistle (accounting for paused time during challenges).
+        return self.kickoff_at is not None and (now - self.paused_s) + self.window_s <= self.kickoff_at + self.duration_s
 
     def open_moment(self, event: LiveEvent, report: MomentReport, now: float) -> Optional[Moment]:
         if self.moment is not None or not report.opens:
@@ -255,6 +261,7 @@ class MatchRoom:
             st.moments_played += 1
             st.beat_machine = st.beat_machine or sub.beat_machine
             st.last_scored_at = sub.submitted_at
+        self.paused_s += max(0.0, now - m.opened_at)
         self.moment = None
         self.next_moment_allowed_at = now + self.cooldown_s
         return m
@@ -479,6 +486,7 @@ class LiveMatchRunner:
                     await self.broadcast({"type": "MOMENT_OPEN", "payload": moment.open_payload()})
                     self._schedule_bots(moment)
                     self._prepare_voices(moment, closed=False)
+                    break
 
         await self._run_bots(now)
 
@@ -490,7 +498,7 @@ class LiveMatchRunner:
                 await self._send(ws, {"type": "MOMENT_REVEAL", "payload": room.reveal_for(moment, profile)})
                 await self._send(ws, {"type": "LEADERBOARD", "payload": room.leaderboard_for(profile.user_id)})
 
-        if room.finished() and room.kickoff_at is not None and now >= room.kickoff_at + room.duration_s:
+        if room.finished() and room.kickoff_at is not None and (now - room.paused_s) >= room.kickoff_at + room.duration_s:
             room.ended = True
             self.next_kickoff_at = now + settings.LIVE_INTERMISSION_S
             badges = room.badges()

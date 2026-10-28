@@ -84,6 +84,20 @@ class MatchRoomTest(unittest.TestCase):
         self.assertEqual(len(self.room.due_events(T0 + 300)), len(EVENTS))
         self.assertAlmostEqual(self.room.match_clock(T0 + 150), MATCH_SECONDS / 2)
 
+    def test_clock_pauses_while_moment_is_open_and_resumes_cleanly(self):
+        m = self._open()
+        self.assertIsNotNone(m)
+        frozen_clock = self.room.match_clock(self.at)
+        index_at_open = self.room.next_index
+        # While the moment is open for 30s, the match clock stays frozen and no events are skipped
+        self.assertAlmostEqual(self.room.match_clock(self.at + 15), frozen_clock)
+        self.assertEqual(self.room.due_events(self.at + 20), [])
+        self.assertEqual(self.room.next_index, index_at_open)
+        # When the moment closes, paused_s advances by the window duration and the clock resumes from frozen_clock
+        self.room.close_moment(m.closes_at)
+        self.assertAlmostEqual(self.room.paused_s, 30.0)
+        self.assertAlmostEqual(self.room.match_clock(m.closes_at), frozen_clock)
+
     def test_one_moment_at_a_time(self):
         m = self._open()
         self.assertIsNotNone(m)

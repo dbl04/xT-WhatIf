@@ -330,11 +330,120 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const movableSet = useMemo(() => new Set(challenge?.movableIds ?? []), [challenge?.movableIds]);
 
     // ============================================================
-    // CINEMATIC PLAYBACK (requestAnimationFrame)
+    // CINEMATIC PLAYBACK & CONTINUOUS LIVE INTERPOLATION (60 FPS)
     // ============================================================
     const [animProgress, setAnimProgress] = useState<number>(0);
     const animFrameRef = useRef<number>(0);
     const animStartRef = useRef<number>(0);
+
+    // Continuous live match state (readOnly = true): smoothly interpolates all 22 players
+    // and the ball from event to event without snapping back to 0 between passes.
+    const liveCurrentRef = useRef<{
+      players: Map<number, { x: number; y: number }>;
+      ballX: number;
+      ballY: number;
+    }>({
+      players: new Map(players.map((p) => [p.player_id, { x: p.x, y: p.y }])),
+      ballX,
+      ballY,
+    });
+    const [liveFrameTick, setLiveFrameTick] = useState<number>(0);
+
+    const frameSignature = useMemo(
+      () =>
+        `${ballX}:${ballY}:${ballEndX ?? ""}:${ballEndY ?? ""}:${players
+          .map((p) => `${p.player_id},${p.x},${p.y}`)
+          .join("|")}`,
+      [ballX, ballY, ballEndX, ballEndY, players]
+    );
+
+    useEffect(() => {
+      if (!readOnly) {
+        // When entering a paused key moment or practice mode, sync liveCurrentRef to exact frame positions
+        liveCurrentRef.current = {
+          players: new Map(players.map((p) => [p.player_id, { x: p.x, y: p.y }])),
+          ballX,
+          ballY,
+        };
+        return;
+      }
+
+      const startSnapshot = new Map<number, { x: number; y: number }>();
+      players.forEach((p) => {
+        const prev = liveCurrentRef.current.players.get(p.player_id);
+        startSnapshot.set(p.player_id, prev ? { ...prev } : { x: p.x, y: p.y });
+      });
+      const startBallX = liveCurrentRef.current.ballX;
+      const startBallY = liveCurrentRef.current.ballY;
+      const targetBallEndX = ballEndX ?? ballX;
+      const targetBallEndY = ballEndY ?? ballY;
+      const actorTeam = players.find((a) => a.is_actor)?.team;
+
+      const TRANSITION_MS = 2500;
+      let raf = 0;
+      let t0 = 0;
+
+      const step = (ts: number) => {
+        if (!t0) t0 = ts;
+        const raw = Math.min(1, (ts - t0) / TRANSITION_MS);
+        // Smooth cubic ease-in-out for player movement
+        const ease = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+
+        // First 22%: ball settles at carrier (ballX, ballY); 22% -> 100%: ball travels to (ballEndX, ballEndY)
+        let curBX: number;
+        let curBY: number;
+        if (raw < 0.22) {
+          const k = raw / 0.22;
+          const ke = 1 - Math.pow(1 - k, 2);
+          curBX = startBallX + (ballX - startBallX) * ke;
+          curBY = startBallY + (ballY - startBallY) * ke;
+        } else {
+          const k = (raw - 0.22) / 0.78;
+          const ke = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+          curBX = ballX + (targetBallEndX - ballX) * ke;
+          curBY = ballY + (targetBallEndY - ballY) * ke;
+        }
+
+        const nextMap = new Map<number, { x: number; y: number }>();
+        players.forEach((p) => {
+          if (p.is_keeper) {
+            nextMap.set(p.player_id, { x: p.x, y: p.y });
+            return;
+          }
+          const from = startSnapshot.get(p.player_id) ?? { x: p.x, y: p.y };
+          // Supporting run during the pass
+          const runTargetX = p.team === actorTeam ? targetBallEndX : ballX;
+          const runTargetY = p.team === actorTeam ? targetBallEndY : ballY;
+          const rdx = runTargetX - p.x;
+          const rdy = runTargetY - p.y;
+          const rdist = Math.hypot(rdx, rdy) || 1;
+          const runDist = Math.min(2.8, Math.max(1.0, rdist * 0.07));
+          const destX = Math.max(1, Math.min(STATSBOMB_PITCH_LENGTH - 1, p.x + (rdx / rdist) * runDist));
+          const destY = Math.max(1, Math.min(STATSBOMB_PITCH_WIDTH - 1, p.y + (rdy / rdist) * runDist));
+
+          const cx = Number((from.x + (destX - from.x) * ease).toFixed(2));
+          const cy = Number((from.y + (destY - from.y) * ease).toFixed(2));
+          nextMap.set(p.player_id, { x: cx, y: cy });
+        });
+
+        liveCurrentRef.current = {
+          players: nextMap,
+          ballX: Number(curBX.toFixed(2)),
+          ballY: Number(curBY.toFixed(2)),
+        };
+        setLiveFrameTick((n) => (n + 1) % 1000000);
+
+        if (raw < 1) {
+          raf = requestAnimationFrame(step);
+        }
+      };
+
+      raf = requestAnimationFrame(step);
+      return () => {
+        if (raf) cancelAnimationFrame(raf);
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readOnly, frameSignature]);
 
     // Expose SVG ref for export
     useImperativeHandle(ref, () => ({
@@ -342,7 +451,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     }));
 
     useEffect(() => {
-      if (!isPlaying) {
+      if (readOnly || !isPlaying) {
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         setAnimProgress(0);
         return;
@@ -373,21 +482,31 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       return () => {
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       };
-    }, [isPlaying, playbackSpeed, onAnimationEnd]);
+    }, [readOnly, isPlaying, playbackSpeed, onAnimationEnd]);
 
     // Compute animated ball position
     const animBallX = useMemo(() => {
+      if (readOnly) return liveCurrentRef.current.ballX;
       if (!isPlaying || animProgress === 0 || ballEndX == null) return ballX;
       return ballX + (ballEndX - ballX) * animProgress;
-    }, [isPlaying, animProgress, ballX, ballEndX]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readOnly, liveFrameTick, isPlaying, animProgress, ballX, ballEndX]);
 
     const animBallY = useMemo(() => {
+      if (readOnly) return liveCurrentRef.current.ballY;
       if (!isPlaying || animProgress === 0 || ballEndY == null) return ballY;
       return ballY + (ballEndY - ballY) * animProgress;
-    }, [isPlaying, animProgress, ballY, ballEndY]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readOnly, liveFrameTick, isPlaying, animProgress, ballY, ballEndY]);
 
     // Compute animated player micro-runs (1.5m-3.5m toward ball_end for teammates, toward ball for defenders)
     const animatedPlayers = useMemo(() => {
+      if (readOnly) {
+        return players.map((p) => {
+          const livePos = liveCurrentRef.current.players.get(p.player_id);
+          return livePos ? { ...p, x: livePos.x, y: livePos.y } : p;
+        });
+      }
       if (!isPlaying || animProgress === 0) return players;
       const bEndX = ballEndX ?? ballX;
       const bEndY = ballEndY ?? ballY;
@@ -409,7 +528,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
           y: Number((p.y + uy * runDist * animProgress).toFixed(1)),
         };
       });
-    }, [isPlaying, animProgress, players, ballX, ballY, ballEndX, ballEndY]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readOnly, liveFrameTick, isPlaying, animProgress, players, ballX, ballY, ballEndX, ballEndY]);
 
     // xT Grid cells (memoized)
     const xtGridCells = useMemo(() => {
@@ -559,14 +679,14 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
     // Use animated or static players, unified with instant pointer drag position for 60 FPS
     const renderPlayers = useMemo(() => {
-      const base = isPlaying && animProgress > 0 ? animatedPlayers : players;
+      const base = readOnly || (isPlaying && animProgress > 0) ? animatedPlayers : players;
       if (!dragPos) return base;
       return base.map((p) =>
         p.player_id === dragPos.id
           ? { ...p, x: dragPos.x, y: dragPos.y, is_modified: true }
           : p
       );
-    }, [isPlaying, animProgress, animatedPlayers, players, dragPos]);
+    }, [readOnly, isPlaying, animProgress, animatedPlayers, players, dragPos]);
 
     // Voronoi tessellation and territorial dispute frontier (Dr. Voronoi)
     const voronoiData = useMemo(() => {
@@ -594,7 +714,9 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         players.map((p) => `${p.player_id}:${p.original_x ?? p.x}:${p.original_y ?? p.y}:${p.is_actor ? 1 : 0}`).join("|"),
       ]
     );
-    const viewBox = useAnimatedViewBox(isZoomed ? focusBox : FULL_VIEW);
+    // While the live match is flowing continuously (readOnly), show the full pitch so the camera
+    // does not jump every pass; zoom smoothly into the action as soon as a key moment pauses play.
+    const viewBox = useAnimatedViewBox(isZoomed && !readOnly ? focusBox : FULL_VIEW);
     const isFramed = viewBox.w < STATSBOMB_PITCH_LENGTH - 0.01;
 
     // Distance chips of moved players reserve their space before the names are placed.
@@ -654,9 +776,9 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
           <div
             role="status"
             aria-live="polite"
-            className="flex min-h-8 items-center justify-center gap-2 border-b border-line bg-amber-400/10 px-4 py-1.5 text-center text-xs font-medium text-amber-200"
+            className="flex min-h-8 items-center justify-center gap-2 border-b border-line bg-signal-gain/10 px-4 py-1.5 text-center text-xs font-medium text-fg"
           >
-            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400" aria-hidden />
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-signal-gain" aria-hidden />
             <span>{t("live.waitingPitchBanner")}</span>
           </div>
         )}
@@ -838,14 +960,26 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
             {/* PASS CORRIDOR */}
             {showPassCorridor && (
               <g id="passCorridorLayer" pointerEvents="none">
-                {passCorridorPolygon && (
+                {passCorridorPolygon && !readOnly && (
                   <polygon points={passCorridorPolygon} fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.35)" strokeDasharray="3 3" {...hair(0.5)} />
                 )}
                 {ballEndX != null && ballEndY != null && (
-                  <g>
-                    <line x1={ballX} y1={ballY} x2={ballEndX} y2={ballEndY} stroke={C.white} strokeDasharray="5 4" markerEnd="url(#ballArrowHead)" {...hair(1)} />
-                    <circle cx={ballEndX} cy={ballEndY} r="1.2" fill="none" stroke={C.white} {...hair(0.5)} />
-                  </g>
+                  readOnly ? (
+                    <line
+                      x1={ballX}
+                      y1={ballY}
+                      x2={animBallX}
+                      y2={animBallY}
+                      stroke="rgba(255,255,255,0.45)"
+                      strokeDasharray="2.5 2"
+                      {...hair(0.75)}
+                    />
+                  ) : (
+                    <g>
+                      <line x1={ballX} y1={ballY} x2={ballEndX} y2={ballEndY} stroke={C.white} strokeDasharray="5 4" markerEnd="url(#ballArrowHead)" {...hair(1)} />
+                      <circle cx={ballEndX} cy={ballEndY} r="1.2" fill="none" stroke={C.white} {...hair(0.5)} />
+                    </g>
+                  )
                 )}
                 {isCounterfactualMode && !challenge && optimalTargetPlayer && (
                   <g id="optimalPassLine">
