@@ -28,6 +28,7 @@ ROUTE_LIMITS: Dict[str, int] = {
     "/api/v1/game/preview": 240,
     "/api/v1/game/optimize": 120,
     "/api/v1/tts/synthesize": 30,
+    "/api/v1/speech/transcribe": 30,
     # Reveal voice of the live match: one request per moment per fan.
     "/api/v1/live/moments": 30,
     "/api/v1/cloud/stress-burst": 6,

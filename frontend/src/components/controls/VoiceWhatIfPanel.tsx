@@ -8,6 +8,8 @@ import {
   executeVoiceWhatIf,
   InterpretedVoiceMove,
   MAX_VOICE_MOVES,
+  STTProvider,
+  transcribeVoiceWithAzure,
 } from "@/lib/voiceWhatIf";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { sfx } from "@/lib/sfx";
@@ -18,6 +20,7 @@ import {
   RotateCcw,
   Send,
   TriangleAlert,
+  Cloud,
 } from "lucide-react";
 
 interface SpeechRecognitionAlternativeLike {
@@ -66,6 +69,25 @@ function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+function getPreferredAudioMimeType(): string {
+  if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
+    return "audio/webm";
+  }
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "audio/wav",
+  ];
+  for (const mime of candidates) {
+    if (typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(mime)) {
+      return mime;
+    }
+  }
+  return "audio/webm";
+}
+
 export interface VoiceWhatIfPanelProps {
   currentFrame: MatchFramePayload;
   onBeforeListen?: () => void;
@@ -95,10 +117,15 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   const [transcript, setTranscript] = useState("");
   const [lastQuery, setLastQuery] = useState<string | null>(null);
   const [lastMoves, setLastMoves] = useState<InterpretedVoiceMove[]>([]);
+  const [sttProvider, setSttProvider] = useState<STTProvider | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [micError, setMicError] = useState<"unsupported" | "error" | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const usingMediaRecorderRef = useRef<boolean>(false);
   const transcriptRef = useRef<string>("");
   const submittedOnEndRef = useRef<boolean>(false);
   const animRafRef = useRef<number>(0);
@@ -106,6 +133,21 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   frameRef.current = currentFrame;
 
   const movedCount = currentFrame.players.filter((p) => p.is_modified).length;
+
+  const cleanupMediaStream = useCallback(() => {
+    if (mediaStreamRef.current) {
+      for (const track of mediaStreamRef.current.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+          // ignore
+        }
+      }
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    usingMediaRecorderRef.current = false;
+  }, []);
 
   useEffect(() => {
     if (externalLimitNotice) {
@@ -126,8 +168,9 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     return () => {
       if (animRafRef.current) cancelAnimationFrame(animRafRef.current);
       recognitionRef.current?.abort();
+      cleanupMediaStream();
     };
-  }, []);
+  }, [cleanupMediaStream]);
 
   const animateMovesOnPitch = useCallback(
     (moves: InterpretedVoiceMove[], activePlayers: PlayerNode[]): Promise<void> => {
@@ -169,14 +212,20 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   );
 
   const runVoiceInstruction = useCallback(
-    async (rawQuery: string) => {
+    async (rawQuery: string, providerUsed?: STTProvider) => {
       const cleanQuery = rawQuery.trim();
-      if (cleanQuery.length < 2) return;
+      if (cleanQuery.length < 2) {
+        setIsProcessing(false);
+        return;
+      }
 
       setIsProcessing(true);
       setLimitReached(false);
       setMicError(null);
       setLastQuery(cleanQuery);
+      if (providerUsed) {
+        setSttProvider(providerUsed);
+      }
 
       const snapshotFrame = frameRef.current;
       const result = await executeVoiceWhatIf(cleanQuery, snapshotFrame, language, audience);
@@ -229,9 +278,38 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     ]
   );
 
-  const startListening = () => {
+  const processRecordedAudio = useCallback(
+    async (audioBlob: Blob | null) => {
+      const browserTranscript = transcriptRef.current.trim();
+      setIsProcessing(true);
+
+      if (audioBlob && audioBlob.size > 200) {
+        const sttRes = await transcribeVoiceWithAzure(audioBlob, frameRef.current, language);
+        if (sttRes.text.length >= 2) {
+          setTranscript(sttRes.text);
+          transcriptRef.current = sttRes.text;
+          await runVoiceInstruction(sttRes.text, sttRes.provider);
+          return;
+        }
+      }
+
+      if (browserTranscript.length >= 2) {
+        await runVoiceInstruction(browserTranscript, "browser-web-speech-fallback");
+      } else {
+        setIsProcessing(false);
+      }
+    },
+    [language, runVoiceInstruction]
+  );
+
+  const startListening = async () => {
     const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) {
+    const canMediaRecord =
+      typeof navigator !== "undefined" &&
+      Boolean(navigator.mediaDevices?.getUserMedia) &&
+      typeof MediaRecorder !== "undefined";
+
+    if (!Ctor && !canMediaRecord) {
       setMicError("unsupported");
       return;
     }
@@ -242,46 +320,105 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     setTranscript("");
     transcriptRef.current = "";
     submittedOnEndRef.current = false;
+    audioChunksRef.current = [];
+    usingMediaRecorderRef.current = false;
 
-    try {
-      const recognition = new Ctor();
-      recognition.lang = LOCALES[language];
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        let combined = "";
-        for (let i = 0; i < event.results.length; i++) {
-          combined += event.results[i][0].transcript;
-        }
-        const trimmed = combined.trim();
-        transcriptRef.current = trimmed;
-        setTranscript(trimmed);
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-        if (event.error !== "no-speech" && event.error !== "aborted") {
+    // 1. Start MediaRecorder for Azure AI Speech / Azure OpenAI Whisper cloud transcription
+    if (canMediaRecord) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        const mimeType = getPreferredAudioMimeType();
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        recorder.ondataavailable = (ev: BlobEvent) => {
+          if (ev.data && ev.data.size > 0) {
+            audioChunksRef.current.push(ev.data);
+          }
+        };
+        recorder.onstop = () => {
+          const chunks = audioChunksRef.current;
+          const recordedBlob =
+            chunks.length > 0 ? new Blob(chunks, { type: recorder.mimeType || mimeType }) : null;
+          cleanupMediaStream();
+          if (!submittedOnEndRef.current) {
+            submittedOnEndRef.current = true;
+            void processRecordedAudio(recordedBlob);
+          }
+        };
+        mediaRecorderRef.current = recorder;
+        usingMediaRecorderRef.current = true;
+        recorder.start();
+        setIsListening(true);
+      } catch {
+        cleanupMediaStream();
+        if (!Ctor) {
           setMicError("error");
+          setIsListening(false);
+          return;
         }
-        setIsListening(false);
-      };
+      }
+    }
 
-      recognition.onend = () => {
-        setIsListening(false);
-        const captured = transcriptRef.current.trim();
-        if (!submittedOnEndRef.current && captured.length >= 2) {
-          submittedOnEndRef.current = true;
-          void runVoiceInstruction(captured);
+    // 2. Run Browser SpeechRecognition in parallel for live interim preview & offline fallback
+    if (Ctor) {
+      try {
+        const recognition = new Ctor();
+        recognition.lang = LOCALES[language];
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event: SpeechRecognitionEventLike) => {
+          let combined = "";
+          for (let i = 0; i < event.results.length; i++) {
+            combined += event.results[i][0].transcript;
+          }
+          const trimmed = combined.trim();
+          transcriptRef.current = trimmed;
+          setTranscript(trimmed);
+        };
+
+        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+          if (!usingMediaRecorderRef.current) {
+            if (event.error !== "no-speech" && event.error !== "aborted") {
+              setMicError("error");
+            }
+            setIsListening(false);
+          }
+        };
+
+        recognition.onend = () => {
+          // If MediaRecorder is active and user stops talking naturally, finalize the recording
+          const rec = mediaRecorderRef.current;
+          if (rec && rec.state === "recording") {
+            setIsListening(false);
+            try {
+              rec.stop();
+            } catch {
+              // ignore
+            }
+            return;
+          }
+
+          if (!usingMediaRecorderRef.current) {
+            setIsListening(false);
+            const captured = transcriptRef.current.trim();
+            if (!submittedOnEndRef.current && captured.length >= 2) {
+              submittedOnEndRef.current = true;
+              void runVoiceInstruction(captured, "browser-web-speech-fallback");
+            }
+          }
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsListening(true);
+      } catch {
+        if (!usingMediaRecorderRef.current) {
+          setMicError("error");
+          setIsListening(false);
         }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-      setIsListening(true);
-    } catch {
-      setMicError("error");
-      setIsListening(false);
+      }
     }
   };
 
@@ -294,11 +431,23 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
         // ignore
       }
     }
+
+    const mediaRec = mediaRecorderRef.current;
+    if (mediaRec && mediaRec.state === "recording") {
+      setIsListening(false);
+      try {
+        mediaRec.stop();
+        return;
+      } catch {
+        cleanupMediaStream();
+      }
+    }
+
     setIsListening(false);
     const captured = transcriptRef.current.trim();
     if (!submittedOnEndRef.current && captured.length >= 2) {
       submittedOnEndRef.current = true;
-      void runVoiceInstruction(captured);
+      void runVoiceInstruction(captured, "browser-web-speech-fallback");
     }
   };
 
@@ -313,6 +462,15 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     }
   };
 
+  const providerBadgeLabel =
+    sttProvider === "azure-ai-speech"
+      ? t("voice.provider.speech")
+      : sttProvider === "azure-openai-whisper"
+        ? t("voice.provider.whisper")
+        : sttProvider === "browser-web-speech-fallback"
+          ? t("voice.provider.browser")
+          : null;
+
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-2">
@@ -320,15 +478,29 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
           <Mic className="h-3.5 w-3.5 text-signal-gain" aria-hidden />
           <Kicker className="text-signal-gain">{t("voice.kicker")}</Kicker>
         </div>
-        <span
-          className={`rounded px-1.5 py-0.5 font-mono text-[10px] tabular-nums ${
-            movedCount >= MAX_VOICE_MOVES
-              ? "bg-amber-400/15 text-amber-300"
-              : "bg-white/[0.06] text-fg-muted"
-          }`}
-        >
-          {t("voice.movesCount", { used: Math.min(movedCount, MAX_VOICE_MOVES), max: MAX_VOICE_MOVES })}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {providerBadgeLabel && (
+            <span
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                sttProvider === "browser-web-speech-fallback"
+                  ? "bg-white/[0.06] text-fg-muted"
+                  : "border border-sky-400/30 bg-sky-400/10 text-sky-300"
+              }`}
+            >
+              <Cloud className="h-2.5 w-2.5" aria-hidden />
+              {providerBadgeLabel}
+            </span>
+          )}
+          <span
+            className={`rounded px-1.5 py-0.5 font-mono text-[10px] tabular-nums ${
+              movedCount >= MAX_VOICE_MOVES
+                ? "bg-amber-400/15 text-amber-300"
+                : "bg-white/[0.06] text-fg-muted"
+            }`}
+          >
+            {t("voice.movesCount", { used: Math.min(movedCount, MAX_VOICE_MOVES), max: MAX_VOICE_MOVES })}
+          </span>
+        </div>
       </div>
 
       <p className="text-[12px] leading-snug text-fg-muted">{t("voice.desc")}</p>
@@ -340,7 +512,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
           variant={isListening ? "primary" : "secondary"}
           size="sm"
           disabled={isProcessing}
-          onClick={isListening ? stopListening : startListening}
+          onClick={isListening ? stopListening : () => void startListening()}
           className={`flex-1 ${
             isListening
               ? "border-signal-loss bg-signal-loss text-white hover:bg-signal-loss/90"

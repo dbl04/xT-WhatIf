@@ -1012,12 +1012,15 @@ def reveal_pundits_and_comparison(
     user_score: Optional[int],
     beat_machine: bool,
     lang: Language,
+    audience: Audience = DEFAULT_AUDIENCE,
 ) -> Dict[str, object]:
     """
     Builds both the visual card explanation AND distinct, natural spoken commentary lines
-    (`voronoi_voice`, `bianchi_voice`) for Dr. Voronoi and Coach Bianchi at the Live Match Reveal.
+    (`voronoi_voice`, `bianchi_voice`) for Dr. Voronoi and Coach Bianchi at the Live Match Reveal,
+    tailored to the selected language (`en` | `es`) and audience (`casual` | `analyst` | `coach` | `audio_description`).
     Spoken lines are short, intuitive broadcast reactions with zero parentheses or coordinates.
     """
+    aud = normalize_audience(audience)
     base_exp = reveal_explanation(frame, mode, opt_moves, base_value, best_value, best_target_id, lang)
     by_id = {p.player_id: p for p in frame.players}
     bot_who, _, bot_ids = _describe_move_list(by_id, opt_moves, lang)
@@ -1026,6 +1029,7 @@ def reveal_pundits_and_comparison(
     yours_pct = _pct(user_value) if user_value is not None else None
     target = by_id.get(best_target_id)
     target_name = target.name if target else FALLBACK_NAMES[lang]["optimal"]
+    target_spot = describe_spot(target.x, target.y, lang) if target else ""
 
     opt_coords = {pid: (x, y) for pid, x, y in opt_moves}
     user_who, _, user_ids = (
@@ -1239,6 +1243,43 @@ def reveal_pundits_and_comparison(
             )
             bianchi_voice = f"You moved {user_who}, but the real danger was where the machine stepped in with {bot_who}."
             bianchi_metric = f"Score: {user_score}/1000 | You: {user_who} vs Bot: {bot_who}"
+
+    # 3. Audience-specific personalisation layer (casual, coach, audio_description)
+    if aud == "casual":
+        if lang == "es":
+            voronoi_metric = f"Oportunidad de gol: {base_pct}% a {best_pct}%"
+            bianchi_metric = f"Tu puntuación: {user_score}/1000" if user_score is not None else f"Jugador clave: {bot_who}"
+            if voronoi_comparison:
+                voronoi_comparison = f"{voronoi_comparison} En lenguaje llano: ahí estaba la ocasión más clara."
+        else:
+            voronoi_metric = f"Goal chance: {base_pct}% to {best_pct}%"
+            bianchi_metric = f"Your score: {user_score}/1000" if user_score is not None else f"Key player: {bot_who}"
+            if voronoi_comparison:
+                voronoi_comparison = f"{voronoi_comparison} In plain terms, that spot created the clearest chance."
+    elif aud == "coach":
+        verdict_es = "Validado" if (user_score or 0) >= 750 or beat_machine else "Corregir basculación"
+        verdict_en = "Validated" if (user_score or 0) >= 750 or beat_machine else "Adjust cover"
+        if lang == "es":
+            bianchi_headline = f"{verdict_es}: {bianchi_headline}"
+            bianchi_metric = f"Veredicto: {verdict_es} | {user_score or 0}/1000 pts"
+            voronoi_voice = f"{voronoi_voice} Consigna táctica: fijar la marca sobre {target_name}."
+        else:
+            bianchi_headline = f"{verdict_en}: {bianchi_headline}"
+            bianchi_metric = f"Verdict: {verdict_en} | {user_score or 0}/1000 pts"
+            voronoi_voice = f"{voronoi_voice} Coaching point: lock onto {target_name}."
+    elif aud == "audio_description":
+        if lang == "es":
+            spot_note = f" situándose {target_spot}" if target_spot else ""
+            voronoi_comparison = f"{voronoi_comparison} En el campo (atacando de izquierda a derecha), el balón busca a {target_name}{spot_note}."
+            voronoi_metric = f"Peligro de gol del {base_pct}% al {best_pct}%"
+            bianchi_metric = f"Puntuación {user_score or 0} sobre 1000"
+            voronoi_voice = f"{voronoi_voice} El balón busca a {target_name}{spot_note}."
+        else:
+            spot_note = f" positioned {target_spot}" if target_spot else ""
+            voronoi_comparison = f"{voronoi_comparison} On the pitch (attacking left to right), the ball looks for {target_name}{spot_note}."
+            voronoi_metric = f"Goal threat {base_pct}% to {best_pct}%"
+            bianchi_metric = f"Score {user_score or 0} out of 1000"
+            voronoi_voice = f"{voronoi_voice} The ball looks for {target_name}{spot_note}."
 
     clock = f"{frame.minute:02d}:{frame.second:02d}"
     voronoi_full_body = f"{base_exp['body']} {voronoi_comparison}".strip()

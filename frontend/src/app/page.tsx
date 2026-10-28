@@ -25,7 +25,7 @@ import { LIVE_API_URL } from "@/lib/api";
 import { liveClockSeconds, useLiveMatch, type MomentReveal } from "@/hooks/useLiveMatch";
 import { useRevealReplay } from "@/hooks/useRevealReplay";
 import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/components/live/LiveCards";
-import { modeFor } from "@/lib/challenge";
+import { evaluateChallenge, modeFor, type ChallengeMove } from "@/lib/challenge";
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { sfx } from "@/lib/sfx";
@@ -41,6 +41,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ArrowUpRight,
+  Activity,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -276,20 +277,66 @@ function DashboardPage() {
     return () => observer.disconnect();
   }, []);
 
+  const [practiceReveal, setPracticeReveal] = useState<MomentReveal | null>(null);
+  const practiceSubmissionRef = useRef<{ frame: MatchFramePayload; moves: ChallengeMove[] } | null>(null);
+
   const challenge = useChallenge({
     onSubmit: (submission) => {
       if (submission.auto) sfx.whistle();
       else sfx.confirm();
-      const moment = liveState.moment;
-      if (!moment || moment.frame.event_uuid !== submission.eventUuid) return; // practice: nothing to send
       // Only legal moves are sent: a player breaking a rule stays in place (the server would
       // reject the whole submission otherwise).
       const broken = new Set((challenge.state?.violations ?? []).map((v) => v.player_id));
-      live.submit(moment.moment_id, submission.moves.filter((m) => !broken.has(m.player_id)));
+      const legalMoves = submission.moves.filter((m) => !broken.has(m.player_id));
+      const moment = liveState.moment;
+      if (isLiveView && moment && moment.frame.event_uuid === submission.eventUuid) {
+        live.submit(moment.moment_id, legalMoves);
+        return;
+      }
+      // Practice / Key Moments mode: evaluate immediately and reveal the optimal move + pundit analysis.
+      const baseFrame = challenge.state?.baseFrame ?? currentFrame;
+      practiceSubmissionRef.current = { frame: baseFrame, moves: legalMoves };
+      void evaluateChallenge(
+        {
+          match_id: submission.matchId,
+          event_uuid: submission.eventUuid,
+          team: submission.team,
+          moves: legalMoves,
+          language,
+          audience,
+        },
+        baseFrame
+      ).then((res) => {
+        setPracticeReveal(res);
+      });
     },
   });
   const challengeState = challenge.state;
   const inChallenge = challengeState !== null;
+
+  // Refresh practice reveal narration whenever language or audience profile changes.
+  useEffect(() => {
+    const sub = practiceSubmissionRef.current;
+    if (!sub || !practiceReveal) return;
+    let cancelled = false;
+    void evaluateChallenge(
+      {
+        match_id: sub.frame.match_id,
+        event_uuid: sub.frame.event_uuid,
+        team: supportedSide,
+        moves: sub.moves,
+        language,
+        audience,
+      },
+      sub.frame
+    ).then((res) => {
+      if (!cancelled) setPracticeReveal(res);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, audience]);
 
   // In Key Moments mode (!isLiveView), whenever a move simulation completes, have the commentators speak about it.
   onSimDoneRef.current = (simFrame: MatchFramePayload) => {
@@ -377,8 +424,16 @@ function DashboardPage() {
     if (challengeState?.status === "open" && secondsLeft > 0 && secondsLeft <= 10) sfx.tick(secondsLeft);
   }, [challengeState?.status, secondsLeft]);
 
+  const leaveChallenge = useCallback(() => {
+    setPracticeReveal(null);
+    practiceSubmissionRef.current = null;
+    closeChallenge();
+  }, [closeChallenge]);
+
   const continueAfterReveal = () => {
     tts.stop();
+    setPracticeReveal(null);
+    practiceSubmissionRef.current = null;
     live.dismissReveal();
     closeChallenge();
   };
@@ -386,6 +441,8 @@ function DashboardPage() {
   const goToLive = () => {
     setPractising(false);
     setFreeMoveLimitNotice(false);
+    setPracticeReveal(null);
+    practiceSubmissionRef.current = null;
     live.dismissReveal();
     closeChallenge();
     setIsPlaying(false);
@@ -393,6 +450,19 @@ function DashboardPage() {
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
     resetSimulation();
+  };
+
+  const goToPractice = () => {
+    setPractising(true);
+    setFreeMoveLimitNotice(false);
+    setPracticeReveal(null);
+    practiceSubmissionRef.current = null;
+    live.dismissReveal();
+    closeChallenge();
+    setIsPlaying(false);
+    tts.stop();
+    setHighlightedPlayerIds([]);
+    setHoveredPlayerId(null);
   };
 
   // Game clock between messages, and the action replayed on every new live event.
@@ -410,6 +480,8 @@ function DashboardPage() {
   const startChallenge = () => {
     setIsPlaying(false);
     tts.stop();
+    setPracticeReveal(null);
+    practiceSubmissionRef.current = null;
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
     setIsHudDrawerOpen(true);
@@ -418,8 +490,11 @@ function DashboardPage() {
   };
 
   const { flashNotice } = challenge;
-  const reveal =
-    isLiveView && liveState.reveal && liveState.reveal.moment_id === liveState.moment?.moment_id ? liveState.reveal : null;
+  const reveal = isLiveView
+    ? liveState.reveal && liveState.reveal.moment_id === liveState.moment?.moment_id
+      ? liveState.reveal
+      : null
+    : practiceReveal;
 
   // Pundits comment on the resolved play with concise, conversational broadcast lines (distinct from the card text).
   const playRevealVoice = useCallback(
@@ -497,6 +572,7 @@ function DashboardPage() {
       violationLabels[v.player_id] ??= t(`challenge.rule.${v.rule}`).toUpperCase();
     });
     return {
+      mode: challengeState.mode,
       movableIds: challengeState.movableIds,
       maxRadius: challengeState.rules.max_radius_m,
       maxPlayers: challengeState.rules.max_players,
@@ -573,7 +649,7 @@ function DashboardPage() {
             </span>
           </div>
 
-          <div className="hidden min-w-0 flex-col xl:flex">
+          <div className="hidden min-w-0 flex-col 2xl:flex">
             <span className="truncate text-xs text-fg-muted">
               {fixture.home.name} v {fixture.away.name}
               {currentFrame.is_counterfactual_mode && (
@@ -584,11 +660,43 @@ function DashboardPage() {
               )}
             </span>
           </div>
+
+          {/* 1-Click Mode Switcher: Live Match vs Key Moments & Voice */}
+          <div
+            role="group"
+            aria-label={t("nav.modeAria")}
+            className="hidden items-center rounded-md border border-line-strong bg-ink-800 p-0.5 md:inline-flex"
+          >
+            <button
+              type="button"
+              onClick={goToLive}
+              aria-pressed={isLiveView}
+              className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-semibold transition-colors ${
+                isLiveView
+                  ? "bg-white/[0.12] text-fg shadow-sm"
+                  : "text-fg-muted hover:text-fg"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${isLiveView ? "bg-signal-gain" : "bg-fg-subtle"}`} />
+              {t("nav.mode.live")}
+            </button>
+            <button
+              type="button"
+              onClick={goToPractice}
+              aria-pressed={!isLiveView}
+              className={`inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-semibold transition-colors ${
+                !isLiveView
+                  ? "bg-white/[0.12] text-fg shadow-sm"
+                  : "text-fg-muted hover:text-fg"
+              }`}
+            >
+              {t("nav.mode.practice")}
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex items-center gap-0.5">
-          {/* Panel and Compare only act on the practice board; Infrastructure is hidden so the fixture line fits. */}
           {!isLiveView && (
             <>
               <Button
@@ -616,6 +724,16 @@ function DashboardPage() {
             </>
           )}
 
+          <Button
+            variant="ghost"
+            onClick={() => setIsCloudTelemetryOpen(true)}
+            title={t("nav.infraTitle")}
+            className="hidden sm:inline-flex"
+          >
+            <Activity className="h-3.5 w-3.5 text-signal-gain" />
+            <span className="hidden xl:inline">{t("nav.infra")}</span>
+          </Button>
+
           <IconButton
             onClick={() => setIsDemoGuideOpen(true)}
             className="hidden sm:inline-flex"
@@ -631,7 +749,7 @@ function DashboardPage() {
 
           <span className="mx-1 hidden h-5 w-px bg-line-strong sm:block" />
 
-          <ProfileSwitcher hideAudience={isLiveView} />
+          <ProfileSwitcher />
 
           <span className="mx-2 hidden h-5 w-px bg-line-strong sm:block" />
 
@@ -734,7 +852,7 @@ function DashboardPage() {
                 teamInfo={fanSession?.teamInfo}
                 onConfirm={() => challenge.submit(false)}
                 onReset={challenge.reset}
-                onLeave={challenge.close}
+                onLeave={leaveChallenge}
                 delivery={liveDelivery}
               />
             </div>
@@ -747,7 +865,7 @@ function DashboardPage() {
                 setIsPlaying(false);
                 setFreeMoveLimitNotice(false);
                 // Moving to another moment leaves the challenge of this one.
-                if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) challenge.close();
+                if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) leaveChallenge();
                 selectFrameIndex(idx);
               }}
               minute={currentFrame.minute}
@@ -811,7 +929,7 @@ function DashboardPage() {
                   teamInfo={fanSession?.teamInfo}
                   onConfirm={() => challenge.submit(false)}
                   onReset={challenge.reset}
-                  onLeave={challenge.close}
+                  onLeave={leaveChallenge}
                   onHighlightPlayer={setHoveredPlayerId}
                   delivery={liveDelivery}
                 />
@@ -839,7 +957,7 @@ function DashboardPage() {
                     live={liveState}
                     clockSeconds={liveClock}
                     matchInfo={liveMatchInfo}
-                    onPractice={() => setPractising(true)}
+                    onPractice={goToPractice}
                   />
                 )}
               </section>

@@ -35,6 +35,9 @@ param azureOpenAiTtsDeployment string = 'gpt-4o-mini-tts'
 @description('Azure OpenAI API Version for Text-To-Speech (TTS)')
 param azureOpenAiTtsApiVersion string = '2025-03-01-preview'
 
+@description('Azure OpenAI Deployment for Speech-To-Text (STT / Whisper)')
+param azureOpenAiSttDeployment string = 'whisper-1'
+
 @description('Azure AI Speech key for the pundits\' neural voices (empty or "disabled": not used)')
 @secure()
 param azureSpeechKey string = ''
@@ -185,6 +188,10 @@ var openAiEnv = concat(speechEnv, [
   {
     name: 'AZURE_OPENAI_TTS_API_VERSION'
     value: azureOpenAiTtsApiVersion
+  }
+  {
+    name: 'AZURE_OPENAI_STT_DEPLOYMENT'
+    value: azureOpenAiSttDeployment
   }
 ])
 var healthProbes = [

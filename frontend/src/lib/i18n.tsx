@@ -28,6 +28,9 @@ const en = {
   "nav.guideAria": "How it works",
   "nav.export": "Export",
   "nav.exportTitle": "Export the tactical report as PNG",
+  "nav.mode.live": "Live match",
+  "nav.mode.practice": "Key moments & Voice",
+  "nav.modeAria": "Game mode",
 
   // Personalisation
   "profile.language": "Language",
@@ -66,6 +69,9 @@ const en = {
   "voice.example2": "“Step up with the centre-back and press with the midfielder”",
   "voice.lastHeard": "Instruction: “{query}”",
   "voice.reset": "Reset moves",
+  "voice.provider.speech": "Azure AI Speech",
+  "voice.provider.whisper": "Azure Whisper",
+  "voice.provider.browser": "Web Speech",
 
   // Auto-Coach
   "coach.radius": "radius ≤ 6.0 m",
@@ -125,6 +131,7 @@ const en = {
   "pitch.inertiaOk": "WITHIN RADIUS",
   "pitch.origin": "ORIGIN",
   "pitch.target": "TARGET",
+  "pitch.dangerZone": "THREAT ZONE",
   "pitch.bestOption": "BEST OPTION",
   "pitch.newPass": "NEW PASS",
   "pitch.hint": "Drag any player to simulate the scenario.",
@@ -409,6 +416,9 @@ const es: Record<MessageKey, string> = {
   "nav.guideAria": "Cómo funciona",
   "nav.export": "Exportar",
   "nav.exportTitle": "Exportar el informe táctico en PNG",
+  "nav.mode.live": "En directo",
+  "nav.mode.practice": "Jugadas clave y Voz",
+  "nav.modeAria": "Modo de juego",
 
   "profile.language": "Idioma",
   "profile.audience": "Público",
@@ -445,6 +455,9 @@ const es: Record<MessageKey, string> = {
   "voice.example2": "«Que el central adelante la línea y el mediocentro presione»",
   "voice.lastHeard": "Orden: «{query}»",
   "voice.reset": "Restablecer movimientos",
+  "voice.provider.speech": "Azure AI Speech",
+  "voice.provider.whisper": "Azure Whisper",
+  "voice.provider.browser": "Web Speech",
 
   "coach.radius": "radio ≤ 6.0 m",
   "coach.desc": "Recoloca a los dos defensores más cercanos para minimizar el xT rival.",
@@ -499,6 +512,7 @@ const es: Record<MessageKey, string> = {
   "pitch.inertiaOk": "DENTRO DEL RADIO",
   "pitch.origin": "ORIGEN",
   "pitch.target": "DESTINO",
+  "pitch.dangerZone": "AMENAZA RIVAL",
   "pitch.bestOption": "OPCIÓN ÓPTIMA",
   "pitch.newPass": "PASE NUEVO",
   "pitch.hint": "Arrastra a cualquier jugador para simular el escenario.",
