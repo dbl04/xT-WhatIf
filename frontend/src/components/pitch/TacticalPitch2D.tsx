@@ -11,8 +11,8 @@ import React, {
 } from "react";
 import { PlayerNode, TacticalMetrics } from "@/types/match";
 import {
-  STATSBOMB_PITCH_LENGTH,
-  STATSBOMB_PITCH_WIDTH,
+  PITCH_LENGTH,
+  PITCH_WIDTH,
   calculateDistanceMeters,
   getTacticalZoneName,
   TacticalZone,
@@ -27,8 +27,8 @@ import { XT_GRID_COLS, XT_GRID_ROWS, xtCell } from "@/lib/xt";
 // ======================================================================
 // ARCHITECTURE CONSTANTS
 // ======================================================================
-const CELL_W = STATSBOMB_PITCH_LENGTH / XT_GRID_COLS; // 7.5m
-const CELL_H = STATSBOMB_PITCH_WIDTH / XT_GRID_ROWS; // 6.6667m
+const CELL_W = PITCH_LENGTH / XT_GRID_COLS; // 7.5m
+const CELL_H = PITCH_WIDTH / XT_GRID_ROWS; // 6.6667m
 
 /** Physical inertia radius (kept in sync with the backend tactical_math.py) */
 const INERTIA_RADIUS = 6.0;
@@ -128,7 +128,7 @@ interface ViewBox {
   h: number;
 }
 
-const FULL_VIEW: ViewBox = { x: 0, y: 0, w: STATSBOMB_PITCH_LENGTH, h: STATSBOMB_PITCH_WIDTH };
+const FULL_VIEW: ViewBox = { x: 0, y: 0, w: PITCH_LENGTH, h: PITCH_WIDTH };
 
 export interface TacticalPitch2DHandle {
   getSvgElement: () => SVGSVGElement | null;
@@ -167,14 +167,14 @@ function computeFocusBox(
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-  const ratio = STATSBOMB_PITCH_LENGTH / STATSBOMB_PITCH_WIDTH;
+  const ratio = PITCH_LENGTH / PITCH_WIDTH;
   let w = maxX - minX + FOCUS_PADDING_M * 2;
   const h0 = maxY - minY + FOCUS_PADDING_M * 2;
   if (w / h0 < ratio) w = h0 * ratio;
-  w = Math.min(STATSBOMB_PITCH_LENGTH, Math.max(FOCUS_MIN_WIDTH, w));
+  w = Math.min(PITCH_LENGTH, Math.max(FOCUS_MIN_WIDTH, w));
   const h = w / ratio;
-  const x = Math.max(0, Math.min(STATSBOMB_PITCH_LENGTH - w, (minX + maxX) / 2 - w / 2));
-  const y = Math.max(0, Math.min(STATSBOMB_PITCH_WIDTH - h, (minY + maxY) / 2 - h / 2));
+  const x = Math.max(0, Math.min(PITCH_LENGTH - w, (minX + maxX) / 2 - w / 2));
+  const y = Math.max(0, Math.min(PITCH_WIDTH - h, (minY + maxY) / 2 - h / 2));
   return {
     x: Number(x.toFixed(2)),
     y: Number(y.toFixed(2)),
@@ -447,8 +447,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       const pt = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
       const margin = 0.5;
       return {
-        x: Number(Math.max(margin, Math.min(STATSBOMB_PITCH_LENGTH - margin, pt.x)).toFixed(1)),
-        y: Number(Math.max(margin, Math.min(STATSBOMB_PITCH_WIDTH - margin, pt.y)).toFixed(1)),
+        x: Number(Math.max(margin, Math.min(PITCH_LENGTH - margin, pt.x)).toFixed(1)),
+        y: Number(Math.max(margin, Math.min(PITCH_WIDTH - margin, pt.y)).toFixed(1)),
       };
     };
 
@@ -563,7 +563,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // Voronoi tessellation and territorial dispute frontier (Dr. Voronoi)
     const voronoiData = useMemo(() => {
       if (!showVoronoi) return { cells: [], frontiers: [] };
-      return computeVoronoiCells(renderPlayers, STATSBOMB_PITCH_LENGTH, STATSBOMB_PITCH_WIDTH);
+      return computeVoronoiCells(renderPlayers, PITCH_LENGTH, PITCH_WIDTH);
     }, [showVoronoi, renderPlayers]);
 
     const layerState: Record<(typeof LAYER_TOGGLES)[number]["key"], [boolean, (v: boolean) => void]> = {
@@ -587,7 +587,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       ]
     );
     const viewBox = useAnimatedViewBox(isZoomed ? focusBox : FULL_VIEW);
-    const isFramed = viewBox.w < STATSBOMB_PITCH_LENGTH - 0.01;
+    const isFramed = viewBox.w < PITCH_LENGTH - 0.01;
 
     const violationRects = useMemo<Rect[]>(() => [], []);
 
@@ -823,7 +823,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   x1={challenge.offsideLineX}
                   y1={0}
                   x2={challenge.offsideLineX}
-                  y2={STATSBOMB_PITCH_WIDTH}
+                  y2={PITCH_WIDTH}
                   stroke={C.white}
                   strokeDasharray="2.5 1.5"
                   opacity={0.8}

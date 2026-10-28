@@ -1,4 +1,4 @@
-import { STATSBOMB_PITCH_LENGTH, STATSBOMB_PITCH_WIDTH } from "@/lib/coordinates";
+import { PITCH_LENGTH, PITCH_WIDTH } from "@/lib/coordinates";
 
 /**
  * Client copy of the backend's 16x12 Expected Threat grid
@@ -18,7 +18,7 @@ export function xtCell(col: number, row: number): number {
 
 /** xT of the cell holding a pitch point (no interpolation). */
 export function xtAt(x: number, y: number): number {
-  const col = Math.min(XT_GRID_COLS - 1, Math.max(0, Math.floor(x / (STATSBOMB_PITCH_LENGTH / XT_GRID_COLS))));
-  const row = Math.min(XT_GRID_ROWS - 1, Math.max(0, Math.floor(y / (STATSBOMB_PITCH_WIDTH / XT_GRID_ROWS))));
+  const col = Math.min(XT_GRID_COLS - 1, Math.max(0, Math.floor(x / (PITCH_LENGTH / XT_GRID_COLS))));
+  const row = Math.min(XT_GRID_ROWS - 1, Math.max(0, Math.floor(y / (PITCH_WIDTH / XT_GRID_ROWS))));
   return xtCell(col, row);
 }

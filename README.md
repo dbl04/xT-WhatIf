@@ -1,9 +1,12 @@
 # ⚽ xT-WhatIf: Real-Time Counterfactual Football Intelligence
 
-> **Interactive 360° Tactical Simulation & Dialectical Multi-Agent AI Swarm**  
-> *Powered by a seeded synthetic 360-style match generator, Azure Container Apps (ACA), and Azure Kubernetes Service (AKS)*  
+> **A second screen for match day: at every key moment of a live synthetic match, move the players and see how the threat changes**  
+> *Powered by a spatial xT engine, a seeded synthetic match generator and Azure Container Apps (KEDA autoscaling, one shared live-match replica over WebSockets)*  
 > Built for the **"Inside the Game" Hackathon** (Microsoft × Premier League). All match data is synthetic: fictional clubs, players and moments.
 
+**▶ Demo video (under 2 minutes): https://www.youtube.com/watch?v=ykWZ24gaOyg**
+
+[![Demo video](https://img.shields.io/badge/Demo_video-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=ykWZ24gaOyg)
 [![Live demo](https://img.shields.io/badge/Live_demo-xt--whatif--frontend-brightgreen?logo=microsoftazure&logoColor=white)](https://xt-whatif-frontend.graydesert-cc4befb9.francecentral.azurecontainerapps.io)
 [![API docs](https://img.shields.io/badge/API_docs-%2Fdocs-brightgreen?logo=fastapi&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/docs)
 [![MCP Server](https://img.shields.io/badge/MCP_Tools-%2Fapi%2Fv1%2Fmcp%2Ftools-0078D4?logo=microsoftazure&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/api/v1/mcp/tools)
@@ -17,7 +20,6 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-2.0.0-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js&logoColor=white)](https://nextjs.org)
 [![Azure Container Apps](https://img.shields.io/badge/Azure-Container%20Apps-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/products/container-apps)
-[![Azure Kubernetes Service](https://img.shields.io/badge/Azure-Kubernetes%20Service-326CE5?logo=kubernetes&logoColor=white)](https://azure.microsoft.com/products/kubernetes-service)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -31,7 +33,7 @@
 - **Dialectical Pundit Debate**: Two contrasting pundit personas analyze the repositioned scenario with numbers taken only from the engine (`xt_at`, `simulate_counterfactual`, `optimizer/solve`). In the public demo their text comes from the deterministic, engine-verified templates; the Azure OpenAI tool-calling path is implemented but not enabled on our Azure for Students subscription (see the note under the architecture):
   - 🤖 **Dr. Voronoi (`AI-QUANT`)**: Mathematical purist evaluating spatial EV, angular apertures, and threat deltas.
   - 📋 **Coach Bianchi (`PRO-COACH`)**: Seasoned tactician focusing on marking profiles, rest defense, and interior channel coverages.
-- **Personalised storytelling & neural audio**: the whole interface and both pundits speak **English or Spanish** (`en-GB` / `es-ES` neural TTS + STT), and the commentary is rewritten for four audiences (`casual`, `analyst`, `coach`, `audio_description`). See *Personalisation: Language & Audience* below.
+- **Personalised storytelling & audio**: the whole interface and both pundits speak **English or Spanish** (`en-GB` / `es-ES` voices: Azure AI Speech neural TTS when configured, the browser voice in the public demo), and the commentary is rewritten for four audiences (`casual`, `analyst`, `coach`, `audio_description`). See *Personalisation: Language & Audience* below.
 
 ---
 
@@ -42,10 +44,10 @@ Judges can switch between all modes directly from the **Top Broadcast Bar** with
 ### 1. Four Interactive Functional Modes
 | Mode | How to access | What it does |
 |:-----|:--------------|:-------------|
-| **1. Live Match Room** (`En directo` / `Live match`) | Default mode · Top-bar **Live match** pill | Shared real-time synthetic match (`90'` in `300s`, with 200 simulated bot fans) over WebSocket (`/ws/live`) and REST (`/api/v1/live/state`). Outside key moments the board stays locked with a live status banner; when a candidate event passes the Detector + Validator (`MOMENT_OPEN`), all connected fans have 30 seconds to move up to 2 players within a 6.0 m radius (with live trend feedback via `POST /api/v1/game/preview`), get scored (0–1000 pts) against the machine's two-player optimum, hear pre-synthesised neural TTS pundit reveals (`GET /api/v1/live/moments/{id}/voice`), compete on the live leaderboard, and download a **1600×1200 Full-Time Tactical Report PNG** with badges at the final whistle (`MATCH_END`). |
-| **2. Key Moments Challenge** (`Play this moment`) | Switch to **Key moments & Voice** → click **Play this moment** | On-demand 30-second tactical challenge on any of the 7 key moments (`POST /api/v1/game/evaluate`). Scores your move against the engine's two-player optimum, reveals the optimal pass and movement vectors on the pitch, and triggers the AI-verified, audience-personalised pundit reveal. |
+| **1. Live Match Room** (`En directo` / `Live match`) | Default mode · Top-bar **Live match** pill | Shared real-time synthetic match (`90'` in `300s`, with 200 simulated bot fans) over WebSocket (`/ws/live`) and REST (`/api/v1/live/state`). Outside key moments the board stays locked with a live status banner; when a candidate event passes the Detector + Validator (`MOMENT_OPEN`), all connected fans have 30 seconds to move up to 2 players within a 6.0 m radius (with live trend feedback via `POST /api/v1/game/preview`), get scored (0–1000 pts) against the machine's two-player optimum, hear the pundit reveal read aloud (pre-synthesised Azure AI Speech voices via `GET /api/v1/live/moments/{id}/voice` when `AZURE_SPEECH_KEY` is set, the browser voice otherwise), compete on the live leaderboard, and download a **1600×1200 Full-Time Tactical Report PNG** with badges at the final whistle (`MATCH_END`). |
+| **2. Key Moments Challenge** (`Play this moment`) | Switch to **Key moments & Voice** → click **Play this moment** | On-demand 30-second tactical challenge on any of the 7 key moments (`POST /api/v1/game/evaluate`). Scores your move against the engine's two-player optimum, reveals the optimal pass and movement vectors on the pitch, and triggers the engine-verified, audience-personalised pundit reveal. |
 | **3. Voice What-If & Tactical Sandbox** (`Key moments & Voice`) | Switch to **Key moments & Voice** in the top bar | Speak natural-language tactical instructions in English or Spanish via microphone (`POST /api/v1/speech/transcribe` → `POST /api/v1/agents/what-if`, e.g., *"Que el lateral cierre por dentro y el central salga a presionar"* / *"Tuck the full-back inside and press with #5"*), or drag up to 2 players (`MAX_VOICE_MOVES = 2`) on the 120×80 m board. Spoken commands smoothly animate 1 or 2 players across the pitch (`650 ms` cubic ease-out) and automatically trigger spoken pundit commentary. Also includes the **Auto-Coach** inverse defensive optimiser (`POST /api/v1/optimizer/solve`), side-by-side **Scenario Comparator**, and **1600×1200 PNG Export**. |
-| **4. Cloud Telemetry & Chaos Engineering** (`Infrastructure`) | Click **Infrastructure** in the top bar | Inspect live Azure Container Apps KEDA replicas, AKS worker pool status, and AI Foundry latency; trigger a **25-simulation parallel KDTree stress burst** (`POST /api/v1/cloud/stress-burst`); or inject an **AKS Chaos Outage** (`POST /api/v1/cloud/chaos-toggle`) to test zero-downtime Circuit Breaker fallback. |
+| **4. Cloud Telemetry & Chaos Engineering** (`Infrastructure`) | Click **Infrastructure** in the top bar | Inspect the gateway's KEDA replica count (read from Azure Monitor) and the circuit breaker (the AKS pod and model-latency figures are estimates while those services are off); trigger a **25-simulation parallel KDTree stress burst** (`POST /api/v1/cloud/stress-burst`); or inject an **AKS Chaos Outage** (`POST /api/v1/cloud/chaos-toggle`) to test zero-downtime Circuit Breaker fallback. |
 
 ### 2. Four Audience Personalisation Modes (`casual`, `analyst`, `coach`, `audio_description`)
 Chosen during **Onboarding** and selectable at any time in the top-right **Profile Switcher** in **Key Moments & Voice** mode (during **Live Match**, the top bar keeps the view focused by showing only the **Language (`EN`/`ES`)** and **Audio Mute/Unmute** controls with instant speech pause/resume):
@@ -56,7 +58,7 @@ Chosen during **Onboarding** and selectable at any time in the top-right **Profi
 
 ---
 
-## 🏛️ System Architecture: Dual-Role Hybrid Cloud (ACA + AKS)
+## 🏛️ System Architecture: Azure Container Apps (AKS workers optional)
 
 One backend image runs in several roles, selected by the `SERVICE_ROLE` environment variable. The same code runs as a single process locally and as separate services on Azure:
 
@@ -84,7 +86,7 @@ flowchart TD
         MI["User-assigned managed identity<br/>AcrPull + Monitoring Reader"]
         LOGS["Log Analytics workspace"]
         AOAI["Azure OpenAI (optional, off in the demo)<br/>GPT-4o · GPT-4o-mini · gpt-4o-mini-tts · whisper-1"]
-        SPEECH["Azure AI Speech<br/>neural TTS voices + Fast Transcription STT"]
+        SPEECH["Azure AI Speech (optional, key not set in the demo)<br/>neural TTS voices + Fast Transcription STT"]
     end
 
     BROWSER -->|"HTTPS"| FRONT
@@ -108,9 +110,10 @@ flowchart TD
 2. **Event-by-event delegation with in-process fallback.** As synthetic match events happen in the live match (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's two independent searches (`optimize(frame, "attack")` and `optimize(frame, "defend")`) in parallel to the AKS worker pool (`POST /api/v1/game/optimize`, guarded by `X-Worker-Token`, 1.5 s timeout), while `xt-whatif-aca-gateway` forwards counterfactual simulations (`POST /api/v1/simulate`, 3.5 s timeout). If any call times out, fails or returns a non-200 status (or when the chaos toggle is active), the caller runs the same engine in-process and records a circuit-breaker trip.
 3. **Scaling.** KEDA scales the gateway on concurrent HTTP requests and the HPA scales the AKS workers on CPU. The live match stays on one replica so every fan sees the same match state, while heavy Validator CPU searches scale across AKS pods.
 
-> **ℹ️ Note on AKS, Azure OpenAI & the Azure for Students subscription:** two parts of the architecture are **fully implemented and tested** in this repository but are **not enabled in the live demo**, because the **Azure for Students** subscription does not allow them (quota and policy restrictions):
+> **ℹ️ Note on AKS, Azure OpenAI, Azure AI Speech & the Azure for Students subscription:** three parts of the architecture are **fully implemented and tested** in this repository but are **not enabled in the live demo**, because the **Azure for Students** subscription does not allow them (quota and policy restrictions):
 > - **AKS workers.** The distributed **Azure Kubernetes Service (AKS)** worker architecture (`SERVICE_ROLE=aks-worker`), Kubernetes manifests ([`infra/k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml)), parallel HTTP offloading ([`aks_client.py`](backend/app/services/aks_client.py)) and the CI/CD step ([`deploy-azure.yml`](.github/workflows/deploy-azure.yml)) are ready, but the subscription cannot provision AKS node pools. The demo runs on **Azure Container Apps (ACA)** with the built-in **Circuit Breaker / in-process compute fallback** active seamlessly.
 > - **Azure OpenAI pundit debate.** The multi-agent debate (tool calling into the engine plus the deterministic numerical verifier, in practice mode and in the live reveal) is ready and tested with a mocked client, but the subscription does not give us a usable chat model deployment. Every debate and reveal in the demo is served by the engine-verified templates in [`narration.py`](backend/app/services/narration.py) (`explanation.generated_by` is `"template"` in the `MOMENT_REVEAL` message). With a subscription that allows it, deploy a chat model with tool calling under the names in [`main.bicep`](infra/main.bicep) (`gpt-4o`, `gpt-4o-mini`) and set the `AZURE_OPENAI_API_KEY` secret.
+> - **Azure AI Speech voices.** The neural pundit voices and Fast Transcription ([`tts_service.py`](backend/app/services/tts_service.py)) are ready, but `AZURE_SPEECH_KEY` is not set in the deployed containers, so `POST /api/v1/tts/synthesize` returns `browser-web-speech-fallback` and the browser's Web Speech API reads the pundits.
 
 ---
 
@@ -313,7 +316,7 @@ This is the project's entry for the **Best Azure Cloud Native Integration** cate
 | **Azure Container Apps** | Cloud Native category | Hosts the frontend, the API gateway (scaled by KEDA, 1–10 replicas) and the live match service (1 replica). | Deployed by the Bicep template |
 | **Azure Kubernetes Service (AKS)** | Cloud Native category | Runs geometry and optimiser workers (`SERVICE_ROLE=aks-worker`) behind a LoadBalancer service guarded by `X-Worker-Token`, scaled by an HPA from 3 to 12 pods. **As synthetic match events happen in real time** (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's `attack` and `defend` searches in parallel (`POST /api/v1/game/optimize`, 1.5 s timeout) to the AKS worker pool, and the gateway offloads counterfactual simulations (`POST /api/v1/simulate`). If AKS times out, fails or chaos mode is toggled on, both services fall back to in-process computation with identical results. | Optional: the manifest and the CI step are ready; they run when `AKS_ENABLED` is set and both backend apps receive `aksWorkerUrl` and `aksWorkerToken` |
 | **Azure AI Services: Azure OpenAI** | Judging criteria (*"Azure Apps and AI Services"*) | GPT-4o and GPT-4o-mini write the two pundits' debate and live/practice challenge reveals using function calling: the model calls the engine's tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`) and a deterministic verifier checks every figure in the text against the engine's output, correcting it or falling back to the template text if a number does not match. Also provides `whisper-1` for Speech-to-Text and `gpt-4o-mini-tts` for Text-to-Speech fallback. Without a key, deterministic templates are used instead. | Implemented and tested; **not enabled in the public demo** (Azure for Students subscription; templates answer) |
-| **Azure AI Services: Azure AI Speech** | Judging criteria (*"Azure Apps and AI Services"*) | **TTS & STT:** Neural voices read the pundits out loud (`POST /api/v1/tts/synthesize`): Dr. Voronoi is `en-GB-RyanNeural` / `es-ES-AlvaroNeural`, Coach Bianchi `en-GB-ThomasNeural` / `es-ES-DarioNeural`, with their own pace and pitch in SSML and a slower pace for the audio-description audience. In the live match the reveal is synthesised while the moment is still open and served only once it closes (`GET /api/v1/live/moments/{id}/voice`). For **Voice What-If** (`POST /api/v1/speech/transcribe`), Azure AI Speech Fast Transcription transcribes spoken commands using a custom football + active player-name **Phrase List** (falling back to Azure OpenAI Whisper `whisper-1` and browser Web Speech API). | Used when `AZURE_SPEECH_KEY` is configured |
+| **Azure AI Services: Azure AI Speech** | Judging criteria (*"Azure Apps and AI Services"*) | **TTS & STT:** Neural voices read the pundits out loud (`POST /api/v1/tts/synthesize`): Dr. Voronoi is `en-GB-RyanNeural` / `es-ES-AlvaroNeural`, Coach Bianchi `en-GB-ThomasNeural` / `es-ES-DarioNeural`, with their own pace and pitch in SSML and a slower pace for the audio-description audience. In the live match the reveal is synthesised while the moment is still open and served only once it closes (`GET /api/v1/live/moments/{id}/voice`). For **Voice What-If** (`POST /api/v1/speech/transcribe`), Azure AI Speech Fast Transcription transcribes spoken commands using a custom football + active player-name **Phrase List** (falling back to Azure OpenAI Whisper `whisper-1` and browser Web Speech API). | Implemented; used when `AZURE_SPEECH_KEY` is configured. **Not configured in the public demo**: the browser voice reads the pundits |
 | **MCP (Model Context Protocol)** | Judging criteria (*"Azure MCP"*) | The project ships its own MCP server, which exposes the engine's four tools (`simulate_counterfactual`, `optimizer/solve`, `xt_at`, `what_if_natural_language`) to any MCP client over stdio (`python -m app.mcp`) and over HTTP JSON-RPC 2.0 (`/api/v1/mcp`, `/api/v1/mcp/tools`, `/api/v1/mcp/call`). It is not the Azure MCP Server product. | In the repo; runs locally and on the gateway |
 
 ### Supporting Azure services
@@ -330,12 +333,12 @@ This is the project's entry for the **Best Azure Cloud Native Integration** cate
 
 The rules ask for *"effective integration of Azure services, event-driven architectures, automation, operational excellence, and AI capabilities"*:
 
-- **Scalable:** KEDA scales the gateway on concurrent HTTP requests; the HPA scales the AKS workers on CPU.
+- **Scalable:** KEDA scales the gateway on concurrent HTTP requests (1–10 replicas); with the optional AKS workers enabled, the HPA scales them on CPU.
 - **Resilient:** the gateway and live match service fall back to in-process computation when the AKS workers fail, and health probes restart or hold back unhealthy containers.
-- **Event-driven:** as each synthetic match event arrives in real time, the live runner triggers parallel `attack` + `defend` Validator searches on AKS and pushes match events, key moments and reveals to every fan over WebSockets.
+- **Event-driven:** as each synthetic match event arrives in real time, the live runner triggers parallel `attack` + `defend` Validator searches (on AKS when enabled, in-process otherwise) and pushes match events, key moments and reveals to every fan over WebSockets.
 - **Automation:** one Bicep template and one GitHub Actions workflow build, tag and deploy everything.
 - **Operational excellence:** a new Container Apps revision per commit SHA, health probes, central logs, per-client rate limits and hardened containers.
-- **AI capabilities:** Azure AI Speech neural TTS voices and Phrase-List-boosted Fast Transcription STT. Azure OpenAI with tool calling and number verification is implemented but not enabled in the public demo because of the Azure for Students subscription (templates answer instead).
+- **AI capabilities:** Azure AI Speech neural TTS voices and Phrase-List-boosted Fast Transcription STT (implemented; the key is not set in the public demo, so the browser voice is used). Azure OpenAI with tool calling and number verification is implemented but not enabled in the public demo because of the Azure for Students subscription (templates answer instead).
 
 ### Implementation details
 

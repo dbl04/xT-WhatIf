@@ -2,7 +2,7 @@ import type { MatchFramePayload, PlayerNode, TeamSide } from "@/types/match";
 import type { Audience, Language } from "@/lib/i18n";
 import type { MomentReveal } from "@/hooks/useLiveMatch";
 import { API_BASE_URL } from "@/lib/api";
-import { STATSBOMB_PITCH_LENGTH, STATSBOMB_PITCH_WIDTH } from "@/lib/coordinates";
+import { PITCH_LENGTH, PITCH_WIDTH } from "@/lib/coordinates";
 import { offlineCounterfactualDebate } from "@/lib/offlineNarration";
 import { xtAt } from "@/lib/xt";
 
@@ -100,8 +100,8 @@ export function offsideLine(frame: MatchFramePayload): number {
     .filter((p) => p.team !== frame.possession_team)
     .map((p) => origin(p).x)
     .sort((a, b) => b - a);
-  const secondLast = defendersX.length >= 2 ? defendersX[1] : STATSBOMB_PITCH_LENGTH;
-  return Math.max(secondLast, frame.ball_x, STATSBOMB_PITCH_LENGTH / 2);
+  const secondLast = defendersX.length >= 2 ? defendersX[1] : PITCH_LENGTH;
+  return Math.max(secondLast, frame.ball_x, PITCH_LENGTH / 2);
 }
 
 export function offlineRules(frame: MatchFramePayload, mode: ChallengeMode): ChallengeRules {
@@ -146,7 +146,7 @@ export function validateMovesOffline(
       violations.push({ player_id: pid, rule: "not_movable", detail: `this player cannot move in ${mode} mode` });
       return;
     }
-    if (x < 0 || x > STATSBOMB_PITCH_LENGTH || y < 0 || y > STATSBOMB_PITCH_WIDTH) {
+    if (x < 0 || x > PITCH_LENGTH || y < 0 || y > PITCH_WIDTH) {
       violations.push({ player_id: pid, rule: "off_pitch", detail: "position outside the pitch" });
     }
     const o = origin(p);
@@ -184,8 +184,8 @@ export function clampToRadius(
     cx = ox + ((x - ox) / d) * limit;
     cy = oy + ((y - oy) / d) * limit;
   }
-  cx = Math.max(0.5, Math.min(STATSBOMB_PITCH_LENGTH - 0.5, cx));
-  cy = Math.max(0.5, Math.min(STATSBOMB_PITCH_WIDTH - 0.5, cy));
+  cx = Math.max(0.5, Math.min(PITCH_LENGTH - 0.5, cx));
+  cy = Math.max(0.5, Math.min(PITCH_WIDTH - 0.5, cy));
   return { x: Number(cx.toFixed(1)), y: Number(cy.toFixed(1)) };
 }
 
