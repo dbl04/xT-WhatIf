@@ -71,6 +71,8 @@ export interface OpenChallengeInput {
   deadline?: number;
   /** Backend for the preview calls; defaults to the gateway (API_BASE_URL). */
   previewBaseUrl?: string;
+  /** Initial player moves to apply as soon as the challenge opens (e.g. from voice). */
+  initialMoves?: Array<{ playerId: number; x: number; y: number }>;
 }
 
 export interface UseChallengeOptions {
@@ -179,17 +181,12 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
 
   /** Throttled preview for live feedback while dragging (trailing call guaranteed). */
   const schedulePreview = useCallback(() => {
-    const wait = DRAG_PREVIEW_INTERVAL_MS - (Date.now() - lastPreviewAt.current);
-    if (wait <= 0) {
-      if (trailingTimer.current) clearTimeout(trailingTimer.current);
+    const wait = Math.max(16, DRAG_PREVIEW_INTERVAL_MS - (Date.now() - lastPreviewAt.current));
+    if (trailingTimer.current) clearTimeout(trailingTimer.current);
+    trailingTimer.current = setTimeout(() => {
       trailingTimer.current = null;
       runPreview();
-    } else if (!trailingTimer.current) {
-      trailingTimer.current = setTimeout(() => {
-        trailingTimer.current = null;
-        runPreview();
-      }, wait);
-    }
+    }, wait);
   }, [runPreview]);
 
   const flashNotice = useCallback((kind: "limit" | "locked") => {
@@ -200,11 +197,28 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
 
   /** Opens the challenge on a moment. Entry point for a future `MOMENT_OPEN` message. */
   const open = useCallback(
-    ({ frame, team, durationS = CHALLENGE_DURATION_S, deadline, previewBaseUrl }: OpenChallengeInput) => {
+    ({ frame, team, durationS = CHALLENGE_DURATION_S, deadline, previewBaseUrl, initialMoves }: OpenChallengeInput) => {
       cancelPreview();
       const mode = modeFor(team, frame);
-      const players = basePlayers(frame);
-      const baseFrame: MatchFramePayload = { ...frame, players, is_counterfactual_mode: false };
+      let players = basePlayers(frame);
+      if (initialMoves && initialMoves.length > 0) {
+        const movesMap = new Map(initialMoves.map((m) => [m.playerId, m]));
+        players = players.map((p) => {
+          const m = movesMap.get(p.player_id);
+          if (!m) return p;
+          const ox = p.original_x ?? p.x;
+          const oy = p.original_y ?? p.y;
+          return {
+            ...p,
+            x: m.x,
+            y: m.y,
+            original_x: ox,
+            original_y: oy,
+            is_modified: true,
+          };
+        });
+      }
+      const baseFrame: MatchFramePayload = { ...frame, players: basePlayers(frame), is_counterfactual_mode: false };
       const next: ChallengeState = {
         status: "open",
         matchId: frame.match_id,
@@ -234,6 +248,41 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
     [cancelPreview, runPreview]
   );
 
+  /** Whether the challenge is currently open and interactive. */
+  const isChallengeOpen = useCallback(() => stateRef.current?.status === "open", []);
+
+  /** Applies multiple player moves directly into the open challenge state. */
+  const applyMoves = useCallback(
+    (moves: Array<{ playerId: number; x: number; y: number }>) => {
+      const s = stateRef.current;
+      if (!s || s.status !== "open") return;
+      const movesMap = new Map(moves.map((m) => [m.playerId, m]));
+      let hasChanges = false;
+      const players = s.players.map((p) => {
+        const m = movesMap.get(p.player_id);
+        if (!m) return p;
+        const ox = p.original_x ?? p.x;
+        const oy = p.original_y ?? p.y;
+        const pos = clampToRadius(ox, oy, m.x, m.y, s.rules.max_radius_m);
+        if (pos.x !== p.x || pos.y !== p.y) hasChanges = true;
+        return {
+          ...p,
+          x: pos.x,
+          y: pos.y,
+          original_x: ox,
+          original_y: oy,
+          is_modified: pos.x !== ox || pos.y !== oy,
+        };
+      });
+      if (!hasChanges) return;
+      const next = { ...s, players };
+      stateRef.current = next;
+      setState(next);
+      schedulePreview();
+    },
+    [schedulePreview]
+  );
+
   /** Whether a player may be dragged right now. */
   const canMove = useCallback((playerId: number): "ok" | "locked" | "limit" => {
     const s = stateRef.current;
@@ -252,6 +301,7 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
       const ox = player.original_x ?? player.x;
       const oy = player.original_y ?? player.y;
       const pos = clampToRadius(ox, oy, x, y, s.rules.max_radius_m);
+      if (player.x === pos.x && player.y === pos.y) return;
       const players = s.players.map((p) =>
         p.player_id === playerId
           ? { ...p, x: pos.x, y: pos.y, original_x: ox, original_y: oy, is_modified: pos.x !== ox || pos.y !== oy }
@@ -354,6 +404,8 @@ export function useChallenge({ onSubmit }: UseChallengeOptions = {}) {
     notice,
     flashNotice,
     open,
+    isChallengeOpen,
+    applyMoves,
     canMove,
     move,
     drop,

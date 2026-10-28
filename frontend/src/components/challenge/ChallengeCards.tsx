@@ -197,6 +197,7 @@ const TimerTile: React.FC<{ secondsLeft: number; durationS: number; stopped: boo
     <Tile label={t("challenge.time")}>
       <span
         role="timer"
+        suppressHydrationWarning
         aria-label={t("challenge.timeAria", { s: secondsLeft })}
         className={cn(
           "mt-1 font-display text-[28px] font-bold leading-none tabular-nums",

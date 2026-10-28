@@ -15,20 +15,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const fontClasses = ["dark", displayFont.variable, sansFont.variable, monoFont.variable]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <html
       lang="en"
-      className={`dark ${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
+      suppressHydrationWarning
+      className={fontClasses}
     >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
         />
       </head>
-      <body className="bg-ink text-fg min-h-screen antialiased">
+      <body className="bg-ink text-fg min-h-screen antialiased" suppressHydrationWarning>
         {/* Backend URLs from the container's runtime environment (app/runtime-config.js).
             beforeInteractive runs it before any app code, so lib/api.ts always sees it. */}
         <Script src="/runtime-config.js" strategy="beforeInteractive" />

@@ -622,18 +622,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
     return (
       <div className="relative flex w-full select-none flex-col overflow-hidden rounded-lg border border-line-strong bg-ink-900">
-        {/* Waiting for key moment banner above the pitch in Live Match */}
-        {readOnly && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="flex min-h-8 items-center justify-center gap-2 border-b border-line bg-amber-400/10 px-4 py-1.5 text-center text-xs font-medium text-amber-200"
-          >
-            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400" aria-hidden />
-            <span>{t("live.waitingPitchBanner")}</span>
-          </div>
-        )}
-
         {/* Top Bar - Title + Layer toggles */}
         <div className="flex h-11 flex-nowrap items-center justify-between gap-3 border-b border-line px-4">
           <div className="hidden shrink-0 items-baseline gap-3 lg:flex">
