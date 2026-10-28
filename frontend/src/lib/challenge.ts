@@ -316,6 +316,7 @@ export async function evaluateChallenge(
       yours: yoursPct,
     },
     explanation: {
+      generated_by: "template",
       headline: voronoiMsg?.headline ?? (isEs ? "Resultado de la jugada" : "Play result"),
       body: bianchiMsg?.analysis_body ?? "",
       voronoi_comparison: voronoiMsg?.analysis_body ?? "",

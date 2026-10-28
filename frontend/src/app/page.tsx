@@ -498,38 +498,25 @@ function DashboardPage() {
       : null
     : practiceReveal;
 
-  // Only the single pundit matching the selected audience mode speaks at the end of a play.
+  // Single reveal speaker (Coach Bianchi) speaks at the end of a live challenge moment.
   const playRevealVoice = useCallback(
-    (rev: MomentReveal, roleOverride?: AgentMessage["agent_role"]) => {
-      const { headline, body, personal, voronoi_comparison, bianchi_headline, voronoi_voice, bianchi_voice } =
-        rev.explanation;
+    (rev: MomentReveal) => {
+      const { headline, body, personal, bianchi_headline, bianchi_voice } = rev.explanation;
       const optIds = rev.optimum_moves.map((m) => m.player_id);
       const userIds = rev.your_moves.map((m) => m.player_id);
-      const voronoiSpoken = (voronoi_voice || voronoi_comparison || body).trim();
-      const bianchiSpoken = (bianchi_voice || personal).trim();
-      const spoken = (
-        role: AgentMessage["agent_role"],
-        title: string,
-        text: string,
-        ids: number[]
-      ): AgentMessage => ({
-        message_id: `${rev.moment_id}-${role}`,
-        agent_role: role,
-        agent_name: role === "data_scientist" ? "Dr. Voronoi" : "Coach Bianchi",
-        avatar_badge: role === "data_scientist" ? "AI-QUANT" : "PRO-COACH",
+      const bianchiSpoken = (bianchi_voice || `${body} ${personal}`).trim();
+      const speakerLine: AgentMessage = {
+        message_id: `${rev.moment_id}-classic_coach`,
+        agent_role: "classic_coach",
+        agent_name: "Coach Bianchi",
+        avatar_badge: "PRO-COACH",
         timestamp_label: "",
-        headline: title,
-        analysis_body: text,
+        headline: bianchi_headline || headline,
+        analysis_body: bianchiSpoken,
         referenced_metric: "",
-        highlighted_player_ids: ids,
-      });
-      const allLines = [
-        spoken("data_scientist", headline, voronoiSpoken, optIds),
-        spoken("classic_coach", bianchi_headline || headline, bianchiSpoken, userIds.length > 0 ? userIds : optIds),
-      ].filter((m) => m.analysis_body.trim());
-      const targetRole = roleOverride ?? preferredVoiceRole;
-      const selectedLine = allLines.find((m) => m.agent_role === targetRole) ?? allLines[0];
-      const lines = selectedLine ? [selectedLine] : [];
+        highlighted_player_ids: userIds.length > 0 ? userIds : optIds,
+      };
+      const lines = bianchiSpoken ? [speakerLine] : [];
       // Audio the live service synthesised while the moment was open: ready as the reveal lands.
       const voice = fetchRevealVoice(rev.moment_id, fanSession?.identity.userId ?? "");
       tts.playMessages(
@@ -537,7 +524,7 @@ function DashboardPage() {
         lines.map((m) => voice.then((v) => v?.find((l) => l.agent_role === m.agent_role)?.audio_base64 ?? null))
       );
     },
-    [fanSession?.identity.userId, preferredVoiceRole, tts]
+    [fanSession?.identity.userId, tts]
   );
 
   // One sound per reveal: rising when the fan found (nearly) the best move.

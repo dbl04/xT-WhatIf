@@ -201,6 +201,7 @@ async def evaluate_practice_challenge(request: EvaluateRequest) -> Dict[str, Any
         user_score=score,
         beat_machine=beat_machine,
         lang=lang,
+        audience=aud,
     )
     share = 38 if score >= 900 else 24
     text = REVEAL_TEXT[lang]
@@ -219,6 +220,7 @@ async def evaluate_practice_challenge(request: EvaluateRequest) -> Dict[str, Any
             "yours": round(user_val * 100),
         },
         "explanation": {
+            "generated_by": pack["generated_by"],
             "headline": pack["headline"],
             "body": pack["body"],
             "voronoi_comparison": pack["voronoi_comparison"],

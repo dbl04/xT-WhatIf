@@ -271,9 +271,9 @@ class RevealVoiceTest(unittest.TestCase):
                 unittest.mock.patch.object(live_match, "synthesize_speech", fake_synthesize):
             m, lines = asyncio.run(scenario())
 
-        self.assertEqual([l["agent_role"] for l in lines], ["data_scientist", "classic_coach"])
+        self.assertEqual([l["agent_role"] for l in lines], [live_match.REVEAL_SPEAKER.value])
         self.assertTrue(all(l["audio_base64"] == f"audio:{l['text']}" for l in lines))
-        self.assertIn("Esta vez no enviaste", lines[1]["text"])
+        self.assertIn("Esta vez no enviaste", lines[0]["text"])
         self.assertEqual(len(calls), len(set(calls)))  # one synthesis per text
         self.assertIn(lines[0]["text"], calls[:1])  # the optimum started on open
 
@@ -434,6 +434,283 @@ class AksValidatorTest(unittest.TestCase):
         self.assertEqual(self.metrics["circuit_breaker_trips"], trips_0 + 3)
         self.assertEqual(r_chaos.attack.moves, local_report.attack.moves)
         self.assertEqual(r_chaos.defend.moves, local_report.defend.moves)
+
+
+class LiveRevealAiDebateTest(unittest.TestCase):
+    def setUp(self):
+        from app.core.config import settings
+        from app.services.agent_swarm import swarm
+
+        self.settings = settings
+        self.swarm = swarm
+        self._orig_key = settings.AZURE_OPENAI_API_KEY
+        self._orig_timeout = settings.LIVE_REVEAL_AI_TIMEOUT_S
+        self._orig_client = swarm.client
+
+    def tearDown(self):
+        self.settings.AZURE_OPENAI_API_KEY = self._orig_key
+        self.settings.LIVE_REVEAL_AI_TIMEOUT_S = self._orig_timeout
+        self.swarm.client = self._orig_client
+
+    def _make_runner_and_moment(self):
+        runner = live_match.LiveMatchRunner()
+        runner.room = MatchRoom(EVENTS, duration_s=300, window_s=30, cooldown_s=15)
+        runner.room.kickoff(T0)
+        event, report = _first_open(EVENTS)
+        at = runner.room.real_time_of(event)
+        runner.room.due_events(at)
+        return runner, event, report, at
+
+    def test_llm_path_verdict_one_voice_line_and_verified_numbers(self):
+        """LLM path: generated_by == 'azure-openai', one voice line, verdict numbers match tool trace, bounded calls."""
+        import json as _json
+        from unittest.mock import AsyncMock, MagicMock
+        from app.agents.verifier import collect_ground_truth_numbers, extract_unverified_numbers
+
+        runner, event, report, at = self._make_runner_and_moment()
+        # Connect 3 real fans sharing the same (side, language, audience) to verify bounded calls (1 debate, not 3)
+        fans = [_fan(f"fan-{i}", TeamSide.AWAY, "es") for i in range(3)]
+        for f in fans:
+            runner.clients[object()] = f
+            runner.room.join(f)
+
+        m_preview = runner.room.open_moment(event, report, at)
+        opt_frame = live_match._optimum_frame(m_preview, TeamSide.AWAY)
+        metrics = opt_frame.metrics
+        orig_pct = int(round(metrics.original_xt * 100))
+        sim_pct = int(round(metrics.simulated_xt * 100))
+
+        llm_payload = {
+            "debate": [
+                {
+                    "message_id": "msg-vor-live",
+                    "agent_role": "data_scientist",
+                    "agent_name": "Dr. Voronoi (Científico de datos)",
+                    "avatar_badge": "AI-QUANT",
+                    "timestamp_label": f"{opt_frame.minute}:{opt_frame.second:02d} [SIMULACIÓN]",
+                    "headline": f"Peligro ajustado del {orig_pct}% al {sim_pct}%",
+                    "analysis_body": (
+                        f"El xT pasa de {metrics.original_xt:.2f} a {metrics.simulated_xt:.2f} "
+                        f"con un {metrics.pass_completion_prob:.1f}% de probabilidad de pase."
+                    ),
+                    "referenced_metric": f"Óptimo: {orig_pct}% → {sim_pct}%",
+                    "highlighted_player_ids": [opt_frame.players[0].player_id],
+                },
+                {
+                    "message_id": "msg-bia-live",
+                    "agent_role": "classic_coach",
+                    "agent_name": "Míster Bianchi (Entrenador clásico)",
+                    "avatar_badge": "PRO-COACH",
+                    "timestamp_label": f"{opt_frame.minute}:{opt_frame.second:02d} [SIMULACIÓN]",
+                    "headline": f"Basculación clave para dejar el peligro en {sim_pct}%",
+                    "analysis_body": (
+                        f"Cerrando esa línea dejamos la ocasión en el {sim_pct}% frente al {orig_pct}% inicial "
+                        f"con un {metrics.pass_completion_prob:.1f}% de pase."
+                    ),
+                    "referenced_metric": f"Peligro: {orig_pct}% → {sim_pct}%",
+                    "highlighted_player_ids": [opt_frame.players[1].player_id],
+                },
+            ]
+        }
+        choice_msg = MagicMock()
+        choice_msg.content = _json.dumps(llm_payload)
+        choice_msg.tool_calls = None
+        resp = MagicMock()
+        resp.choices = [MagicMock(message=choice_msg)]
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=resp)
+        self.settings.AZURE_OPENAI_API_KEY = "test-live-key"
+        self.swarm.client = mock_client
+
+        async def scenario():
+            runner._start_debates(m_preview)
+            runner.room.close_moment(m_preview.closes_at)
+            await runner._finish_debates(m_preview)
+            ai_debate = runner._debate_for(m_preview.id, fans[0])
+            rev = runner.room.reveal_for(m_preview, fans[0], ai_debate=ai_debate)
+            v_lines = MatchRoom.voice_lines(m_preview, fans[0], ai_debate=ai_debate)
+            return rev, v_lines
+
+        rev, v_lines = asyncio.run(scenario())
+
+        self.assertEqual(rev["explanation"]["generated_by"], "azure-openai")
+        self.assertEqual(mock_client.chat.completions.create.call_count, 1)  # 1 call for 3 fans on same combo
+        self.assertEqual(len(v_lines), 1)
+        self.assertEqual(v_lines[0][0], live_match.REVEAL_SPEAKER.value)
+        self.assertIn(rev["explanation"]["body"], v_lines[0][1])
+
+        truth = collect_ground_truth_numbers(
+            opt_frame,
+            tool_trace=self.swarm.orchestrator.last_report.tool_calls,
+            coach_proposal=self.swarm.orchestrator.last_report.bianchi_proposal,
+        )
+        self.assertEqual(extract_unverified_numbers(rev["explanation"]["headline"], truth), [])
+        self.assertEqual(extract_unverified_numbers(rev["explanation"]["body"], truth), [])
+        self.assertEqual(extract_unverified_numbers(v_lines[0][1], truth), [])
+
+    def test_timeout_and_exception_fallback_to_template(self):
+        """Timeout path and exception path: template fallback, reveal on time."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        # 1. Timeout path
+        runner, event, report, at = self._make_runner_and_moment()
+        fan = _fan("ana", TeamSide.HOME, "en")
+        runner.clients[object()] = fan
+        runner.room.join(fan)
+        m1 = runner.room.open_moment(event, report, at)
+
+        async def slow_create(**_kwargs):
+            await asyncio.sleep(0.3)
+
+        mock_slow = MagicMock()
+        mock_slow.chat.completions.create = AsyncMock(side_effect=slow_create)
+        self.settings.AZURE_OPENAI_API_KEY = "test-live-key"
+        self.settings.LIVE_REVEAL_AI_TIMEOUT_S = 0.03
+        self.swarm.client = mock_slow
+
+        async def run_timeout():
+            runner._start_debates(m1)
+            runner.room.close_moment(m1.closes_at)
+            await runner._finish_debates(m1)
+            return runner.room.reveal_for(m1, fan, ai_debate=runner._debate_for(m1.id, fan))
+
+        rev_timeout = asyncio.run(run_timeout())
+        self.assertEqual(rev_timeout["explanation"]["generated_by"], "template")
+        self.assertIn("chance of a goal", rev_timeout["explanation"]["body"])
+
+        # 2. Exception path
+        runner2, event2, report2, at2 = self._make_runner_and_moment()
+        runner2.clients[object()] = fan
+        runner2.room.join(fan)
+        m2 = runner2.room.open_moment(event2, report2, at2)
+
+        mock_err = MagicMock()
+        mock_err.chat.completions.create = AsyncMock(side_effect=RuntimeError("Azure OpenAI 503"))
+        self.settings.LIVE_REVEAL_AI_TIMEOUT_S = 5.0
+        self.swarm.client = mock_err
+
+        async def run_error():
+            runner2._start_debates(m2)
+            runner2.room.close_moment(m2.closes_at)
+            await runner2._finish_debates(m2)
+            return runner2.room.reveal_for(m2, fan, ai_debate=runner2._debate_for(m2.id, fan))
+
+        rev_err = asyncio.run(run_error())
+        self.assertEqual(rev_err["explanation"]["generated_by"], "template")
+        self.assertIn("chance of a goal", rev_err["explanation"]["body"])
+
+    def test_verifier_rejection_falls_back_to_template(self):
+        """Verifier rejection (the mock invents a figure): fallback to template."""
+        import json as _json
+        from unittest.mock import AsyncMock, MagicMock
+
+        runner, event, report, at = self._make_runner_and_moment()
+        fan = _fan("ana", TeamSide.AWAY, "es")
+        runner.clients[object()] = fan
+        runner.room.join(fan)
+        m = runner.room.open_moment(event, report, at)
+
+        invented_payload = {
+            "debate": [
+                {
+                    "message_id": "msg-inv-1",
+                    "agent_role": "data_scientist",
+                    "agent_name": "Dr. Voronoi",
+                    "avatar_badge": "AI-QUANT",
+                    "timestamp_label": "10:00 [SIMULACIÓN]",
+                    "headline": "Dato inventado 742",
+                    "analysis_body": "En 83 partidos hubo un 99.4% de eficacia y 0.99 xT.",
+                    "referenced_metric": "99.4%",
+                    "highlighted_player_ids": [101],
+                },
+                {
+                    "message_id": "msg-inv-2",
+                    "agent_role": "classic_coach",
+                    "agent_name": "Míster Bianchi",
+                    "avatar_badge": "PRO-COACH",
+                    "timestamp_label": "10:00 [SIMULACIÓN]",
+                    "headline": "Ajuste con 99% de éxito en 419 jugadas",
+                    "analysis_body": "Subimos al 99% de gol tras recorrer 312 metros.",
+                    "referenced_metric": "99% gol",
+                    "highlighted_player_ids": [102],
+                },
+            ]
+        }
+        choice_msg = MagicMock()
+        choice_msg.content = _json.dumps(invented_payload)
+        choice_msg.tool_calls = None
+        resp = MagicMock()
+        resp.choices = [MagicMock(message=choice_msg)]
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=resp)
+        self.settings.AZURE_OPENAI_API_KEY = "test-live-key"
+        self.swarm.client = mock_client
+
+        async def scenario():
+            runner._start_debates(m)
+            runner.room.close_moment(m.closes_at)
+            await runner._finish_debates(m)
+            return runner.room.reveal_for(m, fan, ai_debate=runner._debate_for(m.id, fan))
+
+        rev = asyncio.run(scenario())
+        self.assertEqual(rev["explanation"]["generated_by"], "template")
+        self.assertNotIn("312", rev["explanation"]["body"])
+        self.assertNotIn("419", rev["explanation"]["headline"])
+        self.assertIn("probabilidad de gol", rev["explanation"]["body"])
+
+    def test_no_key_configured_makes_no_model_call(self):
+        """No key configured: no model call at all."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        runner, event, report, at = self._make_runner_and_moment()
+        fan = _fan("ana", TeamSide.HOME, "en")
+        runner.clients[object()] = fan
+        runner.room.join(fan)
+        m = runner.room.open_moment(event, report, at)
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock()
+        self.settings.AZURE_OPENAI_API_KEY = ""
+        self.swarm.client = mock_client
+
+        async def scenario():
+            runner._start_debates(m)
+            runner.room.close_moment(m.closes_at)
+            await runner._finish_debates(m)
+            return runner.room.reveal_for(m, fan, ai_debate=runner._debate_for(m.id, fan))
+
+        rev = asyncio.run(scenario())
+        self.assertEqual(mock_client.chat.completions.create.call_count, 0)
+        self.assertEqual(rev["explanation"]["generated_by"], "template")
+
+    def test_bots_never_trigger_a_debate(self):
+        """Bots never trigger a debate."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        runner, event, report, at = self._make_runner_and_moment()
+        runner.bots = make_bots(25, SEED)
+        for b_profile, _ in runner.bots:
+            runner.room.join(b_profile)
+            # Even if a bot were in clients, is_bot=True must be skipped
+            runner.clients[object()] = b_profile
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock()
+        self.settings.AZURE_OPENAI_API_KEY = "test-live-key"
+        self.swarm.client = mock_client
+
+        async def scenario():
+            m = runner.room.open_moment(event, report, at)
+            runner._start_debates(m)
+            runner.room.close_moment(m.closes_at)
+            await runner._finish_debates(m)
+            return m
+
+        asyncio.run(scenario())
+        self.assertEqual(len(runner._debates), 0)
+        self.assertEqual(mock_client.chat.completions.create.call_count, 0)
 
 
 if __name__ == "__main__":

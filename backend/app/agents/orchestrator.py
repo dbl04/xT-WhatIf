@@ -96,6 +96,7 @@ class DialecticalDebateReport:
     verification: Optional[VerificationReport] = None
     framework: str = "azure-openai-foundry-tools"
     used_llm: bool = False
+    model_calls: int = 0
 
 
 class DialecticalAgentOrchestrator:
@@ -265,8 +266,10 @@ class DialecticalAgentOrchestrator:
             {"role": "user", "content": dialectical_context},
         ]
 
+        self._last_turn_model_calls = 0
         # Call reasoning deployment with tools enabled if supported by the client
         try:
+            self._last_turn_model_calls += 1
             response = await client.chat.completions.create(
                 model=settings.AZURE_OPENAI_DEPLOYMENT_REASONING,
                 messages=messages_history,
@@ -322,6 +325,7 @@ class DialecticalAgentOrchestrator:
                     "content": json.dumps(tool_res),
                 })
 
+            self._last_turn_model_calls += 1
             followup = await client.chat.completions.create(
                 model=settings.AZURE_OPENAI_DEPLOYMENT_REASONING,
                 messages=messages_history,
@@ -372,8 +376,10 @@ class DialecticalAgentOrchestrator:
         # Turn 3: Optional LLM multi-agent generation
         llm_messages: Optional[List[AgentMessage]] = None
         used_llm = False
+        model_calls = 0
         if active_client is not None:
             try:
+                self._last_turn_model_calls = 0
                 llm_messages = await self._run_llm_multi_agent_turns(
                     client=active_client,
                     frame=frame,
@@ -383,8 +389,10 @@ class DialecticalAgentOrchestrator:
                     lang=lang,
                     audience=aud,
                 )
+                model_calls = getattr(self, "_last_turn_model_calls", 0)
                 used_llm = llm_messages is not None
             except Exception as exc:
+                model_calls = getattr(self, "_last_turn_model_calls", 0)
                 logger.warning("Multi-agent LLM turn failed (%s); falling back to verified template.", exc)
                 llm_messages = None
 
@@ -420,6 +428,7 @@ class DialecticalAgentOrchestrator:
             verification=verification,
             framework=self.framework,
             used_llm=used_llm,
+            model_calls=model_calls,
         )
         self.last_report = report
         return report

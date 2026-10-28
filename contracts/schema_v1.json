@@ -353,5 +353,31 @@
     },
     "data_source": "synthetic",
     "seed": 7
+  },
+  "moment_reveal": {
+    "moment_id": "2b6d924c-3a53-5105-a1cb-7f863e424554",
+    "mode": "defend",
+    "speaker_role": "classic_coach",
+    "optimum_moves": [
+      { "player_id": 106, "x": 111.5, "y": 46.8 }
+    ],
+    "optimum_target_id": 206,
+    "base_target_id": 208,
+    "your_moves": [],
+    "your_score": null,
+    "beat_machine": false,
+    "goal_chance_pct": { "before": 11, "best": 10, "yours": null },
+    "explanation": {
+      "generated_by": "azure-openai",
+      "headline": "Best defensive move: J. Castellan",
+      "body": "J. Castellan moves inside the penalty area to cover N. Haldorsen. The chance of a goal falls from 11% to 10%.",
+      "voronoi_comparison": "",
+      "bianchi_headline": "Cannot freeze on the touchline!",
+      "personal": "You did not submit a move this time. On the touchline you have to act fast and adjust J. Castellan.",
+      "voronoi_voice": "You needed J. Castellan closing down N. Haldorsen to drop the goal chance to 10 percent.",
+      "bianchi_voice": "J. Castellan moves inside the penalty area to cover N. Haldorsen. The chance of a goal falls from 11% to 10%. You did not submit a move this time; on the touchline you have to react fast with J. Castellan.",
+      "community": "38% of fans got 900 points or more."
+    },
+    "community": { "submissions": 30, "found_it_pct": 38, "avg_score": 680 }
   }
 }

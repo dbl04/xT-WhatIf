@@ -48,6 +48,8 @@ AGENT_NAMES: Dict[str, Dict[AgentRole, str]] = {
     },
 }
 BADGES = {AgentRole.DATA_SCIENTIST: "AI-QUANT", AgentRole.CLASSIC_COACH: "PRO-COACH"}
+# Single speaker for the xT Live Challenge reveal (Dr. Voronoi stays in the debate and tool verification).
+REVEAL_SPEAKER: AgentRole = AgentRole.CLASSIC_COACH
 SIMULATION_TAG = {"en": "SIMULATION", "es": "SIMULACIÓN"}
 
 # Key moments of the synthetic generator (Scenario.key -> label).
@@ -947,10 +949,53 @@ REVEAL_TEXT = {
 }
 
 
+REVEAL_AUDIENCE_BODY: Dict[str, Dict[str, Dict[str, str]]] = {
+    "en": {
+        "analyst": {
+            "attack": "{moves} to open the pass to {target}. The chance of a goal rises from {base}% to {best}%.",
+            "defend": "{moves} to cover {target}. The chance of a goal falls from {base}% to {best}%.",
+        },
+        "casual": {
+            "attack": "{moves} to free up {target}. The chance of a goal jumps from {base}% to {best}%.",
+            "defend": "{moves} to shut down {target}. The chance of a goal drops from {base}% to {best}%.",
+        },
+        "coach": {
+            "attack": "Coaching point: {moves} to open the passing lane to {target}. The chance of a goal rises from {base}% to {best}%.",
+            "defend": "Coaching point: {moves} to close down {target}. The chance of a goal falls from {base}% to {best}%.",
+        },
+        "audio_description": {
+            "attack": "{moves} to open the pass towards {target}. The chance of a goal rises from {base} percent to {best} percent.",
+            "defend": "{moves} to step across and cover {target}. The chance of a goal falls from {base} percent to {best} percent.",
+        },
+    },
+    "es": {
+        "analyst": {
+            "attack": "{moves} para habilitar a {target}. La probabilidad de gol sube del {base}% al {best}%.",
+            "defend": "{moves} para cerrar sobre {target}. La probabilidad de gol baja del {base}% al {best}%.",
+        },
+        "casual": {
+            "attack": "{moves} para dejar solo a {target}. La probabilidad de gol sube del {base}% al {best}%.",
+            "defend": "{moves} para tapar a {target}. La probabilidad de gol baja del {base}% al {best}%.",
+        },
+        "coach": {
+            "attack": "Consigna táctica: {moves} para abrir línea de pase con {target}. La probabilidad de gol sube del {base}% al {best}%.",
+            "defend": "Consigna táctica: {moves} para bascular sobre {target}. La probabilidad de gol baja del {base}% al {best}%.",
+        },
+        "audio_description": {
+            "attack": "{moves} para habilitar el pase hacia {target}. La probabilidad de gol sube del {base} por ciento al {best} por ciento.",
+            "defend": "{moves} para cerrar el espacio sobre {target}. La probabilidad de gol baja del {base} por ciento al {best} por ciento.",
+        },
+    },
+}
+
+
 def reveal_explanation(frame: MatchFramePayload, mode: str, moves: List[tuple], base_value: float,
-                       best_value: float, best_target_id: Optional[int], lang: Language) -> Dict[str, str]:
+                       best_value: float, best_target_id: Optional[int], lang: Language,
+                       audience: Audience = DEFAULT_AUDIENCE) -> Dict[str, str]:
     """Headline and body explaining the optimum of a moment (same numbers the engine computed)."""
     text = REVEAL_TEXT[lang]
+    aud = normalize_audience(audience)
+    aud_body = REVEAL_AUDIENCE_BODY.get(lang, REVEAL_AUDIENCE_BODY["en"]).get(aud, {})
     by_id = {p.player_id: p for p in frame.players}
     parts, names = [], []
     for pid, x, y in moves:
@@ -961,9 +1006,10 @@ def reveal_explanation(frame: MatchFramePayload, mode: str, moves: List[tuple], 
     target = by_id.get(best_target_id)
     if not parts:
         return {"headline": text[f"headline_{mode}"].format(who="—"), "body": text["no_move"]}
+    body_tpl = aud_body.get(mode, text[f"body_{mode}"])
     return {
         "headline": text[f"headline_{mode}"].format(who=" + ".join(names)),
-        "body": text[f"body_{mode}"].format(
+        "body": body_tpl.format(
             moves=text["joiner"].join(parts),
             target=target.name if target else FALLBACK_NAMES[lang]["optimal"],
             base=_pct(base_value),
@@ -1012,13 +1058,17 @@ def reveal_pundits_and_comparison(
     user_score: Optional[int],
     beat_machine: bool,
     lang: Language,
+    audience: Audience = DEFAULT_AUDIENCE,
+    ai_debate: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, object]:
     """
-    Builds both the visual card explanation AND distinct, natural spoken commentary lines
-    (`voronoi_voice`, `bianchi_voice`) for Dr. Voronoi and Coach Bianchi at the Live Match Reveal.
-    Spoken lines are short, intuitive broadcast reactions with zero parentheses or coordinates.
+    Builds both the visual card explanation AND the single speaker's commentary line
+    (`bianchi_voice`, spoken by `REVEAL_SPEAKER` = Coach Bianchi) at the Live Match Reveal.
+    When `ai_debate` is provided (verified Azure OpenAI multi-agent debate), uses the speaker's
+    AI verdict for the optimum play and appends the deterministic personal part from templates.
     """
-    base_exp = reveal_explanation(frame, mode, opt_moves, base_value, best_value, best_target_id, lang)
+    aud = normalize_audience(audience)
+    base_exp = reveal_explanation(frame, mode, opt_moves, base_value, best_value, best_target_id, lang, aud)
     by_id = {p.player_id: p for p in frame.players}
     bot_who, _, bot_ids = _describe_move_list(by_id, opt_moves, lang)
     base_pct = _pct(base_value)
@@ -1044,7 +1094,7 @@ def reveal_pundits_and_comparison(
 
     gap_pct = abs(best_pct - yours_pct) if yours_pct is not None else abs(best_pct - base_pct)
 
-    # 1. Dr. Voronoi: concise card comparison + natural spoken line (different from card text)
+    # 1. Dr. Voronoi: quantitative comparison & verified metric badge
     if user_moves is None or yours_pct is None:
         voronoi_comparison = ""
         voronoi_metric = (
@@ -1120,21 +1170,21 @@ def reveal_pundits_and_comparison(
             )
             voronoi_metric = f"Bot {best_pct}% vs You {yours_pct}%"
 
-    # 2. Coach Bianchi: concise card verdict + punchy spoken reaction (different from card text)
+    # 2. Coach Bianchi (REVEAL_SPEAKER): deterministic personal part (your score, your goal chance vs best, what your move did)
     if user_moves is None or user_score is None or yours_pct is None:
         if lang == "es":
             bianchi_headline = "¡En la banda no te puedes quedar helado!"
             personal = (
                 f"Esta vez no enviaste ningún movimiento. En directo hay que decidir rápido y ajustar a {bot_who}."
             )
-            bianchi_voice = f"Esta vez no enviaste movimiento, míster; en la banda hay que reaccionar rápido con {bot_who}."
+            bianchi_personal_voice = f"Esta vez no enviaste movimiento, míster; en la banda hay que reaccionar rápido con {bot_who}."
             bianchi_metric = f"Sin movimiento | Clave: {bot_who}"
         else:
             bianchi_headline = "Cannot freeze on the touchline!"
             personal = (
                 f"You did not submit a move this time. On the touchline you have to act fast and adjust {bot_who}."
             )
-            bianchi_voice = f"You did not submit a move this time; on the touchline you have to react fast with {bot_who}."
+            bianchi_personal_voice = f"You did not submit a move this time; on the touchline you have to react fast with {bot_who}."
             bianchi_metric = f"No move sent | Key: {bot_who}"
     elif beat_machine:
         if lang == "es":
@@ -1143,7 +1193,7 @@ def reveal_pundits_and_comparison(
                 f"Has superado a la máquina con {user_score} de 1000 puntos. El bot movió a {bot_who}, "
                 f"pero tu lectura con {user_who} fue todavía mejor."
             )
-            bianchi_voice = f"¡Qué barbaridad, míster! Tu jugada con {user_who} supera hasta a la máquina, puro oficio."
+            bianchi_personal_voice = f"¡Qué barbaridad, míster! Tu jugada con {user_who} supera hasta a la máquina, puro oficio."
             bianchi_metric = f"¡Superaste al bot! {user_score}/1000 pts"
         else:
             bianchi_headline = f"Your board with {user_who} beats the machine!"
@@ -1151,7 +1201,7 @@ def reveal_pundits_and_comparison(
                 f"You beat the machine with {user_score} of 1000 points. The bot moved {bot_who}, "
                 f"but your reading with {user_who} was even better."
             )
-            bianchi_voice = f"Brilliant stuff! Your move with {user_who} even beats the machine, pure footballing instinct."
+            bianchi_personal_voice = f"Brilliant stuff! Your move with {user_who} even beats the machine, pure footballing instinct."
             bianchi_metric = f"Beat the bot! {user_score}/1000 pts"
     elif len(user_moves) == 0:
         if lang == "es":
@@ -1160,7 +1210,7 @@ def reveal_pundits_and_comparison(
                 f"Has conseguido {user_score} de 1000 puntos. Dejaste al equipo parado cuando la jugada "
                 f"pedía ajustar rápido a {bot_who}."
             )
-            bianchi_voice = f"Si dejas al equipo clavado nos comen el espacio, míster; había que mover a {bot_who}."
+            bianchi_personal_voice = f"Si dejas al equipo clavado nos comen el espacio, míster; había que mover a {bot_who}."
             bianchi_metric = f"Puntuación: {user_score}/1000 | Sin cambios"
         else:
             bianchi_headline = f"Needed to shift {bot_who}"
@@ -1168,7 +1218,7 @@ def reveal_pundits_and_comparison(
                 f"You reached {user_score} of 1000 points. You left the team standing still when the play "
                 f"called for shifting {bot_who}."
             )
-            bianchi_voice = f"Leave the team standing still and you get punished; you had to shift {bot_who}."
+            bianchi_personal_voice = f"Leave the team standing still and you get punished; you had to shift {bot_who}."
             bianchi_metric = f"Score: {user_score}/1000 | No moves"
     elif user_score >= 900:
         if same_players:
@@ -1178,7 +1228,7 @@ def reveal_pundits_and_comparison(
                     f"Has conseguido {user_score} de 1000 puntos. Viste enseguida que la llave de la jugada "
                     f"era mover a {user_who}."
                 )
-                bianchi_voice = f"¡Lectura de manual, míster! Viste el ajuste de {user_who} en el segundo exacto."
+                bianchi_personal_voice = f"¡Lectura de manual, míster! Viste el ajuste de {user_who} en el segundo exacto."
                 bianchi_metric = f"Puntuación: {user_score}/1000 | Lectura óptima"
             else:
                 bianchi_headline = f"Same reading as the bot with {user_who}!"
@@ -1186,7 +1236,7 @@ def reveal_pundits_and_comparison(
                     f"You reached {user_score} of 1000 points. You spotted straight away that moving "
                     f"{user_who} was the key."
                 )
-                bianchi_voice = f"Textbook reading! You spotted that move with {user_who} right on cue."
+                bianchi_personal_voice = f"Textbook reading! You spotted that move with {user_who} right on cue."
                 bianchi_metric = f"Score: {user_score}/1000 | Optimal reading"
         else:
             if lang == "es":
@@ -1195,7 +1245,7 @@ def reveal_pundits_and_comparison(
                     f"Has conseguido {user_score} de 1000 puntos. Aunque el bot eligió a {bot_who}, "
                     f"tu alternativa con {user_who} funcionó igual de bien."
                 )
-                bianchi_voice = f"¡Muy buen ojo! Tu alternativa con {user_who} rinde tan bien como la de la máquina."
+                bianchi_personal_voice = f"¡Muy buen ojo! Tu alternativa con {user_who} rinde tan bien como la de la máquina."
                 bianchi_metric = f"Puntuación: {user_score}/1000 | Variante eficaz"
             else:
                 bianchi_headline = f"Your variant with {user_who} matches {bot_who}"
@@ -1203,7 +1253,7 @@ def reveal_pundits_and_comparison(
                     f"You reached {user_score} of 1000 points. Even though the bot picked {bot_who}, "
                     f"your alternative with {user_who} worked just as well."
                 )
-                bianchi_voice = f"Sharp eye! Your alternative with {user_who} works just as well as the machine's."
+                bianchi_personal_voice = f"Sharp eye! Your alternative with {user_who} works just as well as the machine's."
                 bianchi_metric = f"Score: {user_score}/1000 | Effective variant"
     elif same_players:
         if lang == "es":
@@ -1212,7 +1262,7 @@ def reveal_pundits_and_comparison(
                 f"Has conseguido {user_score} de 1000 puntos. Acertaste eligiendo a {user_who} como el bot, "
                 f"solo faltó ajustar un par de metros más."
             )
-            bianchi_voice = f"Elegiste bien a {user_who}, míster, solo faltó dar un par de pasos más para cerrar la jugada."
+            bianchi_personal_voice = f"Elegiste bien a {user_who}, míster, solo faltó dar un par de pasos más para cerrar la jugada."
             bianchi_metric = f"Puntuación: {user_score}/1000 | A {pos_diff_m:.1f} m del óptimo"
         else:
             bianchi_headline = f"Good eye picking {user_who}"
@@ -1220,7 +1270,7 @@ def reveal_pundits_and_comparison(
                 f"You reached {user_score} of 1000 points. Good eye picking {user_who} like the bot, "
                 f"just a couple of steps short of the ideal spot."
             )
-            bianchi_voice = f"Right idea picking {user_who}, you just needed two more steps to finish the job."
+            bianchi_personal_voice = f"Right idea picking {user_who}, you just needed two more steps to finish the job."
             bianchi_metric = f"Score: {user_score}/1000 | {pos_diff_m:.1f} m off optimum"
     else:
         if lang == "es":
@@ -1229,7 +1279,7 @@ def reveal_pundits_and_comparison(
                 f"Has conseguido {user_score} de 1000 puntos. Moviste a {user_who}, pero el peligro real "
                 f"estaba donde intervino el bot con {bot_who}."
             )
-            bianchi_voice = f"Tocaste a {user_who}, pero el peligro de verdad estaba donde cerró la máquina con {bot_who}."
+            bianchi_personal_voice = f"Tocaste a {user_who}, pero el peligro de verdad estaba donde cerró la máquina con {bot_who}."
             bianchi_metric = f"Puntuación: {user_score}/1000 | Tú: {user_who} vs Bot: {bot_who}"
         else:
             bianchi_headline = f"Your move with {user_who} vs {bot_who}"
@@ -1237,11 +1287,24 @@ def reveal_pundits_and_comparison(
                 f"You reached {user_score} of 1000 points. You moved {user_who}, but the real danger "
                 f"was where the bot stepped in with {bot_who}."
             )
-            bianchi_voice = f"You moved {user_who}, but the real danger was where the machine stepped in with {bot_who}."
+            bianchi_personal_voice = f"You moved {user_who}, but the real danger was where the machine stepped in with {bot_who}."
             bianchi_metric = f"Score: {user_score}/1000 | You: {user_who} vs Bot: {bot_who}"
 
+    # 3. Combine the optimum verdict (AI debate if verified, otherwise template) with the deterministic personal part
+    use_ai = bool(ai_debate and ai_debate.get("generated_by") == "azure-openai" and ai_debate.get("body"))
+    generated_by: Literal["azure-openai", "template"] = "azure-openai" if use_ai else "template"
+    headline_out = str(ai_debate["headline"]) if use_ai and ai_debate.get("headline") else base_exp["headline"]
+    body_out = str(ai_debate["body"]) if use_ai else base_exp["body"]
+    voronoi_verified_metric = (
+        str(ai_debate["voronoi_metric"])
+        if use_ai and ai_debate.get("voronoi_metric")
+        else voronoi_metric
+    )
+    # Single voice line for REVEAL_SPEAKER (Coach Bianchi): optimum verdict + deterministic personal reaction
+    bianchi_voice = f"{body_out} {bianchi_personal_voice}".strip()
+
     clock = f"{frame.minute:02d}:{frame.second:02d}"
-    voronoi_full_body = f"{base_exp['body']} {voronoi_comparison}".strip()
+    voronoi_full_body = f"{body_out} {voronoi_comparison}".strip()
     pundits = [
         AgentMessage(
             message_id=f"{moment_id}-voronoi",
@@ -1249,9 +1312,9 @@ def reveal_pundits_and_comparison(
             agent_name=AGENT_NAMES[lang][DS],
             avatar_badge=BADGES[DS],
             timestamp_label=clock,
-            headline=base_exp["headline"],
+            headline=headline_out,
             analysis_body=voronoi_full_body,
-            referenced_metric=voronoi_metric,
+            referenced_metric=voronoi_verified_metric,
             highlighted_player_ids=bot_ids,
         ).model_dump(mode="json"),
         AgentMessage(
@@ -1268,8 +1331,9 @@ def reveal_pundits_and_comparison(
     ]
 
     return {
-        "headline": base_exp["headline"],
-        "body": base_exp["body"],
+        "generated_by": generated_by,
+        "headline": headline_out,
+        "body": body_out,
         "voronoi_comparison": voronoi_comparison,
         "bianchi_headline": bianchi_headline,
         "personal": personal,
