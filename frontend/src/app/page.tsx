@@ -338,10 +338,16 @@ function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, audience]);
 
-  // In Key Moments mode (!isLiveView), whenever a move simulation completes, have the commentators speak about it.
+  // Primary voice for the selected audience mode: Analyst/Audio -> Dr. Voronoi; Coach/Casual -> Coach Bianchi.
+  const preferredVoiceRole: AgentMessage["agent_role"] =
+    audience === "coach" || audience === "casual" ? "classic_coach" : "data_scientist";
+
+  // In Key Moments mode (!isLiveView), whenever a move simulation completes, have ONLY the selected mode's commentator speak.
   onSimDoneRef.current = (simFrame: MatchFramePayload) => {
     if (!isLiveView && !inChallenge && simFrame.agent_debate?.length > 0) {
-      tts.playMessages(simFrame.agent_debate);
+      const targetMsg =
+        simFrame.agent_debate.find((m) => m.agent_role === preferredVoiceRole) ?? simFrame.agent_debate[0];
+      if (targetMsg) tts.playMessages([targetMsg]);
     }
   };
 
@@ -496,9 +502,9 @@ function DashboardPage() {
       : null
     : practiceReveal;
 
-  // Pundits comment on the resolved play with concise, conversational broadcast lines (distinct from the card text).
+  // Only the single pundit matching the selected audience mode speaks at the end of a play.
   const playRevealVoice = useCallback(
-    (rev: MomentReveal) => {
+    (rev: MomentReveal, roleOverride?: AgentMessage["agent_role"]) => {
       const { headline, body, personal, voronoi_comparison, bianchi_headline, voronoi_voice, bianchi_voice } =
         rev.explanation;
       const optIds = rev.optimum_moves.map((m) => m.player_id);
@@ -521,10 +527,13 @@ function DashboardPage() {
         referenced_metric: "",
         highlighted_player_ids: ids,
       });
-      const lines = [
+      const allLines = [
         spoken("data_scientist", headline, voronoiSpoken, optIds),
         spoken("classic_coach", bianchi_headline || headline, bianchiSpoken, userIds.length > 0 ? userIds : optIds),
       ].filter((m) => m.analysis_body.trim());
+      const targetRole = roleOverride ?? preferredVoiceRole;
+      const selectedLine = allLines.find((m) => m.agent_role === targetRole) ?? allLines[0];
+      const lines = selectedLine ? [selectedLine] : [];
       // Audio the live service synthesised while the moment was open: ready as the reveal lands.
       const voice = fetchRevealVoice(rev.moment_id, fanSession?.identity.userId ?? "");
       tts.playMessages(
@@ -532,7 +541,7 @@ function DashboardPage() {
         lines.map((m) => voice.then((v) => v?.find((l) => l.agent_role === m.agent_role)?.audio_base64 ?? null))
       );
     },
-    [fanSession?.identity.userId, tts]
+    [fanSession?.identity.userId, preferredVoiceRole, tts]
   );
 
   // One sound per reveal: rising when the fan found (nearly) the best move.

@@ -1249,11 +1249,13 @@ def reveal_pundits_and_comparison(
         if lang == "es":
             voronoi_metric = f"Oportunidad de gol: {base_pct}% a {best_pct}%"
             bianchi_metric = f"Tu puntuación: {user_score}/1000" if user_score is not None else f"Jugador clave: {bot_who}"
+            bianchi_voice = f"{bianchi_voice} En resumen: la ocasión pasa del {base_pct}% al {best_pct}%."
             if voronoi_comparison:
                 voronoi_comparison = f"{voronoi_comparison} En lenguaje llano: ahí estaba la ocasión más clara."
         else:
             voronoi_metric = f"Goal chance: {base_pct}% to {best_pct}%"
             bianchi_metric = f"Your score: {user_score}/1000" if user_score is not None else f"Key player: {bot_who}"
+            bianchi_voice = f"{bianchi_voice} In short, the goal chance goes from {base_pct}% to {best_pct}%."
             if voronoi_comparison:
                 voronoi_comparison = f"{voronoi_comparison} In plain terms, that spot created the clearest chance."
     elif aud == "coach":
@@ -1262,10 +1264,12 @@ def reveal_pundits_and_comparison(
         if lang == "es":
             bianchi_headline = f"{verdict_es}: {bianchi_headline}"
             bianchi_metric = f"Veredicto: {verdict_es} | {user_score or 0}/1000 pts"
+            bianchi_voice = f"{bianchi_voice} Consigna táctica: vigilar la recepción de {target_name}."
             voronoi_voice = f"{voronoi_voice} Consigna táctica: fijar la marca sobre {target_name}."
         else:
             bianchi_headline = f"{verdict_en}: {bianchi_headline}"
             bianchi_metric = f"Verdict: {verdict_en} | {user_score or 0}/1000 pts"
+            bianchi_voice = f"{bianchi_voice} Coaching point: lock onto {target_name}."
             voronoi_voice = f"{voronoi_voice} Coaching point: lock onto {target_name}."
     elif aud == "audio_description":
         if lang == "es":
