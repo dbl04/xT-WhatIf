@@ -498,12 +498,9 @@ function DashboardPage() {
 
   const handleVoiceMovePlayer = useCallback(
     (playerId: number, x: number, y: number) => {
-      if (challenge.isChallengeOpen()) {
-        challenge.move(playerId, x, y);
-      }
       updatePlayerPosition(playerId, x, y);
     },
-    [challenge, updatePlayerPosition]
+    [updatePlayerPosition]
   );
 
   const handleVoiceApplyMoves = useCallback(
