@@ -72,6 +72,10 @@ const en = {
   "voice.provider.speech": "Azure AI Speech",
   "voice.provider.whisper": "Azure Whisper",
   "voice.provider.browser": "Web Speech",
+  "voice.requirePlay": "Press 'Play this moment' to enable voice commands",
+  "voice.confirmTitle": "Confirm move",
+  "voice.confirmAction": "Confirm",
+  "voice.cancel": "Cancel",
 
   // Auto-Coach
   "coach.radius": "radius ≤ 6.0 m",
@@ -459,6 +463,10 @@ const es: Record<MessageKey, string> = {
   "voice.provider.speech": "Azure AI Speech",
   "voice.provider.whisper": "Azure Whisper",
   "voice.provider.browser": "Web Speech",
+  "voice.requirePlay": "Pulsa «Jugar esta jugada» para dar órdenes por voz",
+  "voice.confirmTitle": "Confirmar movimiento",
+  "voice.confirmAction": "Confirmar",
+  "voice.cancel": "Cancelar",
 
   "coach.radius": "radio ≤ 6.0 m",
   "coach.desc": "Recoloca a los dos defensores más cercanos para minimizar el xT rival.",

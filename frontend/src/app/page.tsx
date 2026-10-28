@@ -506,6 +506,18 @@ function DashboardPage() {
     [challenge, updatePlayerPosition]
   );
 
+  const handleVoiceApplyMoves = useCallback(
+    (moves: Array<{ playerId: number; x: number; y: number }>) => {
+      if (challenge.isChallengeOpen()) {
+        challenge.applyMoves(moves);
+      }
+      for (const m of moves) {
+        updatePlayerPosition(m.playerId, m.x, m.y);
+      }
+    },
+    [challenge, updatePlayerPosition]
+  );
+
   const handleVoiceDrop = useCallback(() => {
     if (challenge.isChallengeOpen()) {
       challenge.drop();
@@ -998,6 +1010,7 @@ function DashboardPage() {
                       tts.stop();
                     }}
                     onMovePlayer={handleVoiceMovePlayer}
+                    onApplyMoves={handleVoiceApplyMoves}
                     onApplySimulatedFrame={applySimulatedFrame}
                     onTriggerOfflineSimulation={applyMovesAndSimulate}
                     onHighlightPlayers={setHighlightedPlayerIds}

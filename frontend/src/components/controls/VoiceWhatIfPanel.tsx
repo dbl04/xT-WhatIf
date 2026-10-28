@@ -14,13 +14,14 @@ import {
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
 import { sfx } from "@/lib/sfx";
 import {
-  Mic,
-  Square,
+  Check,
+  Cloud,
   Loader2,
+  Mic,
   RotateCcw,
   Send,
+  Square,
   TriangleAlert,
-  Cloud,
 } from "lucide-react";
 
 interface SpeechRecognitionAlternativeLike {
@@ -94,6 +95,7 @@ export interface VoiceWhatIfPanelProps {
   onEnterPlayMode?: () => void;
   onBeforeListen?: () => void;
   onMovePlayer: (playerId: number, x: number, y: number) => void;
+  onApplyMoves?: (moves: Array<{ playerId: number; x: number; y: number }>) => void;
   onApplySimulatedFrame: (simulatedFrame: MatchFramePayload) => void;
   onTriggerOfflineSimulation: (updatedPlayers: PlayerNode[]) => void;
   onHighlightPlayers: (playerIds: number[]) => void;
@@ -111,6 +113,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   onEnterPlayMode,
   onBeforeListen,
   onMovePlayer,
+  onApplyMoves,
   onApplySimulatedFrame,
   onTriggerOfflineSimulation,
   onHighlightPlayers,
@@ -123,6 +126,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [pendingTranscript, setPendingTranscript] = useState<string | null>(null);
   const [lastQuery, setLastQuery] = useState<string | null>(null);
   const [lastMoves, setLastMoves] = useState<InterpretedVoiceMove[]>([]);
   const [sttProvider, setSttProvider] = useState<STTProvider | null>(null);
@@ -174,6 +178,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       setLastMoves([]);
       setLastQuery(null);
       setLimitReached(false);
+      setPendingTranscript(null);
     }
   }, [currentFrame.event_uuid, currentFrame.is_counterfactual_mode, inPlayMode]);
 
@@ -277,36 +282,49 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       onDropMove?.();
       setLastMoves(result.moves);
 
-      if (result.simulatedFrame) {
-        onApplySimulatedFrame(result.simulatedFrame);
-      } else {
-        const moveById = new Map(result.moves.map((m) => [m.player_id, m]));
-        const updatedPlayers = snapshotFrame.players.map((p) => {
-          const mv = moveById.get(p.player_id);
-          if (!mv) return p;
-          return {
-            ...p,
-            x: mv.to_x,
-            y: mv.to_y,
-            original_x: p.original_x ?? mv.from_x,
-            original_y: p.original_y ?? mv.from_y,
-            is_modified: true,
-          };
-        });
-        onTriggerOfflineSimulation(updatedPlayers);
+      onApplyMoves?.(
+        result.moves.map((m) => ({
+          playerId: m.player_id,
+          x: m.to_x,
+          y: m.to_y,
+        }))
+      );
+
+      if (!inPlayMode) {
+        if (result.simulatedFrame) {
+          onApplySimulatedFrame(result.simulatedFrame);
+        } else {
+          const moveById = new Map(result.moves.map((m) => [m.player_id, m]));
+          const updatedPlayers = snapshotFrame.players.map((p) => {
+            const mv = moveById.get(p.player_id);
+            if (!mv) return p;
+            return {
+              ...p,
+              x: mv.to_x,
+              y: mv.to_y,
+              original_x: p.original_x ?? mv.from_x,
+              original_y: p.original_y ?? mv.from_y,
+              is_modified: true,
+            };
+          });
+          onTriggerOfflineSimulation(updatedPlayers);
+        }
       }
 
       setTranscript("");
       transcriptRef.current = "";
+      setPendingTranscript(null);
       setIsProcessing(false);
     },
     [
       language,
       audience,
       movablePlayerIds,
+      inPlayMode,
       onEnterPlayMode,
       onHighlightPlayers,
       animateMovesOnPitch,
+      onApplyMoves,
       onDropMove,
       onApplySimulatedFrame,
       onTriggerOfflineSimulation,
@@ -323,18 +341,24 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
         if (sttRes.text.length >= 2) {
           setTranscript(sttRes.text);
           transcriptRef.current = sttRes.text;
-          await runVoiceInstruction(sttRes.text, sttRes.provider);
+          setPendingTranscript(sttRes.text);
+          if (sttRes.provider) {
+            setSttProvider(sttRes.provider);
+          }
+          setIsProcessing(false);
           return;
         }
       }
 
       if (browserTranscript.length >= 2) {
-        await runVoiceInstruction(browserTranscript, "browser-web-speech-fallback");
+        setPendingTranscript(browserTranscript);
+        setSttProvider("browser-web-speech-fallback");
+        setIsProcessing(false);
       } else {
         setIsProcessing(false);
       }
     },
-    [language, runVoiceInstruction]
+    [language]
   );
 
   const startListening = async () => {
@@ -352,6 +376,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     onBeforeListen?.();
     setLimitReached(false);
     setMicError(null);
+    setPendingTranscript(null);
     setTranscript("");
     transcriptRef.current = "";
     submittedOnEndRef.current = false;
@@ -441,7 +466,9 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
                 const captured = transcriptRef.current.trim();
                 if (!submittedOnEndRef.current && captured.length >= 2) {
                   submittedOnEndRef.current = true;
-                  void runVoiceInstruction(captured, "browser-web-speech-fallback");
+                  setPendingTranscript(captured);
+                  setSttProvider("browser-web-speech-fallback");
+                  setIsProcessing(false);
                 }
               }
             }, 1000);
@@ -484,7 +511,9 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
             const captured = transcriptRef.current.trim();
             if (!submittedOnEndRef.current && captured.length >= 2) {
               submittedOnEndRef.current = true;
-              void runVoiceInstruction(captured, "browser-web-speech-fallback");
+              setPendingTranscript(captured);
+              setSttProvider("browser-web-speech-fallback");
+              setIsProcessing(false);
             }
           }
         };
@@ -530,18 +559,23 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     const captured = transcriptRef.current.trim();
     if (!submittedOnEndRef.current && captured.length >= 2) {
       submittedOnEndRef.current = true;
-      void runVoiceInstruction(captured, "browser-web-speech-fallback");
+      setPendingTranscript(captured);
+      setSttProvider("browser-web-speech-fallback");
+      setIsProcessing(false);
     }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!inPlayMode) return;
     if (isListening) {
       stopListening();
       return;
     }
-    if (transcript.trim().length >= 2 && !isProcessing) {
-      void runVoiceInstruction(transcript.trim());
+    const clean = transcript.trim();
+    if (clean.length >= 2 && !isProcessing) {
+      setPendingTranscript(null);
+      void runVoiceInstruction(clean);
     }
   };
 
@@ -589,54 +623,118 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       <p className="text-[12px] leading-snug text-fg-muted">{t("voice.desc")}</p>
 
       {/* Primary Microphone Action Button */}
-      <div className="flex items-center gap-1.5">
-        <Button
-          type="button"
-          variant={isListening ? "primary" : "secondary"}
-          size="sm"
-          disabled={isProcessing}
-          onClick={isListening ? stopListening : () => void startListening()}
-          className={`flex-1 ${
-            isListening
-              ? "border-signal-loss bg-signal-loss text-white hover:bg-signal-loss/90"
-              : "border-signal-gain/40 hover:border-signal-gain"
-          }`}
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              <span>{t("voice.processing")}</span>
-            </>
-          ) : isListening ? (
-            <>
-              <span className="h-2 w-2 animate-ping rounded-full bg-white" aria-hidden />
-              <Square className="h-3 w-3 fill-current" aria-hidden />
-              <span>{t("voice.stop")}</span>
-            </>
-          ) : (
-            <>
-              <Mic className="h-3.5 w-3.5 text-signal-gain" aria-hidden />
-              <span>{t("voice.start")}</span>
-            </>
-          )}
-        </Button>
-
-        {movedCount > 0 && (
-          <IconButton
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant={isListening ? "primary" : "secondary"}
             size="sm"
-            onClick={() => {
-              setLastMoves([]);
-              setLastQuery(null);
-              setLimitReached(false);
-              onResetMoves();
-            }}
-            title={t("voice.reset")}
-            aria-label={t("voice.reset")}
+            disabled={!inPlayMode || isProcessing}
+            onClick={isListening ? stopListening : () => void startListening()}
+            title={!inPlayMode ? t("voice.requirePlay") : isListening ? t("voice.stop") : t("voice.start")}
+            className={`flex-1 ${
+              !inPlayMode
+                ? "opacity-50 cursor-not-allowed border-line bg-ink-800 text-fg-subtle"
+                : isListening
+                ? "border-signal-loss bg-signal-loss text-white hover:bg-signal-loss/90"
+                : "border-signal-gain/40 hover:border-signal-gain"
+            }`}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
-          </IconButton>
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                <span>{t("voice.processing")}</span>
+              </>
+            ) : isListening ? (
+              <>
+                <span className="h-2 w-2 animate-ping rounded-full bg-white" aria-hidden />
+                <Square className="h-3 w-3 fill-current" aria-hidden />
+                <span>{t("voice.stop")}</span>
+              </>
+            ) : (
+              <>
+                <Mic className="h-3.5 w-3.5 text-signal-gain" aria-hidden />
+                <span>{t("voice.start")}</span>
+              </>
+            )}
+          </Button>
+
+          {movedCount > 0 && (
+            <IconButton
+              size="sm"
+              onClick={() => {
+                setLastMoves([]);
+                setLastQuery(null);
+                setLimitReached(false);
+                setPendingTranscript(null);
+                onResetMoves();
+              }}
+              title={t("voice.reset")}
+              aria-label={t("voice.reset")}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </IconButton>
+          )}
+        </div>
+
+        {!inPlayMode && (
+          <p className="rounded-md border border-white/[0.08] bg-ink-800/40 px-2.5 py-1.5 text-[11px] text-fg-subtle">
+            {t("voice.requirePlay")}
+          </p>
         )}
       </div>
+
+      {/* Confirmation box when audio input is captured and user finishes speaking */}
+      {pendingTranscript && (
+        <div
+          role="region"
+          aria-label={t("voice.confirmTitle")}
+          className="flex flex-col gap-2 rounded-md border border-signal-gain/40 bg-signal-gain/10 p-2.5 text-[12px]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 font-semibold text-signal-gain uppercase tracking-wide text-[11px]">
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              {t("voice.confirmTitle")}
+            </span>
+            {providerBadgeLabel && (
+              <span className="font-mono text-[10px] text-fg-subtle">
+                {providerBadgeLabel}
+              </span>
+            )}
+          </div>
+          <p className="font-medium text-fg italic">“{pendingTranscript}”</p>
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setPendingTranscript(null);
+                setTranscript("");
+                transcriptRef.current = "";
+              }}
+              className="flex-1"
+            >
+              {t("voice.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              disabled={isProcessing}
+              onClick={() => {
+                const query = pendingTranscript;
+                setPendingTranscript(null);
+                void runVoiceInstruction(query);
+              }}
+              className="flex-1 bg-signal-gain text-ink hover:bg-signal-gain/90 font-semibold"
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              {t("voice.confirmAction")}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Live listening indicator + interim transcript */}
       {isListening && (
@@ -665,13 +763,13 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
             setTranscript(e.target.value);
           }}
           placeholder={t("voice.placeholder")}
-          disabled={isProcessing}
-          className="h-8 min-w-0 flex-1 rounded-md border border-line bg-ink-800 px-2.5 text-[12px] text-fg placeholder:text-fg-subtle focus:border-signal-gain focus:outline-none"
+          disabled={!inPlayMode || isProcessing}
+          className="h-8 min-w-0 flex-1 rounded-md border border-line bg-ink-800 px-2.5 text-[12px] text-fg placeholder:text-fg-subtle focus:border-signal-gain focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <IconButton
           type="submit"
           size="sm"
-          disabled={isProcessing || transcript.trim().length < 2}
+          disabled={!inPlayMode || isProcessing || transcript.trim().length < 2}
           title={t("voice.send")}
           aria-label={t("voice.send")}
         >
