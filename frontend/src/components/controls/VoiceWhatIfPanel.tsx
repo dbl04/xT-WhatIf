@@ -90,12 +90,16 @@ function getPreferredAudioMimeType(): string {
 
 export interface VoiceWhatIfPanelProps {
   currentFrame: MatchFramePayload;
+  inPlayMode?: boolean;
+  onEnterPlayMode?: () => void;
   onBeforeListen?: () => void;
   onMovePlayer: (playerId: number, x: number, y: number) => void;
   onApplySimulatedFrame: (simulatedFrame: MatchFramePayload) => void;
   onTriggerOfflineSimulation: (updatedPlayers: PlayerNode[]) => void;
   onHighlightPlayers: (playerIds: number[]) => void;
   onResetMoves: () => void;
+  onDropMove?: () => void;
+  movablePlayerIds?: number[];
   externalLimitNotice?: boolean;
 }
 
@@ -103,12 +107,16 @@ const VOICE_MOVE_ANIM_MS = 650;
 
 export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   currentFrame,
+  inPlayMode = false,
+  onEnterPlayMode,
   onBeforeListen,
   onMovePlayer,
   onApplySimulatedFrame,
   onTriggerOfflineSimulation,
   onHighlightPlayers,
   onResetMoves,
+  onDropMove,
+  movablePlayerIds,
   externalLimitNotice = false,
 }) => {
   const { language, audience, t } = useI18n();
@@ -128,6 +136,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   const usingMediaRecorderRef = useRef<boolean>(false);
   const transcriptRef = useRef<string>("");
   const submittedOnEndRef = useRef<boolean>(false);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animRafRef = useRef<number>(0);
   const frameRef = useRef<MatchFramePayload>(currentFrame);
   frameRef.current = currentFrame;
@@ -161,16 +170,17 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       cancelAnimationFrame(animRafRef.current);
       animRafRef.current = 0;
     }
-    if (!currentFrame.is_counterfactual_mode) {
+    if (!currentFrame.is_counterfactual_mode && !inPlayMode) {
       setLastMoves([]);
       setLastQuery(null);
       setLimitReached(false);
     }
-  }, [currentFrame.event_uuid, currentFrame.is_counterfactual_mode]);
+  }, [currentFrame.event_uuid, currentFrame.is_counterfactual_mode, inPlayMode]);
 
   useEffect(() => {
     return () => {
       if (animRafRef.current) cancelAnimationFrame(animRafRef.current);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       recognitionRef.current?.abort();
       cleanupMediaStream();
     };
@@ -233,7 +243,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
 
       const snapshotFrame = frameRef.current;
       const targetUuid = snapshotFrame.event_uuid;
-      const result = await executeVoiceWhatIf(cleanQuery, snapshotFrame, language, audience);
+      const result = await executeVoiceWhatIf(cleanQuery, snapshotFrame, language, audience, movablePlayerIds);
 
       // Abort if the user switched key moments while the backend was processing the voice command
       if (frameRef.current.event_uuid !== targetUuid) {
@@ -248,6 +258,9 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
         return;
       }
 
+      // Enter play mode (modo de jugada) because outside players cannot be moved!
+      onEnterPlayMode?.();
+
       const movedIds = result.moves.map((m) => m.player_id);
       onHighlightPlayers(movedIds);
 
@@ -261,6 +274,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       }
 
       sfx.drop();
+      onDropMove?.();
       setLastMoves(result.moves);
 
       if (result.simulatedFrame) {
@@ -289,8 +303,11 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     [
       language,
       audience,
+      movablePlayerIds,
+      onEnterPlayMode,
       onHighlightPlayers,
       animateMovesOnPitch,
+      onDropMove,
       onApplySimulatedFrame,
       onTriggerOfflineSimulation,
     ]
@@ -340,6 +357,10 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     submittedOnEndRef.current = false;
     audioChunksRef.current = [];
     usingMediaRecorderRef.current = false;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     // 1. Start MediaRecorder for Azure AI Speech / Azure OpenAI Whisper cloud transcription
     if (canMediaRecord) {
@@ -382,7 +403,7 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       try {
         const recognition = new Ctor();
         recognition.lang = LOCALES[language];
-        recognition.continuous = false;
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
@@ -394,6 +415,37 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
           const trimmed = combined.trim();
           transcriptRef.current = trimmed;
           setTranscript(trimmed);
+
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+
+          // Wait 1s more after the user finishes speaking before automatically finishing
+          if (trimmed.length >= 2) {
+            silenceTimerRef.current = setTimeout(() => {
+              silenceTimerRef.current = null;
+              const rec = mediaRecorderRef.current;
+              if (rec && rec.state === "recording") {
+                setIsListening(false);
+                try {
+                  rec.stop();
+                } catch {
+                  // ignore
+                }
+                return;
+              }
+
+              if (!usingMediaRecorderRef.current) {
+                setIsListening(false);
+                const captured = transcriptRef.current.trim();
+                if (!submittedOnEndRef.current && captured.length >= 2) {
+                  submittedOnEndRef.current = true;
+                  void runVoiceInstruction(captured, "browser-web-speech-fallback");
+                }
+              }
+            }, 1000);
+          }
         };
 
         recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
@@ -401,11 +453,20 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
             if (event.error !== "no-speech" && event.error !== "aborted") {
               setMicError("error");
             }
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
             setIsListening(false);
           }
         };
 
         recognition.onend = () => {
+          // If the silence timer is actively waiting for the 1s delay to elapse, let it finish
+          if (silenceTimerRef.current) {
+            return;
+          }
+
           // If MediaRecorder is active and user stops talking naturally, finalize the recording
           const rec = mediaRecorderRef.current;
           if (rec && rec.state === "recording") {
@@ -441,6 +502,10 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
   };
 
   const stopListening = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     const rec = recognitionRef.current;
     if (rec) {
       try {

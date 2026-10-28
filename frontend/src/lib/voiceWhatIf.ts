@@ -107,7 +107,8 @@ function parseSingleClauseOffline(
   clause: string,
   frame: MatchFramePayload,
   language: Language,
-  excludedIds: Set<number>
+  excludedIds: Set<number>,
+  allowedIds?: Set<number>
 ): InterpretedVoiceMove {
   const q = normalizeSpokenNumbers(clause.trim());
   const defendingTeam: TeamSide = frame.possession_team === "home" ? "away" : "home";
@@ -128,10 +129,19 @@ function parseSingleClauseOffline(
 
   const targetTeam = isAttackQuery ? attackingTeam : defendingTeam;
   let outfield = frame.players.filter(
-    (p) => p.team === targetTeam && !p.is_keeper && !excludedIds.has(p.player_id)
+    (p) =>
+      (!allowedIds || allowedIds.has(p.player_id)) &&
+      (allowedIds ? true : p.team === targetTeam) &&
+      !p.is_keeper &&
+      !excludedIds.has(p.player_id)
   );
   if (outfield.length === 0) {
-    outfield = frame.players.filter((p) => !p.is_keeper && !excludedIds.has(p.player_id));
+    outfield = frame.players.filter(
+      (p) => (!allowedIds || allowedIds.has(p.player_id)) && !p.is_keeper && !excludedIds.has(p.player_id)
+    );
+  }
+  if (outfield.length === 0) {
+    outfield = frame.players.filter((p) => (!allowedIds || allowedIds.has(p.player_id)) && !p.is_keeper);
   }
   if (outfield.length === 0) {
     outfield = frame.players.filter((p) => !p.is_keeper);
@@ -147,7 +157,10 @@ function parseSingleClauseOffline(
   if (jerseyMatch) {
     const jNum = Number(jerseyMatch[1]);
     chosen =
-      frame.players.find((p) => p.jersey_number === jNum && !excludedIds.has(p.player_id)) ??
+      frame.players.find(
+        (p) => p.jersey_number === jNum && (!allowedIds || allowedIds.has(p.player_id)) && !excludedIds.has(p.player_id)
+      ) ??
+      frame.players.find((p) => p.jersey_number === jNum && (!allowedIds || allowedIds.has(p.player_id))) ??
       frame.players.find((p) => p.jersey_number === jNum);
     if (chosen) {
       roleLabel = `#${chosen.jersey_number}`;
@@ -156,7 +169,8 @@ function parseSingleClauseOffline(
 
   // 2. Player name match
   if (!chosen) {
-    for (const p of frame.players) {
+    const namePool = outfield.length > 0 ? outfield : frame.players;
+    for (const p of namePool) {
       if (excludedIds.has(p.player_id)) continue;
       const parts = p.name
         .split(/\s+/)
@@ -297,10 +311,12 @@ export function interpretVoiceMovesOffline(
   query: string,
   frame: MatchFramePayload,
   language: Language,
-  maxMoves: number = MAX_VOICE_MOVES
+  maxMoves: number = MAX_VOICE_MOVES,
+  allowedPlayerIds?: number[]
 ): InterpretedVoiceMove[] {
   const cap = Math.max(1, Math.min(MAX_VOICE_MOVES, maxMoves));
   const usedIds = new Set<number>();
+  const allowedSet = allowedPlayerIds && allowedPlayerIds.length > 0 ? new Set(allowedPlayerIds) : undefined;
   const qNorm = normalizeSpokenNumbers(query);
 
   const clauses = query
@@ -311,7 +327,7 @@ export function interpretVoiceMovesOffline(
   const moves: InterpretedVoiceMove[] = [];
   if (clauses.length >= 2 && cap >= 2) {
     for (const clause of clauses.slice(0, cap)) {
-      const mv = parseSingleClauseOffline(clause, frame, language, usedIds);
+      const mv = parseSingleClauseOffline(clause, frame, language, usedIds, allowedSet);
       if (!usedIds.has(mv.player_id)) {
         usedIds.add(mv.player_id);
         moves.push(mv);
@@ -339,12 +355,12 @@ export function interpretVoiceMovesOffline(
       "full-backs",
     ].some((kw) => qNorm.includes(kw));
 
-  const first = parseSingleClauseOffline(query, frame, language, usedIds);
+  const first = parseSingleClauseOffline(query, frame, language, usedIds, allowedSet);
   usedIds.add(first.player_id);
   moves.push(first);
 
   if (wantsTwo && moves.length < cap) {
-    const second = parseSingleClauseOffline(query, frame, language, usedIds);
+    const second = parseSingleClauseOffline(query, frame, language, usedIds, allowedSet);
     if (!usedIds.has(second.player_id)) {
       usedIds.add(second.player_id);
       moves.push(second);
@@ -362,13 +378,14 @@ export async function executeVoiceWhatIf(
   query: string,
   frame: MatchFramePayload,
   language: Language,
-  audience: Audience
+  audience: Audience,
+  movablePlayerIds?: number[]
 ): Promise<VoiceWhatIfResult> {
   const alreadyMoved = frame.players.filter((p) => p.is_modified);
   const alreadyMovedIds = new Set(alreadyMoved.map((p) => p.player_id));
 
   // First check offline candidate moves to verify whether the 2-move limit would be exceeded
-  const candidateOfflineMoves = interpretVoiceMovesOffline(query, frame, language, MAX_VOICE_MOVES);
+  const candidateOfflineMoves = interpretVoiceMovesOffline(query, frame, language, MAX_VOICE_MOVES, movablePlayerIds);
   const allowedOfflineMoves = candidateOfflineMoves.filter((mv) => {
     if (alreadyMovedIds.has(mv.player_id)) return true;
     const totalIfAdded = alreadyMovedIds.size + 1;

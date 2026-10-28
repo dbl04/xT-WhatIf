@@ -24,7 +24,7 @@ import { LIVE_API_URL } from "@/lib/api";
 import { liveClockSeconds, useLiveMatch, type MomentReveal } from "@/hooks/useLiveMatch";
 import { useRevealReplay } from "@/hooks/useRevealReplay";
 import { LeaderboardCard, LiveStatusCard, MatchEndCard, RevealCard } from "@/components/live/LiveCards";
-import { evaluateChallenge, modeFor, type ChallengeMove } from "@/lib/challenge";
+import { evaluateChallenge, modeFor, movablePlayerIds, type ChallengeMove } from "@/lib/challenge";
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { sfx } from "@/lib/sfx";
@@ -35,7 +35,6 @@ import { AgentMessage, MatchFramePayload, PlayerNode } from "@/types/match";
 import {
   Download,
   HelpCircle,
-  Columns2,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -310,7 +309,7 @@ function DashboardPage() {
 
   // In Key Moments mode (!isLiveView), whenever a move simulation completes, have ONLY the selected mode's commentator speak.
   onSimDoneRef.current = (simFrame: MatchFramePayload) => {
-    if (!isLiveView && !inChallenge && simFrame.agent_debate?.length > 0) {
+    if (!isLiveView && simFrame.agent_debate?.length > 0) {
       const targetMsg =
         simFrame.agent_debate.find((m) => m.agent_role === preferredVoiceRole) ?? simFrame.agent_debate[0];
       if (targetMsg) tts.playMessages([targetMsg]);
@@ -479,7 +478,7 @@ function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveState.frameSeq]);
 
-  const startChallenge = () => {
+  const startChallenge = useCallback(() => {
     setIsPlaying(false);
     tts.stop();
     setPracticeReveal(null);
@@ -489,7 +488,55 @@ function DashboardPage() {
     setIsHudDrawerOpen(true);
     sfx.whistle();
     challenge.open({ frame: currentFrame, team: supportedSide });
-  };
+  }, [challenge, currentFrame, supportedSide, tts]);
+
+  const handleEnterPlayMode = useCallback(() => {
+    if (!challenge.isChallengeOpen()) {
+      startChallenge();
+    }
+  }, [challenge, startChallenge]);
+
+  const handleVoiceMovePlayer = useCallback(
+    (playerId: number, x: number, y: number) => {
+      if (challenge.isChallengeOpen()) {
+        challenge.move(playerId, x, y);
+      }
+      updatePlayerPosition(playerId, x, y);
+    },
+    [challenge, updatePlayerPosition]
+  );
+
+  const handleVoiceDrop = useCallback(() => {
+    if (challenge.isChallengeOpen()) {
+      challenge.drop();
+    }
+  }, [challenge]);
+
+  const handleVoiceReset = useCallback(() => {
+    setIsPlaying(false);
+    setFreeMoveLimitNotice(false);
+    tts.stop();
+    if (challenge.isChallengeOpen()) {
+      challenge.reset();
+    }
+    resetSimulation();
+  }, [challenge, resetSimulation, tts]);
+
+  const voiceActiveFrame = useMemo(() => {
+    if (challengeState) {
+      return {
+        ...challengeState.baseFrame,
+        players: challengeState.players,
+      };
+    }
+    return currentFrame;
+  }, [challengeState, currentFrame]);
+
+  const activeMovablePlayerIds = useMemo(() => {
+    if (challengeState) return challengeState.movableIds;
+    const mode = modeFor(supportedSide, currentFrame);
+    return movablePlayerIds(currentFrame, mode);
+  }, [challengeState, supportedSide, currentFrame]);
 
   const { flashNotice } = challenge;
   const reveal = isLiveView
@@ -688,31 +735,21 @@ function DashboardPage() {
 
         {/* Navigation */}
         <nav className="flex items-center gap-0.5">
+          {/* Panel button acts on the practice board */}
           {!isLiveView && (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => setIsHudDrawerOpen((prev) => !prev)}
-                title={t("nav.panelTitle")}
-                className={isHudDrawerOpen ? "text-fg" : undefined}
-              >
-                {isHudDrawerOpen ? (
-                  <PanelLeftClose className="h-3.5 w-3.5" />
-                ) : (
-                  <PanelLeftOpen className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden xl:inline">{t("nav.panel")}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={() => setIsScenarioModalOpen(true)}
-                title={t("nav.compareTitle")}
-              >
-                <Columns2 className="h-3.5 w-3.5" />
-                <span className="hidden xl:inline">{t("nav.compare")}</span>
-              </Button>
-            </>
+            <Button
+              variant="ghost"
+              onClick={() => setIsHudDrawerOpen((prev) => !prev)}
+              title={t("nav.panelTitle")}
+              className={isHudDrawerOpen ? "text-fg" : undefined}
+            >
+              {isHudDrawerOpen ? (
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              ) : (
+                <PanelLeftOpen className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden xl:inline">{t("nav.panel")}</span>
+            </Button>
           )}
 
           {/* Infrastructure is hidden so the fixture line fits */}
@@ -865,73 +902,73 @@ function DashboardPage() {
           // Starts level with the pitch frame and uses the height left below that.
           style={pitchBox ? { marginTop: pitchBox.top, height: pitchBox.stageH - pitchBox.top } : undefined}
         >
-          {challengeState ? (
-            /* Challenge open: only the challenge card, always visible on large screens (the
-               compact strip replaces the transport dock below lg). Auto-Coach, quick scenarios
-               and the xT readout are hidden: they would give the answer away. */
-            <motion.aside
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.16, ease: "easeOut" }}
-              aria-label={t("challenge.kicker")}
-              className={`pointer-events-auto flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex ${reveal ? "flex" : "hidden"}`}
-            >
-              {reveal ? (
-                <div className="p-3">
-                  <RevealCard
-                    reveal={reveal}
-                    onContinue={continueAfterReveal}
-                    view={replay.view}
-                    onView={replay.setView}
-                    onReplay={replay.replay}
-                    activeSpeaker={tts.activeSpeaker}
-                    isSpeaking={tts.isPlaying}
-                    onPlayVoice={() => playRevealVoice(reveal)}
-                    onStopVoice={tts.stop}
-                  />
-                </div>
-              ) : (
-                <ChallengeCard
-                  state={challengeState}
-                  secondsLeft={challenge.secondsLeft}
-                  notice={challenge.notice}
-                  teamInfo={fanSession?.teamInfo}
-                  onConfirm={() => challenge.submit(false)}
-                  onReset={challenge.reset}
-                  onLeave={leaveChallenge}
-                  onHighlightPlayer={setHoveredPlayerId}
-                  delivery={liveDelivery}
-                />
-              )}
-            </motion.aside>
-          ) : isLiveView ? (
-            <motion.aside
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.16, ease: "easeOut" }}
-              aria-label={t("live.kicker")}
-              className="pointer-events-auto grid rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:grid-cols-2 lg:flex lg:max-h-[calc(100vh-7rem)] lg:flex-col lg:overflow-y-auto"
-            >
-              {/* Below lg: match events and leaderboard side by side (from sm). From lg: one column,
-                  unless the leaderboard has moved to its own column on the right. */}
-              <section className="border-b border-line p-3 sm:border-b-0 sm:border-r lg:border-r-0 lg:border-b">
-                {liveState.matchEnd ? (
-                  <MatchEndCard
-                    end={liveState.matchEnd}
-                    matchInfo={liveMatchInfo}
-                    onExport={fullTimeReport ? () => setIsFullTimeReportOpen(true) : undefined}
-                  />
+          {isLiveView ? (
+            challengeState ? (
+              /* Challenge open in Live Match */
+              <motion.aside
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+                aria-label={t("challenge.kicker")}
+                className={`pointer-events-auto flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm lg:flex ${reveal ? "flex" : "hidden"}`}
+              >
+                {reveal ? (
+                  <div className="p-3">
+                    <RevealCard
+                      reveal={reveal}
+                      onContinue={continueAfterReveal}
+                      view={replay.view}
+                      onView={replay.setView}
+                      onReplay={replay.replay}
+                      activeSpeaker={tts.activeSpeaker}
+                      isSpeaking={tts.isPlaying}
+                      onPlayVoice={() => playRevealVoice(reveal)}
+                      onStopVoice={tts.stop}
+                    />
+                  </div>
                 ) : (
-                  <LiveStatusCard
-                    live={liveState}
-                    clockSeconds={liveClock}
-                    matchInfo={liveMatchInfo}
-                    onPractice={goToPractice}
+                  <ChallengeCard
+                    state={challengeState}
+                    secondsLeft={challenge.secondsLeft}
+                    notice={challenge.notice}
+                    teamInfo={fanSession?.teamInfo}
+                    onConfirm={() => challenge.submit(false)}
+                    onReset={challenge.reset}
+                    onLeave={leaveChallenge}
+                    onHighlightPlayer={setHoveredPlayerId}
+                    delivery={liveDelivery}
                   />
                 )}
-              </section>
-              {!boardOnRight && <section className="flex flex-col p-3">{leaderboardCard}</section>}
-            </motion.aside>
+              </motion.aside>
+            ) : (
+              <motion.aside
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+                aria-label={t("live.kicker")}
+                className="pointer-events-auto grid rounded-lg border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:grid-cols-2 lg:flex lg:max-h-[calc(100vh-7rem)] lg:flex-col lg:overflow-y-auto"
+              >
+                {/* Below lg: match events and leaderboard side by side (from sm). From lg: one column,
+                    unless the leaderboard has moved to its own column on the right. */}
+                <section className="border-b border-line p-3 sm:border-b-0 sm:border-r lg:border-r-0 lg:border-b">
+                  {liveState.matchEnd ? (
+                    <MatchEndCard
+                      end={liveState.matchEnd}
+                      matchInfo={liveMatchInfo}
+                      onExport={fullTimeReport ? () => setIsFullTimeReportOpen(true) : undefined}
+                    />
+                  ) : (
+                    <LiveStatusCard
+                      live={liveState}
+                      clockSeconds={liveClock}
+                      matchInfo={liveMatchInfo}
+                      onPractice={goToPractice}
+                    />
+                  )}
+                </section>
+                {!boardOnRight && <section className="flex flex-col p-3">{leaderboardCard}</section>}
+              </motion.aside>
+            )
           ) : (
           <AnimatePresence>
             {isHudDrawerOpen && (
@@ -950,65 +987,94 @@ function DashboardPage() {
                   </section>
                 )}
 
-                {/* Microphone Voice Input Mode — ONLY in Key Moments mode (!isLiveView) */}
+                {/* Microphone Voice Input Mode — ALWAYS mounted in Key Moments mode (!isLiveView) */}
                 <section className="border-b border-line p-3">
                   <VoiceWhatIfPanel
-                    currentFrame={currentFrame}
+                    currentFrame={voiceActiveFrame}
+                    inPlayMode={inChallenge}
+                    onEnterPlayMode={handleEnterPlayMode}
                     onBeforeListen={() => {
                       setIsPlaying(false);
                       tts.stop();
                     }}
-                    onMovePlayer={updatePlayerPosition}
+                    onMovePlayer={handleVoiceMovePlayer}
                     onApplySimulatedFrame={applySimulatedFrame}
                     onTriggerOfflineSimulation={applyMovesAndSimulate}
                     onHighlightPlayers={setHighlightedPlayerIds}
-                    onResetMoves={() => {
-                      setIsPlaying(false);
-                      setFreeMoveLimitNotice(false);
-                      tts.stop();
-                      resetSimulation();
-                    }}
+                    onResetMoves={handleVoiceReset}
+                    onDropMove={handleVoiceDrop}
+                    movablePlayerIds={activeMovablePlayerIds}
                     externalLimitNotice={freeMoveLimitNotice}
                   />
                 </section>
 
-                {/* xT Live Challenge entry */}
-                <section className="border-b border-line p-3">
-                  <PlayMomentCard
-                    mode={modeFor(supportedSide, currentFrame)}
-                    possessionTeam={fixture[currentFrame.possession_team]}
-                    supportedTeam={fixture[supportedSide]}
-                    onPlay={startChallenge}
+                {reveal ? (
+                  <div className="p-3">
+                    <RevealCard
+                      reveal={reveal}
+                      onContinue={continueAfterReveal}
+                      view={replay.view}
+                      onView={replay.setView}
+                      onReplay={replay.replay}
+                      activeSpeaker={tts.activeSpeaker}
+                      isSpeaking={tts.isPlaying}
+                      onPlayVoice={() => playRevealVoice(reveal)}
+                      onStopVoice={tts.stop}
+                    />
+                  </div>
+                ) : challengeState ? (
+                  <ChallengeCard
+                    state={challengeState}
+                    secondsLeft={challenge.secondsLeft}
+                    notice={challenge.notice}
+                    teamInfo={fanSession?.teamInfo}
+                    onConfirm={() => challenge.submit(false)}
+                    onReset={handleVoiceReset}
+                    onLeave={leaveChallenge}
+                    onHighlightPlayer={setHoveredPlayerId}
+                    delivery={liveDelivery}
                   />
-                </section>
+                ) : (
+                  <>
+                    {/* xT Live Challenge entry */}
+                    <section className="border-b border-line p-3">
+                      <PlayMomentCard
+                        mode={modeFor(supportedSide, currentFrame)}
+                        possessionTeam={fixture[currentFrame.possession_team]}
+                        supportedTeam={fixture[supportedSide]}
+                        onPlay={startChallenge}
+                      />
+                    </section>
 
-                {/* Auto-Coach */}
-                <section className="border-b border-line p-3">
-                  <AutoCoachPanel
-                    currentFrame={currentFrame}
-                    onApplyOptimalDefense={applyMovesAndSimulate}
-                    onResetDefense={() => {
-                      setFreeMoveLimitNotice(false);
-                      tts.stop();
-                      resetSimulation();
-                    }}
-                  />
-                </section>
+                    {/* Auto-Coach */}
+                    <section className="border-b border-line p-3">
+                      <AutoCoachPanel
+                        currentFrame={currentFrame}
+                        onApplyOptimalDefense={applyMovesAndSimulate}
+                        onResetDefense={() => {
+                          setFreeMoveLimitNotice(false);
+                          tts.stop();
+                          resetSimulation();
+                        }}
+                      />
+                    </section>
 
-                {/* xT metrics */}
-                <section className="p-3">
-                  <XtDeltaPanel
-                    teamShortNames={teamShortNames}
-                    metrics={currentFrame.metrics}
-                    isCounterfactualMode={currentFrame.is_counterfactual_mode}
-                    onReset={() => {
-                      setIsPlaying(false);
-                      setFreeMoveLimitNotice(false);
-                      tts.stop();
-                      resetSimulation();
-                    }}
-                  />
-                </section>
+                    {/* xT metrics */}
+                    <section className="p-3">
+                      <XtDeltaPanel
+                        teamShortNames={teamShortNames}
+                        metrics={currentFrame.metrics}
+                        isCounterfactualMode={currentFrame.is_counterfactual_mode}
+                        onReset={() => {
+                          setIsPlaying(false);
+                          setFreeMoveLimitNotice(false);
+                          tts.stop();
+                          resetSimulation();
+                        }}
+                      />
+                    </section>
+                  </>
+                )}
               </motion.aside>
             )}
           </AnimatePresence>
