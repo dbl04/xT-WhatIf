@@ -823,18 +823,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                       x2={optimalTargetPlayer.x} y2={optimalTargetPlayer.y}
                       stroke={C.gain} markerEnd="url(#optimalArrowHead)" {...hair(1.5)}
                     />
-                    {(() => {
-                      const sx = actorPlayer ? actorPlayer.x : ballX;
-                      const sy = actorPlayer ? actorPlayer.y : ballY;
-                      const mx = (sx + optimalTargetPlayer.x) / 2;
-                      const my = (sy + optimalTargetPlayer.y) / 2;
-                      return (
-                        <g transform={`translate(${mx}, ${my - 2.8})`}>
-                          <rect x="-9.5" y="-1.8" width="19" height="3.6" fill={C.gain} />
-                          <text x="0" y="0.7" fontSize="1.9" fontWeight="800" letterSpacing="0.15" fill={C.ink} textAnchor="middle">{t("pitch.bestOption")}</text>
-                        </g>
-                      );
-                    })()}
                   </g>
                 )}
               </g>
