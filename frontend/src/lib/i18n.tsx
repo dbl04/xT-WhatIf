@@ -29,7 +29,7 @@ const en = {
   "nav.export": "Export",
   "nav.exportTitle": "Export the tactical report as PNG",
   "nav.mode.live": "Live match",
-  "nav.mode.practice": "Key moments & Voice",
+  "nav.mode.practice": "Key moments",
   "nav.modeAria": "Game mode",
 
   // Personalisation
@@ -417,7 +417,7 @@ const es: Record<MessageKey, string> = {
   "nav.export": "Exportar",
   "nav.exportTitle": "Exportar el informe táctico en PNG",
   "nav.mode.live": "En directo",
-  "nav.mode.practice": "Jugadas clave y Voz",
+  "nav.mode.practice": "Jugadas clave",
   "nav.modeAria": "Modo de juego",
 
   "profile.language": "Idioma",

@@ -766,15 +766,7 @@ function DashboardPage() {
             </>
           )}
 
-          <Button
-            variant="ghost"
-            onClick={() => setIsCloudTelemetryOpen(true)}
-            title={t("nav.infraTitle")}
-            className="hidden sm:inline-flex"
-          >
-            <Activity className="h-3.5 w-3.5 text-signal-gain" />
-            <span className="hidden xl:inline">{t("nav.infra")}</span>
-          </Button>
+          {/* Infrastructure is hidden so the fixture line fits */}
 
           <IconButton
             onClick={() => setIsDemoGuideOpen(true)}

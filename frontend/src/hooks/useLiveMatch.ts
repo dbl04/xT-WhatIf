@@ -168,16 +168,16 @@ function buildFallbackLeaderboard(nickname: string, team: TeamSide): Leaderboard
 }
 
 const INITIAL: LiveState = {
-  status: "live",
+  status: "connecting",
   matchId: INITIAL_FRAME?.match_id ?? 900001,
   matchInfo: INITIAL_FRAME?.match_info ?? null,
-  clockSeconds: INITIAL_FRAME ? INITIAL_FRAME.minute * 60 + INITIAL_FRAME.second : 0,
+  clockSeconds: 0,
   clockAt: Date.now(),
   durationS: 300,
   score: { home: 0, away: 0 },
   frame: INITIAL_FRAME,
   frameSeq: 1,
-  recentEvents: INITIAL_FRAME ? [buildOfflineSummary(INITIAL_FRAME, 0, { home: 0, away: 0 })] : [],
+  recentEvents: [],
   moment: null,
   momentDeadline: null,
   reveal: null,
@@ -425,7 +425,6 @@ export function useLiveMatch({
       };
     };
 
-    startFallbackTicker();
     connect();
     return () => {
       disposed = true;
