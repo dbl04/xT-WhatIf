@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentMessage, MatchFramePayload, MatchInfo, TeamSide } from "@/types/match";
 import type { ChallengeMode, ChallengeMove } from "@/lib/challenge";
 import type { Audience, Language } from "@/lib/i18n";
-import { LIVE_WS_URL, WS_BASE_URL } from "@/lib/api";
+import { LIVE_WS_URL, WS_BASE_URL, readConfig } from "@/lib/api";
 import { localizeEventLabel } from "@/lib/match";
 import syntheticMatchFrames from "@/mocks/match_900001_frames.json";
 
@@ -168,16 +168,16 @@ function buildFallbackLeaderboard(nickname: string, team: TeamSide): Leaderboard
 }
 
 const INITIAL: LiveState = {
-  status: "live",
+  status: "connecting",
   matchId: INITIAL_FRAME?.match_id ?? 900001,
   matchInfo: INITIAL_FRAME?.match_info ?? null,
-  clockSeconds: INITIAL_FRAME ? INITIAL_FRAME.minute * 60 + INITIAL_FRAME.second : 0,
+  clockSeconds: 0,
   clockAt: Date.now(),
   durationS: 300,
   score: { home: 0, away: 0 },
   frame: INITIAL_FRAME,
   frameSeq: 1,
-  recentEvents: INITIAL_FRAME ? [buildOfflineSummary(INITIAL_FRAME, 0, { home: 0, away: 0 })] : [],
+  recentEvents: [],
   moment: null,
   momentDeadline: null,
   reveal: null,
@@ -247,12 +247,15 @@ export function useLiveMatch({
     let disposed = false;
     let offlineFrameIdx = 0;
 
+    const cfg = readConfig();
     const candidateUrls = Array.from(
       new Set([
+        `${cfg.liveWsUrl.replace(/\/$/, "")}/ws`,
         wsUrl.replace(/\/$/, ""),
+        `${cfg.wsUrl.replace(/\/$/, "")}/ws`,
         `${WS_BASE_URL.replace(/\/$/, "")}/ws`,
-        "ws://localhost:8001/ws",
         "ws://localhost:8000/ws",
+        "ws://localhost:8001/ws",
       ])
     );
 
@@ -425,7 +428,23 @@ export function useLiveMatch({
       };
     };
 
-    startFallbackTicker();
+    // Fetch live match state immediately via HTTP while the WebSocket handshake completes
+    const stateHttpBases = Array.from(new Set([cfg.liveApiUrl, cfg.apiUrl, "http://localhost:8000", "http://localhost:8001"]));
+    void (async () => {
+      for (const base of stateHttpBases) {
+        if (disposed || serverConnectedRef.current) break;
+        try {
+          const res = await fetch(`${base.replace(/\/$/, "")}/api/v1/live/state`, { cache: "no-store" });
+          if (res.ok) {
+            const payload = await res.json();
+            if (!disposed) handle({ type: "MATCH_STATE", payload });
+            break;
+          }
+        } catch {
+          // Try next candidate
+        }
+      }
+    })();
     connect();
     return () => {
       disposed = true;

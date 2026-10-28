@@ -114,7 +114,7 @@ flowchart TD
 ### 1. Canonical Expected Threat (xT) Bilinear Interpolation
 The field is partitioned into an $M \times N = 16 \times 12$ canonical grid ($C = 192$ zones) following Karun Singh's Markovian model. The expected threat for any continuous coordinate $(x, y) \in [0, 120] \times [0, 80]$ is computed using 2D bilinear interpolation:
 
-$$\text{xT}(x, y) = \sum_{i=0}^{1} \sum_{j=0}^{1} \text{xT}_{c+i, r+j} \cdot \left(1 - \left|\frac{x - x_{c+i}}{\Delta x}\right|\right) \left(1 - \left|\frac{y - y_{r+j}}{\Delta y}\right|\right)$$
+$$\text{xT}(x, y) = \sum_{i=0}^{1} \sum_{j=0}^{1} \text{xT}_{c+i, r+j} \cdot \left(1 - \lvert\frac{x - x_{c+i}}{\Delta x}\rvert\right) \left(1 - \lvert\frac{y - y_{r+j}}{\Delta y}\rvert\right)$$
 
 The counterfactual delta is given by:
 
@@ -125,7 +125,7 @@ To capture spatial dominance in the final third ($x \in [60.0, 120.0]$, $y \in [
 
 $$\mathcal{V}_k = \left\{ \mathbf{q} \in \mathbb{R}^2 \mid \|\mathbf{q} - \mathbf{p}_k\|_2 < \|\mathbf{q} - \mathbf{p}_j\|_2, \; \forall j \neq k \right\}$$
 
-$$\text{SpaceControl}_{\text{home}} = \frac{1}{|\mathcal{G}|} \sum_{\mathbf{q} \in \mathcal{G}} \mathbb{I}\left(\operatorname{argmin}_k \|\mathbf{q} - \mathbf{p}_k\|_2 \in \text{Team}_{\text{home}}\right) \times 100\%$$
+$$\text{SpaceControl}_{\text{home}} = \frac{1}{\lvert\mathcal{G}\rvert} \sum_{\mathbf{q} \in \mathcal{G}} \mathbb{I}\left(\arg\min_k \|\mathbf{q} - \mathbf{p}_k\|_2 \in \text{Team}_{\text{home}}\right) \times 100\%$$
 
 *Performance: Sub-2ms vector execution across 2,400 query points.*
 
@@ -138,7 +138,7 @@ $$P_{\text{pass}} = \prod_{m \in \text{Defenders}} \left( 1 - P_{\text{intercept
 
 The engine dynamically recommends the **optimal alternative receiver** (`optimal_pass_target_id`) by maximizing Expected Value:
 
-$$k^* = \operatorname{argmax}_{k \in \text{Teammates}} \left( P_{\text{pass}}(\mathbf{p}_k) \times \text{xT}(\mathbf{p}_k) \right)$$
+$$k^* = \arg\max_{k \in \text{Teammates}} \left( P_{\text{pass}}(\mathbf{p}_k) \times \text{xT}(\mathbf{p}_k) \right)$$
 
 ### 4. Quadratic Physical Inertia Penalty
 When a user drags a player beyond realistic reaction envelopes ($\Delta d > 6.0\,\text{m}$), a biomechanical recovery penalty is applied to avoid teleportation artifacts:
@@ -354,5 +354,8 @@ All test suites run in GitHub Actions on every Pull Request and Push to `main`.
 ---
 
 ## 👥 Contributors & Hackathon Team
-- **"Inside the Game" Hackathon Team** — October 2026.
-- Powered by synthetic match data & Microsoft Azure Cloud.
+- **Daniel Blanchard Lobaco** — [@dbl04](https://github.com/dbl04)
+- **Enrique Cardiel Gascón** — [@git874417](https://github.com/git874417)
+- **Víctor Sierra Vicén** — [@vsier56](https://github.com/vsier56)
+
+*"Inside the Game" Microsoft Hackathon — October 2026 · Powered by synthetic match data & Microsoft Azure Cloud.*

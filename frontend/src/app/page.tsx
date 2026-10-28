@@ -17,7 +17,7 @@ import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
 import { OnboardingGate, useFanSession } from "@/components/onboarding/OnboardingGate";
 import { FanBadge } from "@/components/onboarding/FanBadge";
 import { ChallengeCard, ChallengeStrip, PlayMomentCard, type LiveDelivery } from "@/components/challenge/ChallengeCards";
-import { Button, IconButton, Kicker } from "@/components/ui/primitives";
+import { Button, IconButton } from "@/components/ui/primitives";
 import { useMatchEngine } from "@/hooks/useMatchEngine";
 import { useChallenge } from "@/hooks/useChallenge";
 import { LIVE_API_URL } from "@/lib/api";
@@ -28,7 +28,6 @@ import { evaluateChallenge, modeFor, type ChallengeMove } from "@/lib/challenge"
 import type { PitchChallenge } from "@/components/pitch/TacticalPitch2D";
 import { useBroadcastTTS } from "@/hooks/useBroadcastTTS";
 import { sfx } from "@/lib/sfx";
-import { getPresetsForFrame, TacticalPreset } from "@/lib/presets";
 import { getMatchInfo } from "@/lib/match";
 import { useI18n } from "@/lib/i18n";
 import { MAX_VOICE_MOVES } from "@/lib/voiceWhatIf";
@@ -39,7 +38,6 @@ import {
   Columns2,
   PanelLeftClose,
   PanelLeftOpen,
-  ArrowUpRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -141,12 +139,6 @@ function DashboardPage() {
   const pitchRef = useRef<TacticalPitch2DHandle | null>(null);
 
 
-  // Contextual tactical presets for the current play
-  const currentPresets = useMemo(
-    () => getPresetsForFrame(currentFrame, t),
-    [currentFrame, t]
-  );
-
   // Moves players and simulates in one go. triggerSimulation receives the moved players
   // explicitly because its `frames` snapshot does not include updates from this same tick.
   // Resets previous modifications on the frame first so Auto-Coach or Scenario Restore
@@ -156,33 +148,6 @@ function DashboardPage() {
     const moved = players.filter((p) => p.is_modified).slice(0, MAX_VOICE_MOVES);
     moved.forEach((p) => updatePlayerPosition(p.player_id, p.x, p.y));
     triggerSimulation(moved);
-  };
-
-  const applyPreset = (preset: TacticalPreset) => {
-    const othersMoved = currentFrame.players.filter(
-      (p) => p.is_modified && p.player_id !== preset.playerId
-    ).length;
-    if (othersMoved >= MAX_VOICE_MOVES) {
-      sfx.blocked();
-      setFreeMoveLimitNotice(true);
-      return;
-    }
-    setFreeMoveLimitNotice(false);
-    setIsPlaying(false);
-    applyMovesAndSimulate(
-      currentFrame.players.map((p) =>
-        p.player_id === preset.playerId
-          ? {
-              ...p,
-              x: preset.targetX,
-              y: preset.targetY,
-              original_x: p.original_x ?? p.x,
-              original_y: p.original_y ?? p.y,
-              is_modified: true,
-            }
-          : p
-      )
-    );
   };
 
   const handleTogglePlay = () => {
@@ -829,7 +794,7 @@ function DashboardPage() {
             isPlaying={(isPlaying && !inChallenge) || replayPassing}
             challenge={pitchChallenge}
             // The live match can only be touched while a key moment is open.
-            readOnly={isLiveView && !inChallenge}
+            readOnly={!inChallenge}
             maxFreeMoves={MAX_VOICE_MOVES}
             onFreeMoveLimitReached={() => {
               sfx.blocked();
@@ -844,8 +809,8 @@ function DashboardPage() {
             }
             // In a challenge the board belongs to useChallenge: no counterfactual simulation
             // or debate on drop (that is the reveal's job), only the preview arrow.
-            onPlayerMove={inChallenge ? challenge.move : isLiveView ? () => {} : updatePlayerPosition}
-            onSimulationTrigger={inChallenge ? dropInChallenge : isLiveView ? () => {} : onPlayerDrop}
+            onPlayerMove={inChallenge ? challenge.move : () => {}}
+            onSimulationTrigger={inChallenge ? dropInChallenge : () => {}}
             onAnimationEnd={handleAnimationEnd}
             onDragStart={handleDragStart}
           />
@@ -1028,29 +993,6 @@ function DashboardPage() {
                     supportedTeam={fixture[supportedSide]}
                     onPlay={startChallenge}
                   />
-                </section>
-
-                {/* Quick scenarios */}
-                <section className="border-b border-line p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <Kicker>{t("dock.quickScenarios")}</Kicker>
-                    <span className="font-mono text-[10px] text-fg-subtle">
-                      {currentPresets.length}
-                    </span>
-                  </div>
-                  <ul className="-mx-1 flex flex-col">
-                    {currentPresets.map((preset) => (
-                      <li key={preset.id}>
-                        <button
-                          onClick={() => applyPreset(preset)}
-                          className="group flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg"
-                        >
-                          <span className="truncate">{preset.label}</span>
-                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-colors group-hover:text-signal-gain" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
                 </section>
 
                 {/* Auto-Coach */}
