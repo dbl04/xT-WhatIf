@@ -829,7 +829,7 @@ function DashboardPage() {
             isPlaying={(isPlaying && !inChallenge) || replayPassing}
             challenge={pitchChallenge}
             // The live match can only be touched while a key moment is open.
-            readOnly={isLiveView && !inChallenge}
+            readOnly={!inChallenge}
             maxFreeMoves={MAX_VOICE_MOVES}
             onFreeMoveLimitReached={() => {
               sfx.blocked();
@@ -844,8 +844,8 @@ function DashboardPage() {
             }
             // In a challenge the board belongs to useChallenge: no counterfactual simulation
             // or debate on drop (that is the reveal's job), only the preview arrow.
-            onPlayerMove={inChallenge ? challenge.move : isLiveView ? () => {} : updatePlayerPosition}
-            onSimulationTrigger={inChallenge ? dropInChallenge : isLiveView ? () => {} : onPlayerDrop}
+            onPlayerMove={inChallenge ? challenge.move : () => {}}
+            onSimulationTrigger={inChallenge ? dropInChallenge : () => {}}
             onAnimationEnd={handleAnimationEnd}
             onDragStart={handleDragStart}
           />

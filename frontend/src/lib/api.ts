@@ -30,11 +30,16 @@ declare global {
 const origin = (url: string) => url.replace(/\/+$/, "").replace(/\/ws$/, "");
 const toWs = (httpUrl: string) => httpUrl.replace(/^http/, "ws");
 
-function readConfig(): RuntimeConfig {
+export function readConfig(): RuntimeConfig {
   const injected = typeof window !== "undefined" ? window.__XT_CONFIG__ ?? {} : {};
-  const apiUrl = origin(injected.apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
+  const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const isAzureFrontend = browserOrigin.includes("-frontend.");
+  const inferredGateway = isAzureFrontend ? browserOrigin.replace("-frontend.", "-aca-gateway.") : "";
+  const inferredLive = isAzureFrontend ? browserOrigin.replace("-frontend.", "-live.") : "";
+
+  const apiUrl = origin(injected.apiUrl || process.env.NEXT_PUBLIC_API_URL || inferredGateway || "http://localhost:8000");
   const wsUrl = origin(injected.wsUrl || process.env.NEXT_PUBLIC_WS_URL || toWs(apiUrl));
-  const liveApiUrl = origin(injected.liveApiUrl || process.env.NEXT_PUBLIC_LIVE_API_URL || apiUrl);
+  const liveApiUrl = origin(injected.liveApiUrl || process.env.NEXT_PUBLIC_LIVE_API_URL || inferredLive || apiUrl);
   const liveWsUrl = origin(injected.liveWsUrl || process.env.NEXT_PUBLIC_LIVE_WS_URL || toWs(liveApiUrl));
   return { apiUrl, wsUrl, liveApiUrl, liveWsUrl };
 }
