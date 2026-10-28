@@ -267,8 +267,7 @@ class MatchRoom:
                                   opt.best.target_id, lang)
 
     @classmethod
-    def pundit_pack(cls, m: Moment, team: TeamSide, user_id: Optional[str], lang: str,
-                    audience: str = "analyst") -> Dict[str, Any]:
+    def pundit_pack(cls, m: Moment, team: TeamSide, user_id: Optional[str], lang: str) -> Dict[str, Any]:
         opt = m.optimum(team)
         sub = m.submissions.get(user_id) if user_id else None
         user_moves = [(mv.player_id, mv.x, mv.y) for mv in sub.moves] if sub is not None else None
@@ -289,27 +288,25 @@ class MatchRoom:
             user_score=user_score,
             beat_machine=beat_machine,
             lang=lang,
-            audience=audience,
         )
 
     @classmethod
-    def personal_text(cls, m: Moment, user_id: str, lang: str, team: Optional[TeamSide] = None,
-                      audience: str = "analyst") -> str:
+    def personal_text(cls, m: Moment, user_id: str, lang: str, team: Optional[TeamSide] = None) -> str:
         sub = m.submissions.get(user_id) if user_id else None
         side = team or (sub.team if sub is not None else TeamSide.HOME)
-        return str(cls.pundit_pack(m, side, user_id, lang, audience)["personal"])
+        return str(cls.pundit_pack(m, side, user_id, lang)["personal"])
 
     @classmethod
     def voice_lines(cls, m: Moment, profile: Profile) -> List[Tuple[str, str]]:
         """What the pundits say out loud at the reveal: concise, conversational broadcast lines."""
-        pack = cls.pundit_pack(m, profile.team, profile.user_id, profile.language, profile.audience)
+        pack = cls.pundit_pack(m, profile.team, profile.user_id, profile.language)
         return [("data_scientist", str(pack["voronoi_voice"])),
                 ("classic_coach", str(pack["bianchi_voice"]))]
 
     def reveal_for(self, m: Moment, profile: Profile) -> Dict[str, Any]:
         opt = m.optimum(profile.team)
         lang = profile.language
-        pack = self.pundit_pack(m, profile.team, profile.user_id, lang, profile.audience)
+        pack = self.pundit_pack(m, profile.team, profile.user_id, lang)
         sub = m.submissions.get(profile.user_id)
         same_side = [s for s in m.submissions.values() if s.team == profile.team]
         found = sum(1 for s in same_side if (s.score or 0) >= FOUND_IT_SCORE)

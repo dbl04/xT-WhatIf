@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
 import { RotateCcw, Loader2 } from "lucide-react";
 import { Button, IconButton, Kicker } from "@/components/ui/primitives";
@@ -29,14 +29,6 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
   const [lastResult, setLastResult] = useState<{ count: number; ms: number } | null>(null);
   const [adjustments, setAdjustments] = useState<AdjustmentSummary[]>([]);
 
-  // Clear stale optimization summary when switching key moments or resetting the play
-  useEffect(() => {
-    if (!currentFrame.is_counterfactual_mode) {
-      setLastResult(null);
-      setAdjustments([]);
-    }
-  }, [currentFrame.event_uuid, currentFrame.is_counterfactual_mode]);
-
   // Client-side fallback solver (sub-5ms polar sweep)
   const solveClientSideFallback = (frame: MatchFramePayload) => {
     const t0 = performance.now();
@@ -48,14 +40,10 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
     const focalX = frame.ball_end_x ?? frame.ball_x;
     const focalY = frame.ball_end_y ?? frame.ball_y;
 
-    // Pick 2 defenders closest to threat (evaluated from their original base coordinates)
+    // Pick 2 defenders closest to threat
     const sorted = [...defenders].sort((a, b) => {
-      const ax = a.original_x ?? a.x;
-      const ay = a.original_y ?? a.y;
-      const bx = b.original_x ?? b.x;
-      const by = b.original_y ?? b.y;
-      const da = Math.hypot(ax - focalX, ay - focalY);
-      const db = Math.hypot(bx - focalX, by - focalY);
+      const da = Math.hypot(a.x - focalX, a.y - focalY);
+      const db = Math.hypot(b.x - focalX, b.y - focalY);
       return da - db;
     });
 
@@ -63,19 +51,16 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
     const adjustmentsList: AdjustmentSummary[] = [];
 
     const updatedPlayers = frame.players.map((p) => {
-      const baseX = p.original_x ?? p.x;
-      const baseY = p.original_y ?? p.y;
       const idx = keyDefenders.findIndex((kd) => kd.player_id === p.player_id);
       if (idx !== -1) {
-        // Shift defender towards the focal point by min(4.8m, dist * 0.35)
-        const dx = focalX - baseX;
-        const dy = focalY - baseY;
-        const rawDist = Math.hypot(dx, dy);
-        const dist = rawDist || 1;
-        const shift = Math.min(4.8, rawDist * 0.35);
-        const nx = Math.max(0, Math.min(120, baseX + (dx / dist) * shift));
-        const ny = Math.max(0, Math.min(80, baseY + (dy / dist) * shift));
-        const disp = Math.round(Math.hypot(nx - baseX, ny - baseY) * 10) / 10;
+        // Shift defender towards the focal point by min(4.5m, dist * 0.4)
+        const dx = focalX - p.x;
+        const dy = focalY - p.y;
+        const dist = Math.hypot(dx, dy);
+        const shift = Math.min(4.8, dist * 0.35);
+        const nx = Math.max(0, Math.min(120, p.x + (dx / dist) * shift));
+        const ny = Math.max(0, Math.min(80, p.y + (dy / dist) * shift));
+        const disp = Math.round(Math.hypot(nx - p.x, ny - p.y) * 10) / 10;
 
         adjustmentsList.push({
           playerName: p.name,
@@ -86,17 +71,12 @@ export const AutoCoachPanel: React.FC<AutoCoachPanelProps> = ({
           ...p,
           x: Math.round(nx * 10) / 10,
           y: Math.round(ny * 10) / 10,
-          original_x: baseX,
-          original_y: baseY,
+          original_x: p.original_x ?? p.x,
+          original_y: p.original_y ?? p.y,
           is_modified: true,
         };
       }
-      return {
-        ...p,
-        x: baseX,
-        y: baseY,
-        is_modified: false,
-      };
+      return p;
     });
 
     const elapsed = Math.max(1.2, Math.round((performance.now() - t0) * 10) / 10);

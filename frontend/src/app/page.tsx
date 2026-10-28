@@ -13,7 +13,6 @@ import { InfoModal, useFirstVisitInfo } from "@/components/controls/InfoModal";
 import { AutoCoachPanel } from "@/components/controls/AutoCoachPanel";
 import { VoiceWhatIfPanel } from "@/components/controls/VoiceWhatIfPanel";
 import { ScenarioComparatorModal } from "@/components/metrics/ScenarioComparatorModal";
-import { BroadcastCommentatorCard } from "@/components/audio/BroadcastCommentatorCard";
 import { ProfileSwitcher } from "@/components/controls/ProfileSwitcher";
 import { OnboardingGate, useFanSession } from "@/components/onboarding/OnboardingGate";
 import { FanBadge } from "@/components/onboarding/FanBadge";
@@ -41,7 +40,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ArrowUpRight,
-  Activity,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -362,8 +360,8 @@ function DashboardPage() {
     const dock = dockRef.current;
     const below = belowPitchRef.current;
     if (!stage || !dock || !below || typeof ResizeObserver === "undefined") return;
-    // Pitch top bar (44 px + border), footer (33 px), frame border, plus waiting banner (34 px) when readOnly.
-    const PITCH_CHROME_PX = isLiveView && !inChallenge ? 116 : 82;
+    // Pitch top bar (44 px + border), footer (33 px), frame border.
+    const PITCH_CHROME_PX = 82;
     const measure = () => {
       if (!window.matchMedia("(min-width: 1024px)").matches) {
         // Stacked layout: the leaderboard always sits next to the match events again.
@@ -376,7 +374,7 @@ function DashboardPage() {
       const innerH = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
       const width = innerW - dock.offsetWidth - 16;
       const belowH = below.offsetHeight;
-      const height = innerH - (belowH > 0 ? belowH + 12 : 0) - PITCH_CHROME_PX;
+      const height = innerH - (belowH > 0 ? belowH + 12 : 60) - PITCH_CHROME_PX;
       // The right column is as wide as the dock.
       const widthWithBoard = width - dock.offsetWidth - 16;
       const boardFits = isLiveView && widthWithBoard >= height * 1.5;
@@ -614,7 +612,6 @@ function DashboardPage() {
       violationLabels[v.player_id] ??= t(`challenge.rule.${v.rule}`).toUpperCase();
     });
     return {
-      mode: challengeState.mode,
       movableIds: challengeState.movableIds,
       maxRadius: challengeState.rules.max_radius_m,
       maxPlayers: challengeState.rules.max_players,
@@ -766,15 +763,7 @@ function DashboardPage() {
             </>
           )}
 
-          <Button
-            variant="ghost"
-            onClick={() => setIsCloudTelemetryOpen(true)}
-            title={t("nav.infraTitle")}
-            className="hidden sm:inline-flex"
-          >
-            <Activity className="h-3.5 w-3.5 text-signal-gain" />
-            <span className="hidden xl:inline">{t("nav.infra")}</span>
-          </Button>
+          {/* Infrastructure is hidden so the fixture line fits */}
 
           <IconButton
             onClick={() => setIsDemoGuideOpen(true)}
@@ -867,23 +856,6 @@ function DashboardPage() {
           ref={belowPitchRef}
           className={`contents lg:flex lg:w-full lg:shrink-0 lg:flex-col lg:items-center lg:gap-3 ${isLiveView ? "lg:hidden" : ""}`}
         >
-        {/* 4. Lower-Third (hidden during a challenge: the pundits discuss the answer and the
-            card would cover the challenge card on short screens) */}
-        {!inChallenge && !isLiveView && <div className="order-4 w-full lg:order-1"><BroadcastCommentatorCard
-          messages={currentFrame.agent_debate}
-          activeSpeakingRole={tts.activeSpeaker}
-          isSpeaking={tts.isPlaying}
-          isSimulating={isThinking}
-          ttsProvider={tts.ttsProvider}
-          highlightedPlayerIds={highlightedPlayerIds}
-          onHighlightPlayers={setHighlightedPlayerIds}
-          onPlaySingleMessage={tts.playSingleMessage}
-          onPlayFullDebate={tts.play}
-          onStopAudio={tts.stop}
-          clockLabel={clock}
-          eventType={currentFrame.event_type}
-        /></div>}
-
         {/* 5. Transport Dock */}
         <div className={`pointer-events-none order-2 flex w-full flex-col items-center gap-3 lg:order-2 ${isLiveView ? "lg:hidden" : ""}`}>
           {challengeState && !reveal && (
@@ -1016,7 +988,7 @@ function DashboardPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -12 }}
                 transition={{ duration: 0.16, ease: "easeOut" }}
-                className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+                className="pointer-events-auto flex flex-col rounded-lg lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto border border-line-strong bg-ink-900/95 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
                 {practising && (
                   <section className="border-b border-line p-3">

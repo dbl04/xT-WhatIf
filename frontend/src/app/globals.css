@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  --font-display: "Barlow Condensed", Impact, "Arial Narrow", sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
   --background: theme("colors.ink.DEFAULT");
   --foreground: theme("colors.fg.DEFAULT");
   color-scheme: dark;

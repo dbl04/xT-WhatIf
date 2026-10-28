@@ -12,7 +12,6 @@ interface BroadcastCommentatorCardProps {
   activeSpeakingRole?: "data_scientist" | "classic_coach" | null;
   isSpeaking?: boolean;
   isSimulating?: boolean;
-  ttsProvider?: "azure-ai-speech" | "azure-openai-tts" | "browser-web-speech-fallback" | null;
   highlightedPlayerIds?: number[];
   onHighlightPlayers?: (playerIds: number[]) => void;
   onPlaySingleMessage?: (msg: AgentMessage) => void;
@@ -33,7 +32,6 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   activeSpeakingRole = null,
   isSpeaking = false,
   isSimulating = false,
-  ttsProvider = null,
   onHighlightPlayers,
   onPlaySingleMessage,
   onPlayFullDebate,
@@ -41,7 +39,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   clockLabel,
   eventType,
 }) => {
-  const { t, audience } = useI18n();
+  const { t } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const onHighlightPlayersRef = useRef(onHighlightPlayers);
@@ -49,15 +47,6 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   useEffect(() => {
     onHighlightPlayersRef.current = onHighlightPlayers;
   }, [onHighlightPlayers]);
-
-  // Select the pundit tab matching the chosen audience profile (Analyst/Audio -> Voronoi, Coach/Casual -> Bianchi)
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const preferredRole: AgentRole =
-      audience === "coach" || audience === "casual" ? "classic_coach" : "data_scientist";
-    const idx = messages.findIndex((m) => m.agent_role === preferredRole);
-    if (idx !== -1) setSelectedIndex(idx);
-  }, [audience, messages]);
 
   // When the TTS switches speaker, focus the active pundit
   useEffect(() => {
@@ -130,16 +119,8 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
             <span className="font-mono text-[10px] text-fg-subtle">
               {t(messages.length === 1 ? "card.comment.one" : "card.comment.other", { n: messages.length })}
             </span>
-            {(onPlaySingleMessage || onPlayFullDebate) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  onPlaySingleMessage && currentMessage
-                    ? onPlaySingleMessage(currentMessage)
-                    : onPlayFullDebate?.()
-                }
-              >
+            {onPlayFullDebate && (
+              <Button variant="ghost" size="sm" onClick={onPlayFullDebate}>
                 <Volume2 className="h-3.5 w-3.5" />
                 {t("card.listen")}
               </Button>
@@ -173,11 +154,6 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
               {strapContext && (
                 <div className="hidden items-center bg-ink px-3 font-display text-[13px] sm:flex font-semibold uppercase leading-none tracking-[0.08em] text-fg-muted">
                   {strapContext}
-                </div>
-              )}
-              {(ttsProvider === "azure-ai-speech" || ttsProvider === "azure-openai-tts") && (
-                <div className="hidden items-center border-l border-line bg-ink-800 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-sky-300 md:flex">
-                  AZURE NEURAL VOICE
                 </div>
               )}
 
