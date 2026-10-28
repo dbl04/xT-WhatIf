@@ -1,5 +1,5 @@
 /**
- * StatsBomb Canonical Coordinate Utilities for xT-WhatIf.
+ * Canonical 120x80 pitch coordinate utilities for xT-WhatIf.
  * 
  * Strict Specification:
  * - Length (X-Axis): 0.0 to 120.0 meters (left goal to right goal).
@@ -9,11 +9,11 @@
  * All coordinate transformation functions must be pure, deterministic, and clamped.
  */
 
-export const STATSBOMB_PITCH_LENGTH = 120.0;
-export const STATSBOMB_PITCH_WIDTH = 80.0;
-export const STATSBOMB_ASPECT_RATIO = STATSBOMB_PITCH_LENGTH / STATSBOMB_PITCH_WIDTH; // 1.5
+export const PITCH_LENGTH = 120.0;
+export const PITCH_WIDTH = 80.0;
+export const PITCH_ASPECT_RATIO = PITCH_LENGTH / PITCH_WIDTH; // 1.5
 
-export interface StatsbombPoint {
+export interface PitchPoint {
   x: number;
   y: number;
 }
@@ -24,43 +24,43 @@ export interface ScreenPoint {
 }
 
 /**
- * Maps standard StatsBomb (X, Y) coordinates to pixel dimensions on a screen / SVG canvas.
+ * Maps pitch (X, Y) coordinates to pixel dimensions on a screen / SVG canvas.
  */
-export function statsbombToScreen(
+export function pitchToScreen(
   x: number,
   y: number,
   canvasWidth: number,
   canvasHeight: number
 ): ScreenPoint {
-  const clampedX = Math.max(0.0, Math.min(STATSBOMB_PITCH_LENGTH, x));
-  const clampedY = Math.max(0.0, Math.min(STATSBOMB_PITCH_WIDTH, y));
+  const clampedX = Math.max(0.0, Math.min(PITCH_LENGTH, x));
+  const clampedY = Math.max(0.0, Math.min(PITCH_WIDTH, y));
 
-  const px = (clampedX / STATSBOMB_PITCH_LENGTH) * canvasWidth;
-  const py = (clampedY / STATSBOMB_PITCH_WIDTH) * canvasHeight;
+  const px = (clampedX / PITCH_LENGTH) * canvasWidth;
+  const py = (clampedY / PITCH_WIDTH) * canvasHeight;
 
   return { px, py };
 }
 
 /**
- * Maps screen / pointer pixels (relative to canvas bounding rect) back to StatsBomb coordinates.
+ * Maps screen / pointer pixels (relative to canvas bounding rect) back to pitch coordinates.
  * Clamps result strictly within [0.0, 120.0] and [0.0, 80.0] with 1 decimal precision.
  */
-export function screenToStatsbomb(
+export function screenToPitch(
   px: number,
   py: number,
   canvasWidth: number,
   canvasHeight: number,
   margin: number = 0.5
-): StatsbombPoint {
+): PitchPoint {
   if (canvasWidth <= 0 || canvasHeight <= 0) {
     return { x: 60.0, y: 40.0 };
   }
 
-  const rawX = (px / canvasWidth) * STATSBOMB_PITCH_LENGTH;
-  const rawY = (py / canvasHeight) * STATSBOMB_PITCH_WIDTH;
+  const rawX = (px / canvasWidth) * PITCH_LENGTH;
+  const rawY = (py / canvasHeight) * PITCH_WIDTH;
 
-  const clampedX = Math.max(margin, Math.min(STATSBOMB_PITCH_LENGTH - margin, rawX));
-  const clampedY = Math.max(margin, Math.min(STATSBOMB_PITCH_WIDTH - margin, rawY));
+  const clampedX = Math.max(margin, Math.min(PITCH_LENGTH - margin, rawX));
+  const clampedY = Math.max(margin, Math.min(PITCH_WIDTH - margin, rawY));
 
   return {
     x: Number(clampedX.toFixed(1)),
@@ -69,12 +69,12 @@ export function screenToStatsbomb(
 }
 
 /**
- * Normalizes StatsBomb (x, y) to percentage [0..100] for responsive CSS positioning.
+ * Normalizes pitch (x, y) to percentage [0..100] for responsive CSS positioning.
  */
-export function statsbombToPercent(x: number, y: number): { xPct: number; yPct: number } {
+export function pitchToPercent(x: number, y: number): { xPct: number; yPct: number } {
   return {
-    xPct: (Math.max(0, Math.min(STATSBOMB_PITCH_LENGTH, x)) / STATSBOMB_PITCH_LENGTH) * 100,
-    yPct: (Math.max(0, Math.min(STATSBOMB_PITCH_WIDTH, y)) / STATSBOMB_PITCH_WIDTH) * 100,
+    xPct: (Math.max(0, Math.min(PITCH_LENGTH, x)) / PITCH_LENGTH) * 100,
+    yPct: (Math.max(0, Math.min(PITCH_WIDTH, y)) / PITCH_WIDTH) * 100,
   };
 }
 
