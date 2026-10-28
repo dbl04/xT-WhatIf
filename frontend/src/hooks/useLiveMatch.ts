@@ -453,9 +453,9 @@ export function useLiveMatch({
   return { state, submit, dismissReveal };
 }
 
-/** Game clock now, advanced from the last message at the match's pace. */
+/** Game clock now, advanced from the last message at the match's pace (paused while a live challenge moment is open). */
 export function liveClockSeconds(state: LiveState, now: number): number {
-  if (state.status !== "live") return state.clockSeconds;
+  if (state.status !== "live" || state.moment !== null) return state.clockSeconds;
   const rate = (90 * 60) / Math.max(1, state.durationS);
   return Math.min(90 * 60, state.clockSeconds + ((now - state.clockAt) / 1000) * rate);
 }

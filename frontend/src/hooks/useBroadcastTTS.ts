@@ -80,6 +80,10 @@ export function useBroadcastTTS({
     "data_scientist" | "classic_coach" | null
   >(null);
   const [activeMessageIndex, setActiveMessageIndex] = useState<number>(-1);
+  const [ttsProvider, setTtsProvider] = useState<
+    "azure-ai-speech" | "azure-openai-tts" | "browser-web-speech-fallback" | null
+  >(null);
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   const isPlayingRef = useRef<boolean>(false);
   const isMutedRef = useRef<boolean>(isMuted);
@@ -110,6 +114,23 @@ export function useBroadcastTTS({
   useEffect(() => {
     onActiveSpeakerChangeRef.current = onActiveSpeakerChange;
   }, [onActiveSpeakerChange]);
+
+  // Pre-warm browser SpeechSynthesis voices on mount and on `voiceschanged` so the first
+  // Web Speech fallback utterance in Chrome/Edge never gets an empty `getVoices()` array.
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices();
+      if (available.length > 0) {
+        voicesRef.current = available;
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.addEventListener?.("voiceschanged", loadVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener?.("voiceschanged", loadVoices);
+    };
+  }, []);
 
   /** Stops active audio/speech without clearing `resumableRef` (used when muting). */
   const haltPlayback = useCallback(() => {
@@ -159,7 +180,9 @@ export function useBroadcastTTS({
         const spokenText = normalizeSpokenText(msg.analysis_body || msg.headline, lang);
         const utterance = new SpeechSynthesisUtterance(spokenText);
         utterance.lang = LOCALES[lang];
-        const voice = pickVoice(window.speechSynthesis.getVoices(), lang, msg.agent_role);
+        const currentVoices =
+          voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
+        const voice = pickVoice(currentVoices, lang, msg.agent_role);
         if (voice) {
           utterance.voice = voice;
         }
@@ -208,6 +231,9 @@ export function useBroadcastTTS({
           return null;
         }
         const data = await res.json();
+        if (data.provider) {
+          setTtsProvider(data.provider);
+        }
         if (data.is_fallback && data.warning) console.warn("[TTS]", data.warning);
         return data.audio_base64 ?? null;
       } catch (err) {
@@ -354,6 +380,7 @@ export function useBroadcastTTS({
     isMuted,
     activeSpeaker,
     activeMessageIndex,
+    ttsProvider,
     play,
     playMessages,
     playSingleMessage,

@@ -12,6 +12,7 @@ interface BroadcastCommentatorCardProps {
   activeSpeakingRole?: "data_scientist" | "classic_coach" | null;
   isSpeaking?: boolean;
   isSimulating?: boolean;
+  ttsProvider?: "azure-ai-speech" | "azure-openai-tts" | "browser-web-speech-fallback" | null;
   highlightedPlayerIds?: number[];
   onHighlightPlayers?: (playerIds: number[]) => void;
   onPlaySingleMessage?: (msg: AgentMessage) => void;
@@ -32,6 +33,7 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
   activeSpeakingRole = null,
   isSpeaking = false,
   isSimulating = false,
+  ttsProvider = null,
   onHighlightPlayers,
   onPlaySingleMessage,
   onPlayFullDebate,
@@ -171,6 +173,11 @@ export const BroadcastCommentatorCard: React.FC<BroadcastCommentatorCardProps> =
               {strapContext && (
                 <div className="hidden items-center bg-ink px-3 font-display text-[13px] sm:flex font-semibold uppercase leading-none tracking-[0.08em] text-fg-muted">
                   {strapContext}
+                </div>
+              )}
+              {(ttsProvider === "azure-ai-speech" || ttsProvider === "azure-openai-tts") && (
+                <div className="hidden items-center border-l border-line bg-ink-800 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-sky-300 md:flex">
+                  AZURE NEURAL VOICE
                 </div>
               )}
 
