@@ -409,7 +409,6 @@ export function useMatchEngine({
             delta,
             simXt,
             passProb,
-            audience: aud,
           });
 
           computedFrame = frame;

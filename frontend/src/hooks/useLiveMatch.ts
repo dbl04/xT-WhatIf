@@ -168,16 +168,16 @@ function buildFallbackLeaderboard(nickname: string, team: TeamSide): Leaderboard
 }
 
 const INITIAL: LiveState = {
-  status: "connecting",
+  status: "live",
   matchId: INITIAL_FRAME?.match_id ?? 900001,
   matchInfo: INITIAL_FRAME?.match_info ?? null,
-  clockSeconds: 0,
+  clockSeconds: INITIAL_FRAME ? INITIAL_FRAME.minute * 60 + INITIAL_FRAME.second : 0,
   clockAt: Date.now(),
   durationS: 300,
   score: { home: 0, away: 0 },
   frame: INITIAL_FRAME,
   frameSeq: 1,
-  recentEvents: [],
+  recentEvents: INITIAL_FRAME ? [buildOfflineSummary(INITIAL_FRAME, 0, { home: 0, away: 0 })] : [],
   moment: null,
   momentDeadline: null,
   reveal: null,
@@ -425,6 +425,7 @@ export function useLiveMatch({
       };
     };
 
+    startFallbackTicker();
     connect();
     return () => {
       disposed = true;
@@ -452,9 +453,9 @@ export function useLiveMatch({
   return { state, submit, dismissReveal };
 }
 
-/** Game clock now, advanced from the last message at the match's pace (paused while a live challenge moment is open). */
+/** Game clock now, advanced from the last message at the match's pace. */
 export function liveClockSeconds(state: LiveState, now: number): number {
-  if (state.status !== "live" || state.moment !== null) return state.clockSeconds;
+  if (state.status !== "live") return state.clockSeconds;
   const rate = (90 * 60) / Math.max(1, state.durationS);
   return Math.min(90 * 60, state.clockSeconds + ((now - state.clockAt) / 1000) * rate);
 }

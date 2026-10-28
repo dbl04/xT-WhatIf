@@ -201,7 +201,6 @@ async def evaluate_practice_challenge(request: EvaluateRequest) -> Dict[str, Any
         user_score=score,
         beat_machine=beat_machine,
         lang=lang,
-        audience=aud,
     )
     share = 38 if score >= 900 else 24
     text = REVEAL_TEXT[lang]

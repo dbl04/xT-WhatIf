@@ -614,7 +614,6 @@ function DashboardPage() {
       violationLabels[v.player_id] ??= t(`challenge.rule.${v.rule}`).toUpperCase();
     });
     return {
-      mode: challengeState.mode,
       movableIds: challengeState.movableIds,
       maxRadius: challengeState.rules.max_radius_m,
       maxPlayers: challengeState.rules.max_players,
@@ -866,7 +865,6 @@ function DashboardPage() {
           activeSpeakingRole={tts.activeSpeaker}
           isSpeaking={tts.isPlaying}
           isSimulating={isThinking}
-          ttsProvider={tts.ttsProvider}
           highlightedPlayerIds={highlightedPlayerIds}
           onHighlightPlayers={setHighlightedPlayerIds}
           onPlaySingleMessage={tts.playSingleMessage}

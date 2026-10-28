@@ -295,7 +295,6 @@ export async function evaluateChallenge(
     delta,
     simXt: yoursPct / 100,
     passProb: frame.metrics.pass_completion_prob,
-    audience: body.audience,
   });
 
   const isEs = body.language === "es";

@@ -105,7 +105,6 @@ export interface TacticalPitch2DProps {
 
 /** Challenge overlay: who may move, the hard radius and the offside line. */
 export interface PitchChallenge {
-  mode?: "attack" | "defend";
   movableIds: number[];
   maxRadius: number;
   maxPlayers: number;
@@ -453,11 +452,8 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       };
     };
 
-    const didDragMoveRef = useRef<boolean>(false);
-
     const handlePointerDown = (id: number, e: React.PointerEvent) => {
       e.stopPropagation();
-      didDragMoveRef.current = false;
       if (onClickPlayer) onClickPlayer(id);
       if (readOnly) return;
       if (challenge) {
@@ -488,7 +484,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       if (draggingId === null || !onPlayerMove) return;
       const point = toPitch(e.clientX, e.clientY);
       if (!point) return;
-      didDragMoveRef.current = true;
       let { x, y } = point;
       if (challenge) {
         // Hard limit: the player cannot leave the ring around the original position.
@@ -512,7 +507,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // Drop a drag in progress if the board gets locked (e.g. the clock runs out mid-gesture).
     useEffect(() => {
       if ((challenge?.locked || readOnly) && draggingId !== null) {
-        didDragMoveRef.current = false;
         setDraggingId(null);
         setDragPos(null);
         setHoveredZone(null);
@@ -522,13 +516,11 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const handlePointerUp = (e: React.PointerEvent) => {
       if (draggingId !== null) {
         const droppedId = draggingId;
-        const didMove = didDragMoveRef.current;
-        didDragMoveRef.current = false;
         try { (e.target as Element).releasePointerCapture(e.pointerId); } catch {}
         setDraggingId(null);
         setDragPos(null);
         setHoveredZone(null);
-        if (didMove && onSimulationTrigger) onSimulationTrigger(droppedId);
+        if (onSimulationTrigger) onSimulationTrigger(droppedId);
       }
     };
 
@@ -544,7 +536,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       const perpY = ux;
       const wS = 1.6, wE = 4.4;
       return [
-        `${(ballX + perpX * wS).toFixed(2)},${(ballY + perpY * wS).toFixed(2)}`,
+        `${(ballX + perpX * wS).toFixed(2)},${(ballY + perpX * wS).toFixed(2)}`,
         `${(ballEndX + perpX * wE).toFixed(2)},${(ballEndY + perpY * wE).toFixed(2)}`,
         `${(ballEndX - perpX * wE).toFixed(2)},${(ballEndY - perpY * wE).toFixed(2)}`,
         `${(ballX - perpX * wS).toFixed(2)},${(ballY - perpY * wS).toFixed(2)}`,
@@ -616,7 +608,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // Which names are shown and where. In challenge mode only the carrier, movable,
     // highlighted and hovered players carry a name; the rest stay as numbered discs.
     const nameOffsets = useMemo(() => {
-      const CONGESTION_RADIUS_M = 3.5;
       const rank = (p: PlayerNode) => {
         if (p.player_id === draggingId) return 0;
         if (p.is_actor) return 1;
@@ -626,15 +617,11 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
         if (challenge && movableSet.has(p.player_id)) return 5;
         return 6;
       };
-      const isCongested = (p: PlayerNode) =>
-        renderPlayers.some(
-          (o) => o.player_id !== p.player_id && Math.hypot(o.x - p.x, o.y - p.y) < CONGESTION_RADIUS_M
-        );
       const order = renderPlayers
-        .filter((p) => (!challenge || rank(p) <= 5) && (rank(p) <= 2 || !isCongested(p)))
+        .filter((p) => !challenge || rank(p) <= 5)
         .map((p) => ({ id: p.player_id, r: rank(p) }))
         .sort((a, b) => a.r - b.r)
-        .map(({ id, r }) => ({ id, forced: r <= 2 }));
+        .map(({ id, r }) => ({ id, forced: r <= 4 }));
       return placeNameLabels(renderPlayers, order, violationRects);
     }, [renderPlayers, draggingId, selectedPlayerId, highlightedPlayerIds, challenge, movableSet, violationRects]);
 
@@ -790,24 +777,20 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   // Hide ORIGIN and TARGET squares when outside a key moment (readOnly live match)
                   const isOrigin = !readOnly && cell.col === originCell.col && cell.row === originCell.row;
                   const isDest = !readOnly && destCell && cell.col === destCell.col && cell.row === destCell.row;
-                  const isDefend = challenge?.mode === "defend";
-                  const destColor = isDefend ? C.loss : C.gain;
                   const cellFill = withAlpha(C.gain, Number(Math.min(0.24, cell.xtVal * 0.42).toFixed(3)));
 
                   return (
                     <g key={`xt-${cell.col}-${cell.row}`} onMouseEnter={() => setHoveredCellXt(cell.xtVal)} onMouseLeave={() => setHoveredCellXt(null)} className="cursor-crosshair">
                       <rect x={cell.x} y={cell.y} width={CELL_W} height={CELL_H}
                         fill={cellFill}
-                        stroke={isOrigin ? C.white : isDest ? destColor : "rgba(255,255,255,0.05)"}
+                        stroke={isOrigin ? C.white : isDest ? C.gain : "rgba(255,255,255,0.05)"}
                         {...hair(isOrigin || isDest ? 1 : 0.5)}
                       />
                       {isOrigin && (
                         <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.white} textAnchor="middle" pointerEvents="none">{t("pitch.origin")}</text>
                       )}
                       {isDest && (
-                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={destColor} textAnchor="middle" pointerEvents="none">
-                          {isDefend ? t("pitch.dangerZone") : t("pitch.target")}
-                        </text>
+                        <text x={cell.x + CELL_W / 2} y={cell.y + CELL_H / 2 + 0.6} fontSize="1.7" fontWeight="700" letterSpacing="0.15" fill={C.gain} textAnchor="middle" pointerEvents="none">{t("pitch.target")}</text>
                       )}
                     </g>
                   );

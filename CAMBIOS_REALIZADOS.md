@@ -39,14 +39,8 @@ Este documento detalla todos los ajustes de interfaz, audio, internacionalizaci�
   - [`frontend/src/lib/i18n.tsx`](file:///c:/Users/usuario/Desktop/xT-WhatIf/frontend/src/lib/i18n.tsx)
 - **Detalle del cambio:**
   1. **Exclusivo del modo de momentos clave (`!isLiveView`):**
-     - El panel [`VoiceWhatIfPanel`](file:///c:/Users/Daniel/Desktop/Projects/xT-WhatIf/frontend/src/components/controls/VoiceWhatIfPanel.tsx) se renderiza únicamente cuando el usuario entra en el modo de practicar jugadas clave (`!isLiveView`). No aparece en el modo Live Match.
-  2. **Integración Cloud-Native con Azure AI Speech + Azure OpenAI Whisper (`POST /api/v1/speech/transcribe`):**
-     - En [`tts_service.py`](file:///c:/Users/Daniel/Desktop/Projects/xT-WhatIf/backend/app/services/tts_service.py) se ha implementado el endpoint `/api/v1/speech/transcribe` con cascada resiliente de 3 niveles:
-       1. **Azure AI Speech Fast Transcription REST API (`AZURE_SPEECH_KEY`):** Inyecta dinámicamente un **Phrase List** con los nombres de los 22 jugadores del frame activo (*Adeyo, Kowalin, Belcourt...*) y vocabulario táctico (*Dr. Voronoi, Coach Bianchi, Expected Threat, half-space, rest defense*).
-       2. **Azure OpenAI Whisper (`AZURE_OPENAI_STT_DEPLOYMENT`, por defecto `whisper-1`):** Con condicionamiento de `prompt` táctico e inyección de nombres de jugadores.
-       3. **Fallback a Web Speech API del navegador (`browser-web-speech-fallback`):** Grabación en paralelo para previsualización en vivo y funcionamiento 100% offline sin keys.
-     - El panel muestra un badge visual (`Azure AI Speech` / `Azure Whisper` / `Web Speech`) indicando el proveedor que ha transcrito la orden.
-  3. **Reconocimiento de voz e interpretación táctica (1 o 2 movimientos):**
+     - El panel [`VoiceWhatIfPanel`](file:///c:/Users/usuario/Desktop/xT-WhatIf/frontend/src/components/controls/VoiceWhatIfPanel.tsx) se renderiza únicamente cuando el usuario entra en el modo de practicar jugadas clave (`!isLiveView`). No aparece en el modo Live Match.
+  2. **Reconocimiento de voz e interpretación táctica (1 o 2 movimientos):**
      - Utiliza la API nativa del navegador (`SpeechRecognition` / `webkitSpeechRecognition`) en el idioma activo (`es-ES` o `en-GB`), mostrando la transcripción en tiempo real mientras el usuario habla e incluyendo un campo de texto de respaldo.
      - Tanto el endpoint backend (`POST /api/v1/agents/what-if` en [`what_if_nl.py`](file:///c:/Users/usuario/Desktop/xT-WhatIf/backend/app/agents/what_if_nl.py)) como el intérprete local de respaldo ([`voiceWhatIf.ts`](file:///c:/Users/usuario/Desktop/xT-WhatIf/frontend/src/lib/voiceWhatIf.ts)) reconocen dorsales (en cifra o hablados como palabra: *«el cinco»*, *«dorsal 4»*, *«#6»*), nombres de jugadores, roles tácticos (*lateral, central, mediocentro, extremo, delantero*) y direcciones (*cerrar por dentro, abrir a banda, salir a presionar, adelantar la línea, recular, cerrar línea de pase*).
      - Permite mover **1 o 2 jugadores** en una misma orden compuesta (p. ej., *«Que el lateral cierre por dentro y el central salga a presionar»*) o en órdenes sucesivas.
