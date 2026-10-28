@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { MatchFramePayload, PlayerNode } from "@/types/match";
 import { Pin, RotateCcw } from "lucide-react";
 import { Button, Kicker, ModalShell, Tag } from "@/components/ui/primitives";
@@ -82,6 +82,27 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
   const { t } = useI18n();
   const [scenarioA, setScenarioA] = useState<SavedScenario | null>(null);
   const [scenarioB, setScenarioB] = useState<SavedScenario | null>(null);
+
+  // Clear pinned scenarios when switching to a different key moment so coordinates from moment 1
+  // are never restored onto moment 2.
+  useEffect(() => {
+    setScenarioA(null);
+    setScenarioB(null);
+  }, [currentFrame.event_uuid]);
+
+  // Build a clean, unmodified base frame preview for the "Original (Unchanged)" column.
+  const baseFramePreview = useMemo<MatchFramePayload>(() => {
+    return {
+      ...currentFrame,
+      is_counterfactual_mode: false,
+      players: currentFrame.players.map((p) => ({
+        ...p,
+        x: p.original_x ?? p.x,
+        y: p.original_y ?? p.y,
+        is_modified: false,
+      })),
+    };
+  }, [currentFrame]);
 
   if (!isOpen) return null;
 
@@ -212,7 +233,7 @@ export const ScenarioComparatorModal: React.FC<ScenarioComparatorModalProps> = (
             <Kicker className="text-fg">{t("compare.original")}</Kicker>
             <span className="font-mono text-[10px] text-fg-subtle">{t("compare.unchanged")}</span>
           </div>
-          <MiniPitchPreview frame={currentFrame} />
+          <MiniPitchPreview frame={baseFramePreview} />
           <div>
             <Row label={t("compare.baseThreat")}>{currentFrame.metrics.original_xt.toFixed(3)}</Row>
             <Row label={t("compare.control")}>{currentFrame.metrics.space_control_home_pct.toFixed(1)}%</Row>

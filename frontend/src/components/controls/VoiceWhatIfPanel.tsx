@@ -155,8 +155,12 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
     }
   }, [externalLimitNotice]);
 
-  // Clear local notices when switching key moments or resetting the play
+  // Clear local notices and cancel in-flight animations when switching key moments or resetting the play
   useEffect(() => {
+    if (animRafRef.current) {
+      cancelAnimationFrame(animRafRef.current);
+      animRafRef.current = 0;
+    }
     if (!currentFrame.is_counterfactual_mode) {
       setLastMoves([]);
       setLastQuery(null);
@@ -228,7 +232,14 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
       }
 
       const snapshotFrame = frameRef.current;
+      const targetUuid = snapshotFrame.event_uuid;
       const result = await executeVoiceWhatIf(cleanQuery, snapshotFrame, language, audience);
+
+      // Abort if the user switched key moments while the backend was processing the voice command
+      if (frameRef.current.event_uuid !== targetUuid) {
+        setIsProcessing(false);
+        return;
+      }
 
       if (result.limitReached || result.moves.length === 0) {
         sfx.blocked();
@@ -242,6 +253,13 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
 
       // Animate players moving across the pitch according to the spoken instruction
       await animateMovesOnPitch(result.moves, snapshotFrame.players);
+
+      // Abort if the user switched key moments during the 650ms pitch animation
+      if (frameRef.current.event_uuid !== targetUuid) {
+        setIsProcessing(false);
+        return;
+      }
+
       sfx.drop();
       setLastMoves(result.moves);
 
@@ -623,14 +641,21 @@ export const VoiceWhatIfPanel: React.FC<VoiceWhatIfPanelProps> = ({
           {lastMoves.map((mv) => (
             <div
               key={mv.player_id}
-              className="flex items-center justify-between border-b border-line px-2.5 py-1.5 text-[12px] last:border-b-0"
+              className="flex flex-col gap-0.5 border-b border-line px-2.5 py-1.5 text-[12px] last:border-b-0"
             >
-              <span className="truncate text-fg">
-                #{mv.jersey_number} {mv.player_name}
-              </span>
-              <span className="font-mono text-[11px] tabular-nums text-signal-gain">
-                +{mv.displacement_m} m
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium text-fg">
+                  #{mv.jersey_number} {mv.player_name}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] tabular-nums text-signal-gain">
+                  +{mv.displacement_m} m
+                </span>
+              </div>
+              {mv.interpretation && (
+                <p className="text-[11px] leading-snug text-fg-muted">
+                  {mv.interpretation}
+                </p>
+              )}
             </div>
           ))}
         </div>

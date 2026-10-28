@@ -151,7 +151,10 @@ function DashboardPage() {
 
   // Moves players and simulates in one go. triggerSimulation receives the moved players
   // explicitly because its `frames` snapshot does not include updates from this same tick.
+  // Resets previous modifications on the frame first so Auto-Coach or Scenario Restore
+  // never accumulates or drops players when a manual move was already on the board.
   const applyMovesAndSimulate = (players: PlayerNode[]) => {
+    resetSimulation();
     const moved = players.filter((p) => p.is_modified).slice(0, MAX_VOICE_MOVES);
     moved.forEach((p) => updatePlayerPosition(p.player_id, p.x, p.y));
     triggerSimulation(moved);
@@ -470,6 +473,36 @@ function DashboardPage() {
     setHighlightedPlayerIds([]);
     setHoveredPlayerId(null);
   };
+
+  // Keyboard shortcuts in Key Moments mode (!isLiveView): Space to Play/Pause, R to Reset
+  useEffect(() => {
+    if (isLiveView) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.code === "Space" && !inChallenge) {
+        e.preventDefault();
+        setIsPlaying((prev) => !prev);
+      } else if ((e.key === "r" || e.key === "R") && !inChallenge) {
+        e.preventDefault();
+        setIsPlaying(false);
+        setFreeMoveLimitNotice(false);
+        tts.stop();
+        resetSimulation();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLiveView, inChallenge, tts, resetSimulation]);
 
   // Game clock between messages, and the action replayed on every new live event.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -841,6 +874,7 @@ function DashboardPage() {
           activeSpeakingRole={tts.activeSpeaker}
           isSpeaking={tts.isPlaying}
           isSimulating={isThinking}
+          ttsProvider={tts.ttsProvider}
           highlightedPlayerIds={highlightedPlayerIds}
           onHighlightPlayers={setHighlightedPlayerIds}
           onPlaySingleMessage={tts.playSingleMessage}
@@ -873,6 +907,7 @@ function DashboardPage() {
               onSelectFrameIndex={(idx) => {
                 setIsPlaying(false);
                 setFreeMoveLimitNotice(false);
+                tts.stop();
                 // Moving to another moment leaves the challenge of this one.
                 if (inChallenge && frames[idx]?.event_uuid !== challengeState?.eventUuid) leaveChallenge();
                 selectFrameIndex(idx);
@@ -888,6 +923,7 @@ function DashboardPage() {
               onResetSimulation={() => {
                 setIsPlaying(false);
                 setFreeMoveLimitNotice(false);
+                tts.stop();
                 if (challengeState?.status === "open") challenge.reset();
                 else if (!inChallenge) resetSimulation();
               }}
@@ -1052,6 +1088,7 @@ function DashboardPage() {
                     onApplyOptimalDefense={applyMovesAndSimulate}
                     onResetDefense={() => {
                       setFreeMoveLimitNotice(false);
+                      tts.stop();
                       resetSimulation();
                     }}
                   />
@@ -1066,6 +1103,7 @@ function DashboardPage() {
                     onReset={() => {
                       setIsPlaying(false);
                       setFreeMoveLimitNotice(false);
+                      tts.stop();
                       resetSimulation();
                     }}
                   />

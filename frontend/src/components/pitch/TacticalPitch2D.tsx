@@ -453,8 +453,11 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       };
     };
 
+    const didDragMoveRef = useRef<boolean>(false);
+
     const handlePointerDown = (id: number, e: React.PointerEvent) => {
       e.stopPropagation();
+      didDragMoveRef.current = false;
       if (onClickPlayer) onClickPlayer(id);
       if (readOnly) return;
       if (challenge) {
@@ -485,6 +488,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       if (draggingId === null || !onPlayerMove) return;
       const point = toPitch(e.clientX, e.clientY);
       if (!point) return;
+      didDragMoveRef.current = true;
       let { x, y } = point;
       if (challenge) {
         // Hard limit: the player cannot leave the ring around the original position.
@@ -508,6 +512,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     // Drop a drag in progress if the board gets locked (e.g. the clock runs out mid-gesture).
     useEffect(() => {
       if ((challenge?.locked || readOnly) && draggingId !== null) {
+        didDragMoveRef.current = false;
         setDraggingId(null);
         setDragPos(null);
         setHoveredZone(null);
@@ -517,11 +522,13 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const handlePointerUp = (e: React.PointerEvent) => {
       if (draggingId !== null) {
         const droppedId = draggingId;
+        const didMove = didDragMoveRef.current;
+        didDragMoveRef.current = false;
         try { (e.target as Element).releasePointerCapture(e.pointerId); } catch {}
         setDraggingId(null);
         setDragPos(null);
         setHoveredZone(null);
-        if (onSimulationTrigger) onSimulationTrigger(droppedId);
+        if (didMove && onSimulationTrigger) onSimulationTrigger(droppedId);
       }
     };
 
@@ -537,7 +544,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
       const perpY = ux;
       const wS = 1.6, wE = 4.4;
       return [
-        `${(ballX + perpX * wS).toFixed(2)},${(ballY + perpX * wS).toFixed(2)}`,
+        `${(ballX + perpX * wS).toFixed(2)},${(ballY + perpY * wS).toFixed(2)}`,
         `${(ballEndX + perpX * wE).toFixed(2)},${(ballEndY + perpY * wE).toFixed(2)}`,
         `${(ballEndX - perpX * wE).toFixed(2)},${(ballEndY - perpY * wE).toFixed(2)}`,
         `${(ballX - perpX * wS).toFixed(2)},${(ballY - perpY * wS).toFixed(2)}`,
