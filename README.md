@@ -12,10 +12,6 @@
 [![MCP Server](https://img.shields.io/badge/MCP_Tools-%2Fapi%2Fv1%2Fmcp%2Ftools-0078D4?logo=microsoftazure&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/api/v1/mcp/tools)
 [![Cloud Telemetry](https://img.shields.io/badge/Cloud_Telemetry-%2Fapi%2Fv1%2Fcloud%2Ftelemetry-326CE5?logo=kubernetes&logoColor=white)](https://xt-whatif-aca-gateway.graydesert-cc4befb9.francecentral.azurecontainerapps.io/api/v1/cloud/telemetry)
 
-<!-- TODO: record a 4-5 s GIF (drag a player, the xT heatmap recalculates), save it as docs/demo.gif (< 5 MB) and uncomment.
-<p align="center"><img src="docs/demo.gif" alt="Dragging a defender recalculates the xT heatmap and pass probabilities" width="800"></p>
--->
-
 [![CI/CD Cloud Deployment](https://github.com/dbl04/xT-WhatIf/actions/workflows/deploy-azure.yml/badge.svg)](https://github.com/dbl04/xT-WhatIf/actions/workflows/deploy-azure.yml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-2.0.0-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js&logoColor=white)](https://nextjs.org)
