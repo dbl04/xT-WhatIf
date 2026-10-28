@@ -589,21 +589,7 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
     const viewBox = useAnimatedViewBox(isZoomed ? focusBox : FULL_VIEW);
     const isFramed = viewBox.w < STATSBOMB_PITCH_LENGTH - 0.01;
 
-    // Distance chips of moved players reserve their space before the names are placed.
-    const showGhosts = showGhostMode || !!challenge;
-    const violationRects = useMemo<Rect[]>(() => {
-      const rects: Rect[] = [];
-      renderPlayers.forEach((p) => {
-        if (showGhosts && p.is_modified && p.original_x != null && p.original_y != null) {
-          const mx = (p.original_x + p.x) / 2;
-          const my = (p.original_y + p.y) / 2;
-          if (Math.hypot(p.x - p.original_x, p.y - p.original_y) > 0.4) {
-            rects.push({ x0: mx - 3.4, x1: mx + 3.4, y0: my - 1.4, y1: my + 1.4 });
-          }
-        }
-      });
-      return rects;
-    }, [challenge, renderPlayers, showGhosts]);
+    const violationRects = useMemo<Rect[]>(() => [], []);
 
     // Which names are shown and where. In challenge mode only the carrier, movable,
     // highlighted and hovered players carry a name; the rest stay as numbered discs.
@@ -867,21 +853,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   opacity={0.8}
                   {...hair(1.25)}
                 />
-                <g transform={`translate(${challenge.offsideLineX}, ${viewBox.y + viewBox.h - 2.2})`}>
-                  <rect
-                    x={-(t("pitch.offside").length * 1.3 * 0.6) / 2 - 0.6}
-                    y="-1.1"
-                    width={t("pitch.offside").length * 1.3 * 0.6 + 1.2}
-                    height="2.2"
-                    fill={C.ink}
-                    stroke={C.white}
-                    opacity={0.9}
-                    {...hair(0.5)}
-                  />
-                  <text y="0.45" fontSize="1.3" fontWeight="700" letterSpacing="0.1" fill={C.white} textAnchor="middle">
-                    {t("pitch.offside")}
-                  </text>
-                </g>
               </g>
             )}
 
@@ -893,8 +864,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
                   const origX = p.original_x!;
                   const origY = p.original_y!;
                   const distanceMeters = calculateDistanceMeters({ x: origX, y: origY }, { x: p.x, y: p.y });
-                  const midX = (origX + p.x) / 2;
-                  const midY = (origY + p.y) / 2;
                   const ringRadius = challenge ? challenge.maxRadius : INERTIA_RADIUS;
                   const isOverInertia = !challenge && distanceMeters > INERTIA_RADIUS;
                   const accent = isOverInertia ? C.loss : C.white;
@@ -908,16 +877,6 @@ export const TacticalPitch2D = forwardRef<TacticalPitch2DHandle, TacticalPitch2D
 
                       {/* Ghost arrow */}
                       <line x1={origX} y1={origY} x2={p.x} y2={p.y} stroke={accent} strokeDasharray="3 2" markerEnd={isOverInertia ? "url(#ghostArrowHeadOver)" : "url(#ghostArrowHead)"} {...hair(1)} />
-
-                      {/* Distance chip */}
-                      {distanceMeters > 0.4 && (
-                        <g transform={`translate(${midX}, ${midY})`}>
-                          <rect x="-3.4" y="-1.4" width="6.8" height="2.8" fill={C.ink} stroke={accent} {...hair(0.5)} />
-                          <text x="0" y="0.55" fontSize="1.6" fontWeight="700" fill={accent} textAnchor="middle">
-                            +{distanceMeters}m
-                          </text>
-                        </g>
-                      )}
 
                       {/* Ghost node */}
                       <g opacity="0.45">
