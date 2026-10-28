@@ -107,6 +107,8 @@ flowchart TD
 2. **Event-by-event delegation with in-process fallback.** As synthetic match events happen in the live match (no look-ahead), the singleton `xt-whatif-live` service offloads the moment Validator's two independent searches (`optimize(frame, "attack")` and `optimize(frame, "defend")`) in parallel to the AKS worker pool (`POST /api/v1/game/optimize`, guarded by `X-Worker-Token`, 1.5 s timeout), while `xt-whatif-aca-gateway` forwards counterfactual simulations (`POST /api/v1/simulate`, 3.5 s timeout). If any call times out, fails or returns a non-200 status (or when the chaos toggle is active), the caller runs the same engine in-process and records a circuit-breaker trip.
 3. **Scaling.** KEDA scales the gateway on concurrent HTTP requests and the HPA scales the AKS workers on CPU. The live match stays on one replica so every fan sees the same match state, while heavy Validator CPU searches scale across AKS pods.
 
+> **ℹ️ Note on AKS & Azure for Students Subscription:** The distributed **Azure Kubernetes Service (AKS)** worker architecture (`SERVICE_ROLE=aks-worker`), Kubernetes manifests ([`infra/k8s-aks-workers.yaml`](infra/k8s-aks-workers.yaml)), parallel HTTP offloading ([`aks_client.py`](backend/app/services/aks_client.py)), and CI/CD deployment pipeline ([`deploy-azure.yml`](.github/workflows/deploy-azure.yml)) are **100% implemented and tested** in this repository. Due to **Azure for Students** subscription quota and policy restrictions on provisioning AKS node pools, the live cloud demo runs on **Azure Container Apps (ACA)** with the built-in **Circuit Breaker / in-process compute fallback** active seamlessly.
+
 ---
 
 ## 🧮 Mathematical Engine Deep-Dive
@@ -114,7 +116,7 @@ flowchart TD
 ### 1. Canonical Expected Threat (xT) Bilinear Interpolation
 The field is partitioned into an $M \times N = 16 \times 12$ canonical grid ($C = 192$ zones) following Karun Singh's Markovian model. The expected threat for any continuous coordinate $(x, y) \in [0, 120] \times [0, 80]$ is computed using 2D bilinear interpolation:
 
-$$\text{xT}(x, y) = \sum_{i=0}^{1} \sum_{j=0}^{1} \text{xT}_{c+i, r+j} \cdot \left(1 - \lvert\frac{x - x_{c+i}}{\Delta x}\rvert\right) \left(1 - \lvert\frac{y - y_{r+j}}{\Delta y}\rvert\right)$$
+$$\text{xT}(x, y) = \sum_{i=0}^{1} \sum_{j=0}^{1} \text{xT}_{c+i, r+j} \cdot \Bigl(1 - \frac{\lvert x - x_{c+i} \rvert}{\Delta x}\Bigr) \Bigl(1 - \frac{\lvert y - y_{r+j} \rvert}{\Delta y}\Bigr)$$
 
 The counterfactual delta is given by:
 
@@ -123,29 +125,29 @@ $$\Delta \text{xT} = \text{xT}_{\text{simulated}} - \text{xT}_{\text{base}}$$
 ### 2. High-Speed Voronoi Space Control ($60 \times 40$ Fine Grid)
 To capture spatial dominance in the final third ($x \in [60.0, 120.0]$, $y \in [0.0, 80.0]$), the engine discretizes the area into a $60 \times 40$ matrix ($2,400$ sample points) evaluated against all player coordinates $\mathbf{p}_k$ using `scipy.spatial.KDTree`:
 
-$$\mathcal{V}_k = \left\{ \mathbf{q} \in \mathbb{R}^2 \mid \|\mathbf{q} - \mathbf{p}_k\|_2 < \|\mathbf{q} - \mathbf{p}_j\|_2, \; \forall j \neq k \right\}$$
+$$\mathcal{V}_k = \lbrace \mathbf{q} \in \mathbb{R}^2 \mid \|\mathbf{q} - \mathbf{p}_k\|_2 < \|\mathbf{q} - \mathbf{p}_j\|_2, \; \forall j \neq k \rbrace$$
 
-$$\text{SpaceControl}_{\text{home}} = \frac{1}{\lvert\mathcal{G}\rvert} \sum_{\mathbf{q} \in \mathcal{G}} \mathbb{I}\left(\arg\min_k \|\mathbf{q} - \mathbf{p}_k\|_2 \in \text{Team}_{\text{home}}\right) \times 100\%$$
+$$\text{SpaceControl}_{\text{home}} = \frac{1}{\lvert\mathcal{G}\rvert} \sum_{\mathbf{q} \in \mathcal{G}} \mathbb{I}\Bigl(\arg\min_k \|\mathbf{q} - \mathbf{p}_k\|_2 \in \text{Team}_{\text{home}}\Bigr) \times 100\%$$
 
 *Performance: Sub-2ms vector execution across 2,400 query points.*
 
 ### 3. Gaussian Passing Shadow & Expected Value Maximization
 Passing lanes are evaluated as a directional cone between ball holder $\mathbf{p}_{\text{ball}}$ and candidate receiver $\mathbf{p}_{\text{target}}$. The interception probability density by defender $\mathbf{d}_m$ at distance $d_{\perp}$ from the trajectory is modeled with distance-widening dispersion $\sigma(t) = \sigma_0 (1 + \alpha d_{\parallel})$:
 
-$$P_{\text{intercept}}(\mathbf{d}_m) = \exp\left( -\frac{d_{\perp}(\mathbf{d}_m)^2}{2\,\sigma(d_{\parallel})^2} \right)$$
+$$P_{\text{intercept}}(\mathbf{d}_m) = \exp\Bigl( -\frac{d_{\perp}(\mathbf{d}_m)^2}{2\,\sigma(d_{\parallel})^2} \Bigr)$$
 
-$$P_{\text{pass}} = \prod_{m \in \text{Defenders}} \left( 1 - P_{\text{intercept}}(\mathbf{d}_m) \right)$$
+$$P_{\text{pass}} = \prod_{m \in \text{Defenders}} \bigl( 1 - P_{\text{intercept}}(\mathbf{d}_m) \bigr)$$
 
 The engine dynamically recommends the **optimal alternative receiver** (`optimal_pass_target_id`) by maximizing Expected Value:
 
-$$k^* = \arg\max_{k \in \text{Teammates}} \left( P_{\text{pass}}(\mathbf{p}_k) \times \text{xT}(\mathbf{p}_k) \right)$$
+$$k^* = \arg\max_{k \in \text{Teammates}} \bigl( P_{\text{pass}}(\mathbf{p}_k) \times \text{xT}(\mathbf{p}_k) \bigr)$$
 
 ### 4. Quadratic Physical Inertia Penalty
 When a user drags a player beyond realistic reaction envelopes ($\Delta d > 6.0\,\text{m}$), a biomechanical recovery penalty is applied to avoid teleportation artifacts:
 
 $$\text{Penalty}_{\text{inertia}} = \beta \cdot \max(0, \Delta d - 6.0)^2, \quad \beta = 0.008$$
 
-$$\text{xT}_{\text{simulated}} = \max\left(0.02, \; \text{xT}_{\text{raw}} - \text{Penalty}_{\text{inertia}}\right)$$
+$$\text{xT}_{\text{simulated}} = \max(0.02, \; \text{xT}_{\text{raw}} - \text{Penalty}_{\text{inertia}})$$
 
 ---
 
