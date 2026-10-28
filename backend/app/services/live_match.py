@@ -37,8 +37,10 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.core.config import settings
+from app.agents.verifier import collect_ground_truth_numbers, extract_unverified_numbers
 from app.schemas.live import LiveEvent, MoveIn, Profile, Submission, SubmitIn
-from app.schemas.match_contract import TeamSide
+from app.schemas.match_contract import AgentRole, MatchFramePayload, TeamSide
+from app.services.agent_swarm import swarm
 from app.services.aks_client import analyse_moment_distributed
 from app.services.full_match import MATCH_SECONDS, generate_full_match
 from app.services.game_engine import (
@@ -58,10 +60,12 @@ from app.services.game_engine import (
 )
 from app.services.narration import (
     MOMENT_LABELS,
+    REVEAL_SPEAKER,
     REVEAL_TEXT,
     reveal_explanation,
     reveal_pundits_and_comparison,
 )
+from app.services.tactical_math import simulate_counterfactual
 from app.services.tts_service import TTSRequest, TTSResponse, azure_tts_configured, synthesize_speech
 
 logger = logging.getLogger("xtwhatif.live")
@@ -261,13 +265,21 @@ class MatchRoom:
 
     # --- reveal and leaderboard ---------------------------------------------
     @staticmethod
-    def explanation(m: Moment, team: TeamSide, lang: str) -> Dict[str, str]:
+    def explanation(m: Moment, team: TeamSide, lang: str, audience: str = "analyst") -> Dict[str, str]:
         opt = m.optimum(team)
         return reveal_explanation(m.event.frame, opt.mode, opt.moves, opt.base.value, opt.best.value,
-                                  opt.best.target_id, lang)
+                                  opt.best.target_id, lang, audience)
 
     @classmethod
-    def pundit_pack(cls, m: Moment, team: TeamSide, user_id: Optional[str], lang: str) -> Dict[str, Any]:
+    def pundit_pack(
+        cls,
+        m: Moment,
+        team: TeamSide,
+        user_id: Optional[str],
+        lang: str,
+        audience: str = "analyst",
+        ai_debate: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         opt = m.optimum(team)
         sub = m.submissions.get(user_id) if user_id else None
         user_moves = [(mv.player_id, mv.x, mv.y) for mv in sub.moves] if sub is not None else None
@@ -288,6 +300,8 @@ class MatchRoom:
             user_score=user_score,
             beat_machine=beat_machine,
             lang=lang,
+            audience=audience,
+            ai_debate=ai_debate,
         )
 
     @classmethod
@@ -297,16 +311,29 @@ class MatchRoom:
         return str(cls.pundit_pack(m, side, user_id, lang)["personal"])
 
     @classmethod
-    def voice_lines(cls, m: Moment, profile: Profile) -> List[Tuple[str, str]]:
-        """What the pundits say out loud at the reveal: concise, conversational broadcast lines."""
-        pack = cls.pundit_pack(m, profile.team, profile.user_id, profile.language)
-        return [("data_scientist", str(pack["voronoi_voice"])),
-                ("classic_coach", str(pack["bianchi_voice"]))]
+    def voice_lines(
+        cls,
+        m: Moment,
+        profile: Profile,
+        ai_debate: Optional[Dict[str, Any]] = None,
+    ) -> List[Tuple[str, str]]:
+        """What the single reveal speaker (Coach Bianchi) says out loud at the reveal."""
+        pack = cls.pundit_pack(
+            m, profile.team, profile.user_id, profile.language, profile.audience, ai_debate=ai_debate
+        )
+        return [(REVEAL_SPEAKER.value, str(pack["bianchi_voice"]))]
 
-    def reveal_for(self, m: Moment, profile: Profile) -> Dict[str, Any]:
+    def reveal_for(
+        self,
+        m: Moment,
+        profile: Profile,
+        ai_debate: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         opt = m.optimum(profile.team)
         lang = profile.language
-        pack = self.pundit_pack(m, profile.team, profile.user_id, lang)
+        pack = self.pundit_pack(
+            m, profile.team, profile.user_id, lang, profile.audience, ai_debate=ai_debate
+        )
         sub = m.submissions.get(profile.user_id)
         same_side = [s for s in m.submissions.values() if s.team == profile.team]
         found = sum(1 for s in same_side if (s.score or 0) >= FOUND_IT_SCORE)
@@ -324,6 +351,7 @@ class MatchRoom:
             "goal_chance_pct": {"before": round(opt.base.value * 100), "best": round(opt.best.value * 100),
                                 "yours": round(sub.value * 100) if sub else None},
             "explanation": {
+                "generated_by": pack["generated_by"],
                 "headline": pack["headline"],
                 "body": pack["body"],
                 "voronoi_comparison": pack["voronoi_comparison"],
@@ -406,6 +434,40 @@ def bot_moves(moment: Moment, team: TeamSide, skill: float, rng: random.Random) 
     return [MoveIn(player_id=p, x=x, y=y) for p, x, y in moves]
 
 
+def _optimum_frame(moment: Moment, side: TeamSide) -> MatchFramePayload:
+    """Builds a counterfactual MatchFramePayload with the side's optimum moves applied."""
+    base = moment.event.frame
+    opt = moment.optimum(side)
+    by_id = {p.player_id: p for p in base.players}
+    modified = []
+    for pid, mx, my in opt.moves:
+        p = by_id.get(pid)
+        if p is not None:
+            modified.append(
+                p.model_copy(
+                    update={
+                        "x": round(mx, 1),
+                        "y": round(my, 1),
+                        "original_x": p.x,
+                        "original_y": p.y,
+                        "is_modified": True,
+                    }
+                )
+            )
+    sim = simulate_counterfactual(base, modified) if modified else base.model_copy(deep=True)
+    orig_xt = round(opt.base.value, 2)
+    sim_xt = round(opt.best.value, 2)
+    sim.metrics = sim.metrics.model_copy(
+        update={
+            "original_xt": orig_xt,
+            "simulated_xt": sim_xt,
+            "xt_delta": round(sim_xt - orig_xt, 2),
+            "optimal_pass_target_id": opt.best.target_id or sim.metrics.optimal_pass_target_id,
+        }
+    )
+    return sim
+
+
 # ---------------------------------------------------------------------------
 # Runner: real time + WebSocket clients
 # ---------------------------------------------------------------------------
@@ -420,6 +482,9 @@ class LiveMatchRunner:
         self._bot_rng = random.Random(settings.LIVE_FIRST_SEED)
         # Reveal audio being synthesised, by (moment id, text, role, language, audience).
         self._voices: Dict[Tuple[str, str, str, str, str], asyncio.Task] = {}
+        # Background multi-agent debates per (moment_id, side, language, audience).
+        self._debates: Dict[Tuple[str, TeamSide, str, str], asyncio.Task] = {}
+        self._debate_results: Dict[Tuple[str, TeamSide, str, str], Dict[str, Any]] = {}
 
     # --- lifecycle ----------------------------------------------------------
     def start(self) -> None:
@@ -475,16 +540,19 @@ class LiveMatchRunner:
                 if moment:
                     await self.broadcast({"type": "MOMENT_OPEN", "payload": moment.open_payload()})
                     self._schedule_bots(moment)
+                    self._start_debates(moment)
                     self._prepare_voices(moment, closed=False)
 
         await self._run_bots(now)
 
         if room.due_to_close(now):
             moment = room.close_moment(now)
+            await self._finish_debates(moment)
             self._prepare_voices(moment, closed=True)
             await self.broadcast({"type": "MOMENT_CLOSED", "payload": {"moment_id": moment.id}})
             for ws, profile in list(self.clients.items()):
-                await self._send(ws, {"type": "MOMENT_REVEAL", "payload": room.reveal_for(moment, profile)})
+                ai_debate = self._debate_for(moment.id, profile)
+                await self._send(ws, {"type": "MOMENT_REVEAL", "payload": room.reveal_for(moment, profile, ai_debate=ai_debate)})
                 await self._send(ws, {"type": "LEADERBOARD", "payload": room.leaderboard_for(profile.user_id)})
 
         if room.finished() and room.kickoff_at is not None and now >= room.kickoff_at + room.duration_s:
@@ -498,6 +566,150 @@ class LiveMatchRunner:
                     "badges": badges.get(profile.user_id, []),
                     "next_kickoff_in_s": settings.LIVE_INTERMISSION_S,
                 }})
+
+    # --- multi-agent debate during the window -------------------------------
+    @staticmethod
+    def _active_llm_client() -> Optional[Any]:
+        key = getattr(settings, "AZURE_OPENAI_API_KEY", "") or ""
+        if not key or key in ("", "your-azure-openai-key-here"):
+            return None
+        if key == "mock-key" and swarm.client is None:
+            return None
+        return swarm.client
+
+    def _debate_for(self, moment_id: str, profile: Profile) -> Optional[Dict[str, Any]]:
+        return self._debate_results.get((moment_id, profile.team, profile.language, profile.audience))
+
+    def _start_debates(self, moment: Moment) -> None:
+        """
+        Starts one background multi-agent debate per (team side, language, audience) actually
+        in use by connected real fans (bots are skipped).
+        """
+        self._debates = {k: t for k, t in self._debates.items() if k[0] == moment.id}
+        self._debate_results = {k: r for k, r in self._debate_results.items() if k[0] == moment.id}
+        real_combos = {
+            (p.team, p.language, p.audience)
+            for p in self.clients.values()
+            if not p.is_bot
+        }
+        for side, lang, aud in real_combos:
+            key = (moment.id, side, lang, aud)
+            if key not in self._debates:
+                self._debates[key] = asyncio.create_task(
+                    self._run_moment_debate(moment, side, lang, aud)
+                )
+
+    async def _run_moment_debate(
+        self, moment: Moment, side: TeamSide, lang: str, aud: str
+    ) -> Dict[str, Any]:
+        key = (moment.id, side, lang, aud)
+        deployment = settings.AZURE_OPENAI_DEPLOYMENT_REASONING
+        active_client = self._active_llm_client()
+        if active_client is None:
+            res = {
+                "generated_by": "template",
+                "latency_ms": 0.0,
+                "deployment": deployment,
+                "model_calls": 0,
+            }
+            self._debate_results[key] = res
+            return res
+
+        t0 = time.perf_counter()
+        timeout_s = max(0.01, float(getattr(settings, "LIVE_REVEAL_AI_TIMEOUT_S", 15.0) or 15.0))
+        try:
+            opt_frame = _optimum_frame(moment, side)
+            report = await asyncio.wait_for(
+                swarm.orchestrator.run_debate(
+                    opt_frame, language=lang, audience=aud, client=active_client
+                ),
+                timeout=timeout_s,
+            )
+            latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+            ver = report.verification
+            if (
+                not report.used_llm
+                or ver is None
+                or ver.fell_back_to_template
+                or not ver.all_matched_initially
+            ):
+                res = {
+                    "generated_by": "template",
+                    "latency_ms": latency_ms,
+                    "deployment": deployment,
+                    "model_calls": report.model_calls,
+                }
+                self._debate_results[key] = res
+                return res
+
+            by_role = {m.agent_role: m for m in ver.messages}
+            speaker_msg = by_role.get(REVEAL_SPEAKER)
+            voronoi_msg = by_role.get(AgentRole.DATA_SCIENTIST)
+            truth = collect_ground_truth_numbers(
+                opt_frame, tool_trace=report.tool_calls, coach_proposal=report.bianchi_proposal
+            )
+            if speaker_msg is None or any(
+                extract_unverified_numbers(txt, truth)
+                for txt in (speaker_msg.headline, speaker_msg.analysis_body, speaker_msg.referenced_metric)
+            ):
+                res = {
+                    "generated_by": "template",
+                    "latency_ms": latency_ms,
+                    "deployment": deployment,
+                    "model_calls": report.model_calls,
+                }
+                self._debate_results[key] = res
+                return res
+
+            res = {
+                "generated_by": "azure-openai",
+                "headline": speaker_msg.headline,
+                "body": speaker_msg.analysis_body,
+                "referenced_metric": speaker_msg.referenced_metric,
+                "voronoi_headline": voronoi_msg.headline if voronoi_msg else "",
+                "voronoi_body": voronoi_msg.analysis_body if voronoi_msg else "",
+                "voronoi_metric": voronoi_msg.referenced_metric if voronoi_msg else "",
+                "latency_ms": latency_ms,
+                "deployment": deployment,
+                "model_calls": report.model_calls,
+            }
+            self._debate_results[key] = res
+            if not moment.closed:
+                self._prepare_voices(moment, closed=False)
+            return res
+        except Exception as exc:
+            latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+            logger.warning("Live moment %s AI debate fallback to template (%s)", moment.id, exc)
+            res = {
+                "generated_by": "template",
+                "latency_ms": latency_ms,
+                "deployment": deployment,
+                "model_calls": getattr(swarm.orchestrator, "_last_turn_model_calls", 1),
+            }
+            self._debate_results[key] = res
+            return res
+
+    async def _finish_debates(self, moment: Moment) -> None:
+        keys = [k for k in list(self._debates) if k[0] == moment.id]
+        if keys:
+            await asyncio.gather(*(self._debates[k] for k in keys), return_exceptions=True)
+        results = [self._debate_results[k] for k in keys if k in self._debate_results]
+        source = (
+            "azure-openai"
+            if any(r.get("generated_by") == "azure-openai" for r in results)
+            else "template"
+        )
+        max_latency_ms = max((float(r.get("latency_ms", 0.0)) for r in results), default=0.0)
+        total_calls = sum(int(r.get("model_calls", 0)) for r in results)
+        logger.info(
+            "Live moment %s reveal: generated_by=%s latency_ms=%.1f deployment=%s model_calls=%d combos=%d",
+            moment.id,
+            source,
+            max_latency_ms,
+            settings.AZURE_OPENAI_DEPLOYMENT_REASONING,
+            total_calls,
+            len(keys),
+        )
 
     # --- bots ---------------------------------------------------------------
     def _schedule_bots(self, moment: Moment) -> None:
@@ -527,8 +739,8 @@ class LiveMatchRunner:
     def _prepare_voices(self, moment: Moment, closed: bool) -> None:
         """
         Starts the reveal audio early so it plays as soon as the moment closes. On open: the
-        default (no-submission) spoken lines for every connected fan's side, language and
-        audience; on close: each fan's personalised Voronoi + Bianchi spoken lines.
+        default (no-submission) spoken line for every connected fan's side, language and
+        audience; on close: each fan's personalised spoken line from `REVEAL_SPEAKER`.
         Same texts share one synthesis.
         """
         if not closed:
@@ -536,23 +748,30 @@ class LiveMatchRunner:
         if not azure_tts_configured():
             return
         for profile in list(self.clients.values()):
+            if profile.is_bot:
+                continue
+            ai_debate = self._debate_for(moment.id, profile)
             if closed:
-                for role, text in MatchRoom.voice_lines(moment, profile):
+                for role, text in MatchRoom.voice_lines(moment, profile, ai_debate=ai_debate):
                     self._voice_task(moment, role, text, profile)
                 continue
             no_sub = profile.model_copy(update={"user_id": ""})
-            for role, text in MatchRoom.voice_lines(moment, no_sub):
+            for role, text in MatchRoom.voice_lines(moment, no_sub, ai_debate=ai_debate):
                 self._voice_task(moment, role, text, profile)
+            if profile.user_id in moment.submissions:
+                for role, text in MatchRoom.voice_lines(moment, profile, ai_debate=ai_debate):
+                    self._voice_task(moment, role, text, profile)
 
     async def reveal_voice(self, moment_id: str, user_id: str) -> Optional[List[Dict[str, Any]]]:
-        """The fan's reveal lines with their audio (None: browser voice); None if not revealed yet."""
+        """The fan's reveal line with its audio (None: browser voice); None if not revealed yet."""
         room = self.room
         moment = next((m for m in room.moments if m.id == moment_id), None) if room else None
         standing = room.standings.get(user_id) if room else None
         if moment is None or not moment.closed or standing is None:
             return None
         profile = standing.profile
-        lines = MatchRoom.voice_lines(moment, profile)
+        ai_debate = self._debate_for(moment.id, profile)
+        lines = MatchRoom.voice_lines(moment, profile, ai_debate=ai_debate)
         audio: List[Optional[str]] = [None] * len(lines)
         if azure_tts_configured():
             tasks = [self._voice_task(moment, role, text, profile) for role, text in lines]
@@ -604,7 +823,8 @@ class LiveMatchRunner:
             return {"accepted": False, "reason": "closed"}
         ack = self.room.submit(profile, data, time.time())
         if ack.get("accepted") and not profile.is_bot and self.room.moment is not None and azure_tts_configured():
-            for role, text in MatchRoom.voice_lines(self.room.moment, profile):
+            ai_debate = self._debate_for(self.room.moment.id, profile)
+            for role, text in MatchRoom.voice_lines(self.room.moment, profile, ai_debate=ai_debate):
                 self._voice_task(self.room.moment, role, text, profile)
         return ack
 
@@ -646,6 +866,9 @@ async def live_socket(websocket: WebSocket):
     runner.clients[websocket] = profile; runner._new_match(time.time()) if runner.room is None else None
     if runner.room is not None:
         runner.room.join(profile)
+        if runner.room.moment is not None and not runner.room.moment.closed:
+            runner._start_debates(runner.room.moment)
+            runner._prepare_voices(runner.room.moment, closed=False)
     await runner._send(websocket, {"type": "MATCH_STATE", "payload": runner.state_for(profile)})
     try:
         while True:

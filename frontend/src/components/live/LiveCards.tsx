@@ -113,8 +113,10 @@ const TickerRow: React.FC<{ event: LiveEventSummary; matchInfo: MatchInfo; langu
   );
 };
 
+export const REVEAL_SPEAKER = "classic_coach" as const;
+
 // ======================================================================
-// REVEAL — the optimum, your score and the dialectical pundit commentary
+// REVEAL — the optimum, your score and the single speaker's verdict
 // ======================================================================
 export const RevealCard: React.FC<{
   reveal: MomentReveal;
@@ -141,11 +143,13 @@ export const RevealCard: React.FC<{
   const { t, language } = useI18n();
   const scored = reveal.your_score != null;
   const voronoiPundit = reveal.pundits?.find((p) => p.agent_role === "data_scientist");
-  const bianchiPundit = reveal.pundits?.find((p) => p.agent_role === "classic_coach");
-  const voronoiSpeaking = isSpeaking && activeSpeaker === "data_scientist";
-  const bianchiSpeaking = isSpeaking && activeSpeaker === "classic_coach";
+  const bianchiPundit = reveal.pundits?.find((p) => p.agent_role === REVEAL_SPEAKER);
+  const speakerSpeaking = isSpeaking && (activeSpeaker === REVEAL_SPEAKER || activeSpeaker !== null);
   const bianchiName = language === "es" ? "Míster Bianchi" : "Coach Bianchi";
   const bianchiHeadline = reveal.explanation.bianchi_headline ?? bianchiPundit?.headline;
+  const confirmedMetric =
+    voronoiPundit?.referenced_metric ||
+    `${reveal.goal_chance_pct.before}% → ${reveal.goal_chance_pct.best}%`;
 
   return (
     <div className="flex flex-col gap-3" aria-live="polite">
@@ -230,55 +234,11 @@ export const RevealCard: React.FC<{
         </div>
       )}
 
-      {/* Dr. Voronoi (AI-QUANT): Spatial & Quantitative Bot vs User Comparison */}
+      {/* Single speaker card: Coach Bianchi (PRO-COACH) delivers the debate verdict + personal feedback */}
       <div
         className={cn(
           "rounded-md border p-2.5 transition-colors",
-          voronoiSpeaking
-            ? "border-signal-gain bg-signal-gain/[0.08]"
-            : "border-line bg-ink-800/40"
-        )}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex h-4 items-center rounded-[2px] bg-fg px-1.5 font-mono text-[9px] font-bold uppercase tracking-wide text-ink">
-              AI-QUANT
-            </span>
-            <span className="font-display text-xs font-extrabold uppercase tracking-wide text-fg">
-              Dr. Voronoi
-            </span>
-            <span className="text-[10px] text-fg-subtle">· {t("role.data_scientist")}</span>
-          </div>
-          {voronoiSpeaking && (
-            <span className="inline-flex items-center gap-1 rounded-[2px] bg-signal-gain/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-signal-gain">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-signal-gain" />
-              {t("card.onAir")}
-            </span>
-          )}
-        </div>
-        <h3 className="mt-1.5 font-display text-[15px] font-bold leading-tight text-fg">
-          {reveal.explanation.headline}
-        </h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-fg-muted">
-          {reveal.explanation.body}
-        </p>
-        {reveal.explanation.voronoi_comparison && (
-          <p className="mt-1.5 border-l-2 border-signal-gain/60 pl-2 text-[11.5px] leading-relaxed text-fg">
-            {reveal.explanation.voronoi_comparison}
-          </p>
-        )}
-        {voronoiPundit?.referenced_metric && (
-          <div className="mt-2">
-            <Tag tone="green">{voronoiPundit.referenced_metric}</Tag>
-          </div>
-        )}
-      </div>
-
-      {/* Coach Bianchi (PRO-COACH): Dressing-Room Verdict & User vs Bot Tactical Contrast */}
-      <div
-        className={cn(
-          "rounded-md border p-2.5 transition-colors",
-          bianchiSpeaking
+          speakerSpeaking
             ? "border-signal-gain bg-signal-gain/[0.08]"
             : "border-line bg-ink-800/40"
         )}
@@ -293,26 +253,37 @@ export const RevealCard: React.FC<{
             </span>
             <span className="text-[10px] text-fg-subtle">· {t("role.classic_coach")}</span>
           </div>
-          {bianchiSpeaking && (
+          {speakerSpeaking && (
             <span className="inline-flex items-center gap-1 rounded-[2px] bg-signal-gain/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-signal-gain">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-signal-gain" />
               {t("card.onAir")}
             </span>
           )}
         </div>
-        {bianchiHeadline && (
-          <h4 className="mt-1.5 font-display text-[15px] font-bold leading-tight text-fg">
-            {bianchiHeadline}
-          </h4>
-        )}
+        <h3 className="mt-1.5 font-display text-[15px] font-bold leading-tight text-fg">
+          {reveal.explanation.headline}
+        </h3>
         <p className="mt-1 text-[12px] leading-relaxed text-fg-muted">
-          {reveal.explanation.personal}
+          {reveal.explanation.body}
         </p>
-        {bianchiPundit?.referenced_metric && (
-          <div className="mt-2">
+        <div className="mt-2 border-l-2 border-signal-gain/60 pl-2">
+          {bianchiHeadline && (
+            <p className="font-display text-[12.5px] font-bold leading-snug text-fg">
+              {bianchiHeadline}
+            </p>
+          )}
+          <p className="mt-0.5 text-[11.5px] leading-relaxed text-fg">
+            {reveal.explanation.personal}
+          </p>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {bianchiPundit?.referenced_metric && (
             <Tag>{bianchiPundit.referenced_metric}</Tag>
-          </div>
-        )}
+          )}
+          <span className="font-mono text-[10px] text-fg-subtle">
+            {t("reveal.checkedByVoronoi", { metric: confirmedMetric })}
+          </span>
+        </div>
       </div>
 
       <p className="text-[11.5px] text-fg-subtle">{reveal.explanation.community}</p>

@@ -57,6 +57,7 @@ export interface MomentReveal {
   beat_machine: boolean;
   goal_chance_pct: { before: number; best: number; yours: number | null };
   explanation: {
+    generated_by?: "azure-openai" | "template";
     headline: string;
     body: string;
     voronoi_comparison?: string;

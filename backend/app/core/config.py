@@ -102,6 +102,10 @@ class Settings(BaseSettings):
         default=8.0,
         validation_alias="AGENT_SWARM_TIMEOUT_S"
     )
+    LIVE_REVEAL_AI_TIMEOUT_S: float = Field(
+        default=15.0,
+        validation_alias="LIVE_REVEAL_AI_TIMEOUT_S"
+    )
 
     # Synthetic match fixtures (see app/services/synthetic_generator.py)
     CACHE_DIR: str = str(Path(__file__).resolve().parent.parent / "data" / "cache")
